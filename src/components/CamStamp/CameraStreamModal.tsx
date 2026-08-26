@@ -154,7 +154,7 @@ export default function CameraStreamModal({
         address: locationAddress,
         userId: user.id,
         userName: user.name,
-        deviceSignature: `${navigator.platform} | CamStamp v1.0 | Taharica HRIS`,
+        deviceSignature: `${navigator.platform} | CamStamp v1.0 | Difitech HRIS`,
         type: type,
         attendanceType,
         clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : undefined,
@@ -163,8 +163,8 @@ export default function CameraStreamModal({
           attendanceType === "CLIENT_VISIT"
             ? `KUNJUNGAN KLIEN: ${clientName.trim()}`
             : type === "CLOCK_IN"
-            ? "TAHARICA CLOCK-IN"
-            : "TAHARICA CLOCK-OUT",
+            ? "DIFITECH CLOCK-IN"
+            : "DIFITECH CLOCK-OUT",
       };
 
       let dataUrl: string;
@@ -249,7 +249,7 @@ export default function CameraStreamModal({
               <h3 className="text-sm font-bold text-slate-900">
                 {type === "CLOCK_IN" ? "Presensi Masuk CamStamp" : "Presensi Pulang CamStamp"}
               </h3>
-              <p className="text-[11px] text-slate-500">Taharica Anti-Buddy Punching & Geofence</p>
+              <p className="text-[11px] text-slate-500">Difitech Anti-Buddy Punching & Geofence</p>
             </div>
           </div>
           <button

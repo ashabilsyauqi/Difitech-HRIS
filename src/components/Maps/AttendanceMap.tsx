@@ -178,7 +178,7 @@ export default function AttendanceMap(props: AttendanceMapProps) {
       <div className="flex h-full w-full items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
         <div className="flex flex-col items-center gap-2">
           <Navigation className="h-6 w-6 animate-spin text-red-600" />
-          <p className="text-xs font-semibold">Memuat Peta Radar Taharica...</p>
+          <p className="text-xs font-semibold">Memuat Peta Radar Difitech...</p>
         </div>
       </div>
     );
@@ -197,7 +197,7 @@ export default function AttendanceMap(props: AttendanceMapProps) {
         <div className="space-y-1.5 text-[11px]">
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-red-600 border border-white" />
-            <span className="text-slate-700">Taharica HQ (SCBD)</span>
+            <span className="text-slate-700">Difitech HQ (SCBD)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-emerald-600 border border-white" />

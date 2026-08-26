@@ -72,18 +72,18 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
         )}
 
         <Link href={user.role === "EMPLOYEE" ? "/dashboard" : "/manager"} className="flex items-center gap-2.5">
-          {/* Taharica Red & Blue Badge Logo */}
+          {/* Difitech Red & Blue Badge Logo */}
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-red-600 to-rose-600 shadow-md shadow-red-600/25">
-            <span className="font-black text-white text-lg tracking-tight">T</span>
+            <span className="font-black text-white text-lg tracking-tight">D</span>
           </div>
           <div>
             <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
-              <span className="text-red-600">Taharica</span>
+              <span className="text-red-600">Difitech</span>
               <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
                 HRIS CamStamp
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block">Sistem Presensi & Tugas Harian</p>
+            <p className="text-[11px] text-slate-500 hidden sm:block">Sistem Presensi & SDM Modern</p>
           </div>
         </Link>
       </div>

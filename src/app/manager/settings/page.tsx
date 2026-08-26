@@ -23,7 +23,7 @@ export default function ManagerSettingsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form Fields
-  const [name, setName] = useState("Taharica HQ (Jakarta)");
+  const [name, setName] = useState("Difitech HQ (Jakarta)");
   const [address, setAddress] = useState("Gedung Pacific Century Place, SCBD Lot 10, Jl. Jend. Sudirman Kav. 52-53, Jakarta Selatan");
   const [latitude, setLatitude] = useState(-6.224647);
   const [longitude, setLongitude] = useState(106.809592);
@@ -113,7 +113,7 @@ export default function ManagerSettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan pengaturan kantor");
 
-      setSuccessMsg("Pengaturan Geofence & Jam Kerja Kantor Taharica berhasil disimpan!");
+      setSuccessMsg("Pengaturan Geofence & Jam Kerja Kantor Difitech berhasil disimpan!");
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal menyimpan data");
@@ -146,7 +146,7 @@ export default function ManagerSettingsPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <Settings className="h-4 w-4 text-red-600" />
-                <span>Pengaturan Parameter Kantor Taharica & Shift</span>
+                <span>Pengaturan Parameter Kantor Difitech & Shift</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Lokasi Geofence & Jam Standar Shift
@@ -176,7 +176,7 @@ export default function ManagerSettingsPage() {
             <div className="space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
-                <span>Titik GPS & Radius Geofence Taharica</span>
+                <span>Titik GPS & Radius Geofence Difitech</span>
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

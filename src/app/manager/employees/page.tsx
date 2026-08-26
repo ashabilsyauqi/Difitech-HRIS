@@ -228,7 +228,7 @@ export default function ManagerEmployeesPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
                 <Users className="h-4 w-4" />
-                <span>Direktori & Manajemen SDM Taharica</span>
+                <span>Direktori & Manajemen SDM Difitech HRIS</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Manajemen Data Karyawan
@@ -418,7 +418,7 @@ export default function ManagerEmployeesPage() {
                   <h4 className="font-bold text-slate-900 text-base">
                     {isEditing ? "Edit Data Karyawan" : "Tambah Karyawan Baru"}
                   </h4>
-                  <p className="text-xs text-slate-500">PT. Taharica Group • Sistem HRIS</p>
+                  <p className="text-xs text-slate-500">PT. Difitech Group • Sistem HRIS</p>
                 </div>
               </div>
               <button onClick={() => setModalOpen(false)} className="rounded p-1 text-slate-400 hover:text-slate-700">

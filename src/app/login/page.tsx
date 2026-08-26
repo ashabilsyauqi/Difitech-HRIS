@@ -97,16 +97,16 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-slate-100/70 p-4 sm:p-6">
       <div className="w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl grid grid-cols-1 lg:grid-cols-12">
-        {/* Left Side: Product Info with Taharica Red Header & Blue Accents */}
+        {/* Left Side: Product Info with Difitech Red Header & Blue Accents */}
         <div className="flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-b from-red-50/40 via-white to-blue-50/30 p-8 lg:col-span-5">
           <div>
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-red-600 to-rose-600 shadow-md shadow-red-600/25">
-                <span className="font-black text-white text-xl">T</span>
+                <span className="font-black text-white text-xl">D</span>
               </div>
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                  <span className="text-red-600">Taharica</span> <span className="text-blue-600 text-lg font-bold">HRIS</span>
+                  <span className="text-red-600">Difitech</span> <span className="text-blue-600 text-lg font-bold">HRIS</span>
                 </h1>
                 <p className="text-xs text-slate-500 font-semibold">Presensi Verifikasi & Tugas Harian</p>
               </div>
@@ -130,7 +130,7 @@ export default function LoginPage() {
                   <MapPin className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Geofence Kantor Taharica</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Geofence Kantor Difitech</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
                     Validasi radius perimeter kantor SCBD Jakarta dengan filter anti-manipulasi lokasi.
                   </p>
@@ -152,7 +152,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Taharica Group • Keamanan Terverifikasi</span>
+            <span>Difitech HRIS • Keamanan Terverifikasi</span>
             <span className="text-red-600 font-bold">v1.0</span>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-3 text-xs font-bold text-white shadow-md shadow-red-600/25 transition hover:from-red-700 hover:to-rose-700 disabled:opacity-50"
               >
-                <span>{isLoading ? "Memproses..." : "Masuk ke Dashboard Taharica"}</span>
+                <span>{isLoading ? "Memproses..." : "Masuk ke Dashboard Difitech"}</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>

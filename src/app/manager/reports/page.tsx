@@ -61,7 +61,7 @@ export default function ManagerReportsPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold">Memuat Pusat Ekspor Laporan Taharica...</p>
+          <p className="text-xs font-semibold">Memuat Pusat Ekspor Laporan Difitech HRIS...</p>
         </div>
       </div>
     );
@@ -86,7 +86,7 @@ export default function ManagerReportsPage() {
       alert("Tidak ada data presensi yang sesuai dengan filter.");
       return;
     }
-    exportAttendanceToExcel(exportRows, `Laporan_Presensi_Taharica_${new Date().toISOString().split("T")[0]}.xlsx`);
+    exportAttendanceToExcel(exportRows, `Laporan_Presensi_Difitech_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const handleDownloadPdf = () => {
@@ -95,7 +95,7 @@ export default function ManagerReportsPage() {
       return;
     }
     exportAttendanceToPdf(exportRows, {
-      title: "LAPORAN PRESENSI & TUGAS HARIAN TAHARICA GROUP",
+      title: "LAPORAN PRESENSI & TUGAS HARIAN DIFITECH HRIS",
     });
   };
 
@@ -114,7 +114,7 @@ export default function ManagerReportsPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
                 <FileSpreadsheet className="h-4 w-4" />
-                <span>Pusat Unduh & Rekapitulasi Taharica</span>
+                <span>Pusat Unduh & Rekapitulasi Difitech HRIS</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Ekspor Laporan Presensi & Payroll
@@ -166,7 +166,7 @@ export default function ManagerReportsPage() {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mt-4">Ringkasan Resmi Dokumen PDF</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Membuat laporan PDF lanskap rapi untuk kebutuhan arsip kepatuhan HR dan laporan manajerial bulanan Taharica.
+                  Membuat laporan PDF lanskap rapi untuk kebutuhan arsip kepatuhan HR dan laporan manajerial bulanan Difitech HRIS.
                 </p>
               </div>
 
@@ -183,7 +183,7 @@ export default function ManagerReportsPage() {
           {/* Table Preview */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-bold text-slate-900 text-base">Pratinjau Data Laporan Taharica</h3>
+              <h3 className="font-bold text-slate-900 text-base">Pratinjau Data Laporan Difitech HRIS</h3>
 
               <div className="flex flex-wrap items-center gap-2.5">
                 <input

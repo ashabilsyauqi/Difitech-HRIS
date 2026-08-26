@@ -112,7 +112,7 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
         <div className="rounded-xl border border-red-100 bg-gradient-to-br from-red-50/60 to-blue-50/30 p-3 text-xs text-slate-600">
           <div className="flex items-center gap-1.5 font-bold text-red-700">
             <ShieldCheck className="h-4 w-4 text-red-600" />
-            <span>Taharica CamStamp</span>
+            <span>Difitech HRIS CamStamp</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-500 leading-snug">
             Perlindungan anti-spoof GPS & verifikasi kamera stempel aktif.

@@ -146,11 +146,11 @@ export default function ManagerPayrollPage() {
       BankTujuan: ps.bankName || ps.user.bankName || "BCA",
       NomorRekening: ps.bankAccountNumber || ps.user.bankAccountNumber || "-",
       JumlahTransfer: ps.netSalary,
-      BeritaAcara: `Gaji ${currentPeriod?.periodLabel || "Taharica"} - ${ps.user.name}`,
+      BeritaAcara: `Gaji ${currentPeriod?.periodLabel || "Difitech"} - ${ps.user.name}`,
       EmailKaryawan: ps.user.email,
     }));
 
-    exportAttendanceToExcel(transferRows, `Transfer_Bank_Payroll_Taharica_${currentPeriod?.periodLabel.replace(/\s+/g, "_")}.xlsx`);
+    exportAttendanceToExcel(transferRows, `Transfer_Bank_Payroll_Difitech_${currentPeriod?.periodLabel.replace(/\s+/g, "_")}.xlsx`);
   };
 
   const handleDownloadSinglePdf = (ps: any) => {
@@ -250,7 +250,7 @@ export default function ManagerPayrollPage() {
                 <span>Pusat Manajemen Penggajian & Kompensasi</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                Penggajian & Payroll Taharica Group
+                Penggajian & Payroll Difitech HRIS
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 Kalkulasi otomatis gaji karyawan terintegrasi presensi CamStamp, BPJS, PPh 21, dan ekspor transfer bank.

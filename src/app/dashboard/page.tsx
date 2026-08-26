@@ -129,7 +129,7 @@ export default function EmployeeDashboardPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold text-slate-600">Memuat Portal Taharica...</p>
+          <p className="text-xs font-semibold text-slate-600">Memuat Portal Difitech HRIS...</p>
         </div>
       </div>
     );
@@ -233,7 +233,7 @@ export default function EmployeeDashboardPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 uppercase tracking-wider">
                 <Sparkles className="h-4 w-4 text-red-600" />
-                <span>Portal Presensi Taharica Group</span>
+                <span>Portal Presensi Difitech HRIS</span>
                 {isClientVisit && (
                   <span className="ml-2 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-[10px] font-extrabold border border-purple-200">
                     💼 Kunjungan Klien

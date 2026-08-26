@@ -76,7 +76,7 @@ export default function ManagerOverviewPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold">Memuat Dashboard Manajemen Taharica...</p>
+          <p className="text-xs font-semibold">Memuat Dashboard Manajemen Difitech HRIS...</p>
         </div>
       </div>
     );
@@ -94,12 +94,12 @@ export default function ManagerOverviewPage() {
         <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* Header with Taharica Red & Blue accent */}
+          {/* Header with Difitech Red & Blue accent */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-red-100 bg-gradient-to-r from-red-50/40 via-white to-blue-50/40 p-6 shadow-xs">
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
                 <Activity className="h-4 w-4" />
-                <span>Pusat Kendali Operasional Taharica</span>
+                <span>Pusat Kendali Operasional Difitech HRIS</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Ringkasan Presensi & Produktivitas Tim
@@ -213,7 +213,7 @@ export default function ManagerOverviewPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-blue-600" />
-                  <h3 className="font-bold text-slate-900 text-sm">Radar Lokasi & Geofence Kantor Taharica</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">Radar Lokasi & Geofence Kantor Difitech</h3>
                 </div>
                 <Link
                   href="/manager/live-map"
@@ -302,7 +302,7 @@ export default function ManagerOverviewPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Aliran Presensi Karyawan Taharica</h3>
+                <h3 className="font-bold text-slate-900 text-base">Aliran Presensi Karyawan Difitech</h3>
                 <p className="text-xs text-slate-500">Foto CamStamp terverifikasi, titik koordinat, dan kepatuhan kantor</p>
               </div>
               <Link

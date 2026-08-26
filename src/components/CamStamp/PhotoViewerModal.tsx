@@ -52,7 +52,7 @@ export default function PhotoViewerModal({
     if (!photoUrl) return;
     const link = document.createElement("a");
     link.href = photoUrl;
-    link.download = `Taharica_CamStamp_${attendance.user.name.replace(/\s+/g, "_")}_${attendance.date}_${viewType}.jpg`;
+    link.download = `Difitech_CamStamp_${attendance.user.name.replace(/\s+/g, "_")}_${attendance.date}_${viewType}.jpg`;
     link.click();
   };
 
@@ -82,7 +82,7 @@ export default function PhotoViewerModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                Inspeksi Forensik Foto CamStamp Taharica
+                Inspeksi Forensik Foto CamStamp Difitech HRIS
               </h3>
               <p className="text-[11px] text-slate-500">
                 Stempel Terverifikasi: {isClockIn ? "Presensi Masuk" : "Presensi Pulang"} • {attendance.date}

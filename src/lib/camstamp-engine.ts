@@ -73,11 +73,11 @@ export function renderCamStampCanvas(
   ctx.font = `bold ${fontSizeHeader}px monospace, ui-monospace, sans-serif`;
   ctx.fillStyle = isClientVisit ? "#c4b5fd" : isOvertime ? "#fde047" : isClockIn ? "#f87171" : "#60a5fa";
   
-  let typeLabel = metadata.statusLabel || (isClockIn ? "TAHARICA CLOCK-IN" : "TAHARICA CLOCK-OUT");
+  let typeLabel = metadata.statusLabel || (isClockIn ? "DIFITECH CLOCK-IN" : "DIFITECH CLOCK-OUT");
   if (isClientVisit) {
     typeLabel = `KUNJUNGAN KLIEN: ${metadata.clientName || "Dinas Luar"}`;
   } else if (isOvertime) {
-    typeLabel = `SESI LEMBUR RESMI TAHARICA`;
+    typeLabel = `SESI LEMBUR RESMI DIFITECH`;
   }
   ctx.fillText(`📍 CAMSTAMP™ [${typeLabel}] - TERVERIFIKASI`, paddingX, currentY);
 
@@ -124,7 +124,7 @@ export function renderCamStampCanvas(
   currentY += fontSizeSub + 4;
   ctx.font = `normal ${fontSizeSub - 1}px monospace, ui-monospace, sans-serif`;
   ctx.fillStyle = "#64748b";
-  const uaSnippet = metadata.deviceSignature || `${navigator.platform} | CamStamp v1.0 | Taharica HRIS`;
+  const uaSnippet = metadata.deviceSignature || `${navigator.platform} | CamStamp v1.0 | Difitech HRIS`;
   ctx.fillText(`AUTH: SHA256-VALIDATED | ${uaSnippet.substring(0, 50)}`, paddingX, currentY);
 
   ctx.restore();
@@ -181,11 +181,11 @@ export async function renderCamStampWatermark(
   // Header Title
   ctx.font = `bold ${fontSizeHeader}px monospace, ui-monospace, sans-serif`;
   ctx.fillStyle = isClientVisit ? "#c4b5fd" : isOvertime ? "#fde047" : isClockIn ? "#f87171" : "#60a5fa";
-  let typeLabel = metadata.statusLabel || (isClockIn ? "TAHARICA CLOCK-IN" : "TAHARICA CLOCK-OUT");
+  let typeLabel = metadata.statusLabel || (isClockIn ? "DIFITECH CLOCK-IN" : "DIFITECH CLOCK-OUT");
   if (isClientVisit) {
     typeLabel = `KUNJUNGAN KLIEN: ${metadata.clientName || "Dinas Luar"}`;
   } else if (isOvertime) {
-    typeLabel = `SESI LEMBUR RESMI TAHARICA`;
+    typeLabel = `SESI LEMBUR RESMI DIFITECH`;
   }
   ctx.fillText(`📍 CAMSTAMP™ [${typeLabel}] - TERVERIFIKASI`, paddingX, currentY);
 
@@ -232,7 +232,7 @@ export async function renderCamStampWatermark(
   currentY += fontSizeSub + 4;
   ctx.font = `normal ${fontSizeSub - 1}px monospace, ui-monospace, sans-serif`;
   ctx.fillStyle = "#64748b";
-  const uaSnippet = metadata.deviceSignature || `${navigator.platform} | CamStamp v1.0 | Taharica HRIS`;
+  const uaSnippet = metadata.deviceSignature || `${navigator.platform} | CamStamp v1.0 | Difitech HRIS`;
   ctx.fillText(`AUTH: SHA256-VALIDATED | ${uaSnippet.substring(0, 50)}`, paddingX, currentY);
 
   ctx.restore();

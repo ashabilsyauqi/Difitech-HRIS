@@ -113,7 +113,7 @@ export default function EmployeeTasksPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold">Memuat Papan Tugas Taharica...</p>
+          <p className="text-xs font-semibold">Memuat Papan Tugas Difitech HRIS...</p>
         </div>
       </div>
     );
@@ -143,7 +143,7 @@ export default function EmployeeTasksPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
                 <CheckSquare className="h-4 w-4" />
-                <span>Lembar Kerja Aktivitas Harian Taharica</span>
+                <span>Lembar Kerja Aktivitas Harian Difitech</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Papan Tugas Harian Karyawan

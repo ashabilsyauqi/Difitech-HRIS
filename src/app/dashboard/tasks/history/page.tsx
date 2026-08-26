@@ -56,7 +56,7 @@ export default function EmployeeTaskHistoryPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold">Memuat Arsip & Riwayat Tugas Taharica...</p>
+          <p className="text-xs font-semibold">Memuat Arsip & Riwayat Tugas Difitech HRIS...</p>
         </div>
       </div>
     );

@@ -1,7 +1,7 @@
 {
-  "name": "Taharica HRIS",
-  "short_name": "Taharica",
-  "description": "Sistem Presensi CamStamp & Manajemen Tugas Taharica Group",
+  "name": "Difitech HRIS",
+  "short_name": "Difitech",
+  "description": "Sistem Presensi CamStamp & Manajemen SDM Difitech HRIS",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

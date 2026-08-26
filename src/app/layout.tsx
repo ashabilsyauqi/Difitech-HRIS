@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Taharica HRIS - Presensi CamStamp & Pelacakan Tugas",
-  description: "Sistem Manajemen SDM & Presensi Verifikasi CamStamp Taharica Group dengan Geofencing GPS Anti-Spoofing.",
+  title: "Difitech HRIS - Presensi CamStamp & Manajemen SDM",
+  description: "Sistem Manajemen SDM & Presensi Verifikasi CamStamp Difitech HRIS dengan Geofencing GPS Anti-Spoofing.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",

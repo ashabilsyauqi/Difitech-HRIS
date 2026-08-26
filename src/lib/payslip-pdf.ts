@@ -66,7 +66,7 @@ export function generatePayslipPdf(data: PayslipData): void {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(220, 38, 38);
-  doc.text("PT. TAHARICA GROUP", 14, 24);
+  doc.text("PT. DIFITECH GROUP", 14, 24);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
@@ -272,14 +272,14 @@ export function generatePayslipPdf(data: PayslipData): void {
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
   doc.text(
-    "Dokumen ini digenerate secara otomatis oleh Sistem Taharica HRIS CamStamp dengan enkripsi data sah.",
+    "Dokumen ini digenerate secara otomatis oleh Sistem Difitech HRIS CamStamp dengan enkripsi data sah.",
     pageWidth / 2,
     pageHeight() - 10,
     { align: "center" }
   );
 
   // Save PDF
-  doc.save(`Slip_Gaji_Taharica_${data.employeeName.replace(/\s+/g, "_")}_${data.periodLabel.replace(/\s+/g, "_")}.pdf`);
+  doc.save(`Slip_Gaji_Difitech_${data.employeeName.replace(/\s+/g, "_")}_${data.periodLabel.replace(/\s+/g, "_")}.pdf`);
 
   function pageHeight() {
     return doc.internal.pageSize.getHeight();

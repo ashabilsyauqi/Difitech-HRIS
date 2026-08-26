@@ -188,7 +188,7 @@ export default function TaskKanbanBoard({
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-red-600" />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Papan Aktivitas Harian Taharica
+            Papan Aktivitas Harian Difitech
           </span>
           <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-xs text-slate-700 font-bold font-mono">
             {tasks.length} Tugas

@@ -119,7 +119,7 @@ export default function EmployeePayrollPage() {
                 Slip Gaji & Rincian Take-Home Pay
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Dokumen kompensasi resmi Taharica Group dengan rincian pendapatan, potongan BPJS, PPh 21, dan integrasi presensi CamStamp.
+                Dokumen kompensasi resmi Difitech HRIS dengan rincian pendapatan, potongan BPJS, PPh 21, dan integrasi presensi CamStamp.
               </p>
             </div>
 
