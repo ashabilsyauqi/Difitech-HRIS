@@ -60,7 +60,18 @@ export default function LoginPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (text.includes("Timeout")) {
+          throw new Error("Server sedang menyelesaikan proses, silakan klik login sekali lagi");
+        }
+        throw new Error("Gagal terhubung ke server");
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Email atau kata sandi tidak sesuai");
       }
@@ -79,12 +90,8 @@ export default function LoginPage() {
         localStorage.removeItem("difitech_saved_account");
       }
 
-      if (data.user.role === "ADMIN" || data.user.role === "MANAGER") {
-        router.push("/manager");
-      } else {
-        router.push("/dashboard");
-      }
-      router.refresh();
+      const redirectPath = data.user.role === "ADMIN" || data.user.role === "MANAGER" ? "/manager" : "/dashboard";
+      window.location.href = redirectPath;
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal masuk ke sistem");
     } finally {
