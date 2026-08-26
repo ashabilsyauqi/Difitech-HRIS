@@ -1,12 +1,14 @@
+process.env.NODE_ENV = "production";
+
 const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 
-const dev = process.env.NODE_ENV !== "production";
+const dev = false;
 const hostname = "0.0.0.0";
-const port = parseInt(process.env.PORT || "3000", 10);
+const port = parseInt(process.env.PORT || "3005", 10);
 
-const app = next({ dev, hostname, port });
+const app = next({ dev: false, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -25,6 +27,6 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, () => {
-      console.log(`> Server Difitech HRIS berjalan di port ${port}`);
+      console.log(`> Server Difitech HRIS Produksi Aktif di port ${port}`);
     });
 });
