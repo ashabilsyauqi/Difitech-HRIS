@@ -56,16 +56,30 @@ async function main() {
   // Konfigurasi Gaji Pokok untuk Super Admin
   await prisma.salaryProfile.upsert({
     where: { userId: adminUser.id },
-    update: {},
+    update: {
+      basicSalary: 15000000,
+      positionAllowance: 3000000,
+      transportAllowance: 1000000,
+      communicationAllowance: 500000,
+      otherAllowance: 0,
+      latePenaltyRate: 50000,
+      overtimeRatePerHour: 100000,
+      bpjsKesehatanActive: true,
+      bpjsKetenagakerjaanActive: true,
+      applyPph21: true,
+    },
     create: {
       userId: adminUser.id,
-      baseSalary: 15000000,
+      basicSalary: 15000000,
       positionAllowance: 3000000,
-      mealAllowancePerDay: 50000,
-      transportAllowancePerDay: 50000,
-      bpjsKesehatan: true,
-      bpjsKetenagakerjaan: true,
-      taxPph21: true,
+      transportAllowance: 1000000,
+      communicationAllowance: 500000,
+      otherAllowance: 0,
+      latePenaltyRate: 50000,
+      overtimeRatePerHour: 100000,
+      bpjsKesehatanActive: true,
+      bpjsKetenagakerjaanActive: true,
+      applyPph21: true,
     },
   });
 
