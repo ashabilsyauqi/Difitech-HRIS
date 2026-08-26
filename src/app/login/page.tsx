@@ -1,29 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Lock, Mail, ArrowRight, Camera, MapPin, CheckSquare, Eye, EyeOff, KeyRound, Sparkles } from "lucide-react";
+import { ShieldCheck, Lock, Mail, ArrowRight, Camera, MapPin, CheckSquare, Eye, EyeOff, UserCheck, X } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberAccount, setRememberAccount] = useState(true);
+  const [savedUser, setSavedUser] = useState<{ email: string; name?: string; role?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleLogin = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
-    if (e) e.preventDefault();
-    const loginEmail = customEmail || email;
-    const loginPass = customPass || password;
+  // Load saved user from local device only
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("difitech_saved_account");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.email) {
+          setSavedUser(parsed);
+          setEmail(parsed.email);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors in private browsing
+    }
+  }, []);
 
-    if (!loginEmail) {
+  const handleClearSavedAccount = () => {
+    localStorage.removeItem("difitech_saved_account");
+    setSavedUser(null);
+    setEmail("");
+    setPassword("");
+  };
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!email.trim()) {
       setErrorMsg("Silakan masukkan alamat email akun Anda");
       return;
     }
 
-    if (!loginPass) {
+    if (!password) {
       setErrorMsg("Silakan masukkan kata sandi Anda");
       return;
     }
@@ -35,12 +57,26 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail.trim().toLowerCase(), password: loginPass }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Email atau kata sandi tidak sesuai");
+      }
+
+      // Save or remove from personal device localStorage
+      if (rememberAccount) {
+        localStorage.setItem(
+          "difitech_saved_account",
+          JSON.stringify({
+            email: data.user.email,
+            name: data.user.name,
+            role: data.user.role,
+          })
+        );
+      } else {
+        localStorage.removeItem("difitech_saved_account");
       }
 
       if (data.user.role === "ADMIN" || data.user.role === "MANAGER") {
@@ -54,12 +90,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickFillAdmin = () => {
-    setEmail("admin@difitech.id");
-    setPassword("password123");
-    handleLogin(undefined, "admin@difitech.id", "password123");
   };
 
   return (
@@ -138,7 +168,7 @@ export default function LoginPage() {
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Server Aktif
+                Sistem Aktif
               </span>
             </div>
 
@@ -146,6 +176,31 @@ export default function LoginPage() {
               <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 font-semibold flex items-center gap-2.5">
                 <div className="h-2 w-2 rounded-full bg-red-600 flex-shrink-0" />
                 <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Personal Saved Account Banner (Only visible on this specific device if user checked remember) */}
+            {savedUser && (
+              <div className="mt-5 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/70 p-3.5 text-xs text-blue-900 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-xs">
+                    <UserCheck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 text-xs">
+                      {savedUser.name ? `Akun Anda: ${savedUser.name}` : "Akun Tersimpan di Perangkat Ini"}
+                    </p>
+                    <p className="text-[11px] text-slate-500">{savedUser.email}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearSavedAccount}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-blue-100 hover:text-slate-700 transition"
+                  title="Hapus akun tersimpan di perangkat ini"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             )}
 
@@ -160,7 +215,7 @@ export default function LoginPage() {
                   <input
                     type="email"
                     required
-                    placeholder="nama@difitech.id atau admin@difitech.id"
+                    placeholder="nama@difitech.id atau email Anda"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none transition shadow-2xs"
@@ -199,11 +254,11 @@ export default function LoginPage() {
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
+                    checked={rememberAccount}
+                    onChange={(e) => setRememberAccount(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                   />
-                  <span className="text-xs text-slate-600">Ingat sesi saya</span>
+                  <span className="text-xs text-slate-600 font-medium">Ingat akun saya di perangkat ini</span>
                 </label>
               </div>
 
@@ -216,27 +271,6 @@ export default function LoginPage() {
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
-
-            {/* Quick Fill Super Admin Helper Card for initial setup */}
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-red-600" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Akun Super Admin Default</p>
-                    <p className="text-[11px] text-slate-500 font-mono">admin@difitech.id • password123</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleQuickFillAdmin}
-                  disabled={isLoading}
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 hover:border-red-300 transition shadow-2xs disabled:opacity-50"
-                >
-                  ⚡ Masuk Cepat Admin
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="mt-8 text-center">
