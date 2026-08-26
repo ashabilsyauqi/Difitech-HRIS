@@ -49,6 +49,8 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
   }
 }
 
+export const getReverseGeocodeAddress = reverseGeocode;
+
 /**
  * Validates timestamp drift to prevent clock spoofing
  * Returns true if client timestamp is within allowed tolerance (e.g. 5 minutes)
