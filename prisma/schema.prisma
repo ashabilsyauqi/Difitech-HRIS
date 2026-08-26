@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String          @id @default(cuid())
+  email                   String          @unique
+  passwordHash            String
+  name                    String
+  role                    String          @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  department              String?         @default("Engineering")
+  jobTitle                String?         @default("Software Engineer")
+  avatarUrl               String?
+  bankName                String?         @default("BCA")
+  bankAccountNumber       String?         @default("8012345678")
+  bankAccountHolder       String?
+  npwpNumber              String?
+  bpjsKesehatanNumber     String?
+  bpjsKetenagakerjaanNumber String?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  attendances             Attendance[]
+  tasks                   Task[]
+  salaryProfile           SalaryProfile?
+  payslips                Payslip[]
+}
+
+model OfficeLocation {
+  id             String       @id @default(cuid())
+  name           String       @default("Taharica HQ (Jakarta)")
+  latitude       Float        @default(-6.224647)
+  longitude      Float        @default(106.809592)
+  radiusMeters   Float        @default(150.0)
+  address        String?      @default("Sudirman Central Business District, Jakarta, Indonesia")
+  isActive       Boolean      @default(true)
+  workStartTime  String       @default("09:00") // HH:mm
+  workEndTime    String       @default("17:00") // HH:mm
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  attendances    Attendance[]
+}
+
+model Attendance {
+  id                 String          @id @default(cuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  officeId           String?
+  office             OfficeLocation? @relation(fields: [officeId], references: [id])
+  
+  date               String          // YYYY-MM-DD
+  attendanceType     String          @default("OFFICE") // OFFICE, CLIENT_VISIT
+  clientName         String?         // Nama klien/perusahaan jika kunjungan dinas luar
+  visitPurpose       String?         // Keperluan/agenda kunjungan klien
+
+  clockInTime        DateTime
+  clockInPhoto       String          // Base64 or /uploads/camstamp/...
+  clockInLat         Float
+  clockInLng         Float
+  clockInAddress     String?
+  clockInAccuracy    Float?
+  clockInStatus      String          @default("ON_TIME") // ON_TIME, LATE, OUT_OF_GEOFENCE, CLIENT_VISIT
+  clockInDistance    Float?          // Distance from office in meters
+
+  clockOutTime       DateTime?
+  clockOutPhoto      String?
+  clockOutLat        Float?
+  clockOutLng        Float?
+  clockOutAddress    String?
+  clockOutAccuracy   Float?
+  clockOutStatus     String?         // ON_TIME, EARLY_DEPARTURE, OUT_OF_GEOFENCE, OVERTIME_COMPLETED
+  clockOutDistance   Float?
+  
+  workDurationMinutes Int?
+  regularWorkMinutes Int?            @default(480) // 8 Jam kerja reguler (480 menit)
+  
+  // Sesi Lembur (Overtime)
+  isOvertime         Boolean         @default(false)
+  overtimeStartTime  DateTime?
+  overtimeEndTime    DateTime?
+  overtimeMinutes    Int?            @default(0)
+
+  deviceInfo         String?
+  notes              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  tasks              Task[]
+
+  @@unique([userId, date])
+}
+
+model Task {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendanceId      String?
+  attendance        Attendance?  @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  targetDate        String?      // YYYY-MM-DD (Lembar tugas harian)
+  title             String
+  description       String?
+  category          String       @default("General") // Development, Design, Meeting, Operations, Marketing
+  priority          String       @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  status            String       @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  
+  estimatedHours    Float        @default(1.0)
+  actualHours       Float?
+  deliverableUrl    String?
+  completionNote    String?
+  
+  // Live Time Tracker
+  isTracking        Boolean      @default(false)
+  trackingStartedAt DateTime?
+  trackedSeconds    Int          @default(0)
+
+  orderIndex        Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// FULL INDONESIAN PAYROLL MODULE
+// ----------------------------------------------------------------------------
+
+model SalaryProfile {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  basicSalary            Float     @default(8000000) // Gaji Pokok
+  positionAllowance      Float     @default(1500000) // Tunjangan Jabatan
+  transportAllowance     Float     @default(1000000) // Tunjangan Transport & Makan
+  communicationAllowance Float     @default(300000)  // Tunjangan Komunikasi
+  otherAllowance         Float     @default(0)       // Tunjangan Lainnya
+
+  latePenaltyRate        Float     @default(50000)   // Denda per Keterlambatan (Rp)
+  overtimeRatePerHour    Float     @default(75000)   // Tarif Lembur per Jam (Rp)
+
+  bpjsKesehatanActive    Boolean   @default(true)    // BPJS Kesehatan (1% karyawan)
+  bpjsKetenagakerjaanActive Boolean @default(true)   // BPJS Ketenagakerjaan (2% JHT + 1% JP)
+  applyPph21             Boolean   @default(true)    // Potong PPh 21 TER
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model PayrollPeriod {
+  id                 String     @id @default(cuid())
+  periodLabel        String     // Contoh: "Agustus 2026"
+  month              Int        // 1-12
+  year               Int        // 2026
+  startDate          String     // "2026-08-01"
+  endDate            String     // "2026-08-31"
+  cutoffDate         String     // "2026-08-25"
+  paymentDate        String     // "2026-08-28"
+  status             String     @default("DRAFT") // DRAFT, PROCESSED, APPROVED, PAID
+
+  totalGrossPayout   Float      @default(0)
+  totalDeductions    Float      @default(0)
+  totalNetPayout     Float      @default(0)
+
+  notes              String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  payslips           Payslip[]
+
+  @@unique([month, year])
+}
+
+model Payslip {
+  id                    String        @id @default(cuid())
+  payrollPeriodId       String
+  payrollPeriod         PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Kehadiran & Operasional (CamStamp Sync)
+  attendanceDaysCount   Int           @default(22)
+  lateCount             Int           @default(0)
+  latePenaltyTotal      Float         @default(0)
+  overtimeHours         Float         @default(0)
+  overtimePay           Float         @default(0)
+
+  // Komponen Penerimaan (Earnings)
+  basicSalary           Float         @default(0)
+  positionAllowance     Float         @default(0)
+  transportAllowance    Float         @default(0)
+  communicationAllowance Float        @default(0)
+  otherAllowance        Float         @default(0)
+  grossSalary           Float         @default(0)
+
+  // Komponen Potongan (Deductions)
+  bpjsKesehatanEmp      Float         @default(0) // 1%
+  bpjsKetenagakerjaanEmp Float        @default(0) // 2% JHT + 1% JP
+  pph21Amount           Float         @default(0)
+  otherDeductions       Float         @default(0)
+  totalDeductions       Float         @default(0)
+
+  // Gaji Bersih
+  netSalary             Float         @default(0)
+
+  // Pembayaran
+  bankName              String?       @default("BCA")
+  bankAccountNumber     String?
+  status                String        @default("UNPAID") // UNPAID, PAID
+  paidAt                DateTime?
+  notes                 String?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@unique([payrollPeriodId, userId])
+}
