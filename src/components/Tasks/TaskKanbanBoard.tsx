@@ -75,26 +75,41 @@ export default function TaskKanbanBoard({
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
 
-  // Sync initial tracked seconds
+  // Sync initial tracked seconds based on database state & elapsed time if actively tracking
   useEffect(() => {
     const initial: Record<string, number> = {};
+    const now = Date.now();
     tasks.forEach((t) => {
       if (t.id) {
-        initial[t.id] = (t as any).trackedSeconds || Math.round((t.actualHours || 0) * 3600);
+        let baseSec = (t as any).trackedSeconds || Math.round((t.actualHours || 0) * 3600) || 0;
+        if ((t as any).isTracking && (t as any).trackingStartedAt) {
+          const startedAt = new Date((t as any).trackingStartedAt).getTime();
+          const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+          baseSec += elapsed;
+        }
+        initial[t.id] = baseSec;
       }
     });
     setActiveTimers(initial);
   }, [tasks]);
 
-  // Live timer interval for tasks with isTracking === true
+  // Live timer interval for tasks with isTracking === true (Calculated with Date.now() timestamp delta)
   useEffect(() => {
     const interval = setInterval(() => {
+      const now = Date.now();
       setActiveTimers((prev) => {
         let changed = false;
         const next = { ...prev };
         tasks.forEach((t) => {
           if (t.id && (t as any).isTracking) {
-            next[t.id] = (next[t.id] || 0) + 1;
+            let baseSec = (t as any).trackedSeconds || 0;
+            if ((t as any).trackingStartedAt) {
+              const startedAt = new Date((t as any).trackingStartedAt).getTime();
+              const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+              next[t.id] = baseSec + elapsed;
+            } else {
+              next[t.id] = (next[t.id] || 0) + 1;
+            }
             changed = true;
           }
         });

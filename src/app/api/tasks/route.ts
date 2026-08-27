@@ -13,10 +13,14 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
     const userIdFilter = searchParams.get("userId");
+    const categoryFilter = searchParams.get("category");
+    const statusFilter = searchParams.get("status");
     const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
 
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, any> = {};
 
     if (!isManagerOrAdmin) {
       whereClause.userId = authUser.userId;
@@ -24,10 +28,45 @@ export async function GET(req: NextRequest) {
       whereClause.userId = userIdFilter;
     }
 
-    if (date) {
-      whereClause.attendance = {
-        date: date,
-      };
+    if (categoryFilter && categoryFilter !== "ALL") {
+      whereClause.category = categoryFilter;
+    }
+
+    if (statusFilter && statusFilter !== "ALL") {
+      whereClause.status = statusFilter;
+    }
+
+    if (startDate && endDate) {
+      whereClause.OR = [
+        {
+          attendance: {
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        },
+        {
+          createdAt: {
+            gte: new Date(startDate + "T00:00:00.000Z"),
+            lte: new Date(endDate + "T23:59:59.999Z"),
+          },
+        },
+      ];
+    } else if (date) {
+      whereClause.OR = [
+        {
+          attendance: {
+            date: date,
+          },
+        },
+        {
+          createdAt: {
+            gte: new Date(date + "T00:00:00.000Z"),
+            lte: new Date(date + "T23:59:59.999Z"),
+          },
+        },
+      ];
     }
 
     const tasks = await prisma.task.findMany({

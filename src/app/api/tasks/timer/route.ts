@@ -38,16 +38,24 @@ export async function POST(req: NextRequest) {
     let updatedTask: any;
 
     if (action === "START") {
+      const currentBaseSeconds = trackedSeconds !== undefined ? Number(trackedSeconds) : task.trackedSeconds || 0;
       updatedTask = await prisma.task.update({
         where: { id: taskId },
         data: {
           isTracking: true,
           trackingStartedAt: now,
           status: "IN_PROGRESS",
+          trackedSeconds: currentBaseSeconds,
         },
       });
     } else if (action === "PAUSE") {
-      const finalSeconds = trackedSeconds !== undefined ? Number(trackedSeconds) : task.trackedSeconds;
+      let finalSeconds = task.trackedSeconds || 0;
+      if (task.isTracking && task.trackingStartedAt) {
+        const elapsed = Math.max(0, Math.floor((now.getTime() - new Date(task.trackingStartedAt).getTime()) / 1000));
+        finalSeconds += elapsed;
+      } else if (trackedSeconds !== undefined) {
+        finalSeconds = Number(trackedSeconds);
+      }
       const actualHours = Number((finalSeconds / 3600).toFixed(2));
 
       updatedTask = await prisma.task.update({
@@ -60,7 +68,13 @@ export async function POST(req: NextRequest) {
         },
       });
     } else if (action === "STOP" || action === "COMPLETE") {
-      const finalSeconds = trackedSeconds !== undefined ? Number(trackedSeconds) : task.trackedSeconds;
+      let finalSeconds = task.trackedSeconds || 0;
+      if (task.isTracking && task.trackingStartedAt) {
+        const elapsed = Math.max(0, Math.floor((now.getTime() - new Date(task.trackingStartedAt).getTime()) / 1000));
+        finalSeconds += elapsed;
+      } else if (trackedSeconds !== undefined) {
+        finalSeconds = Number(trackedSeconds);
+      }
       const actualHours = Math.max(0.1, Number((finalSeconds / 3600).toFixed(2)));
 
       updatedTask = await prisma.task.update({

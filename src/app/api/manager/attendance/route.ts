@@ -13,21 +13,34 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const userId = searchParams.get("userId");
     const department = searchParams.get("department");
     const status = searchParams.get("status");
 
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, any> = {};
 
-    if (date) {
+    if (startDate && endDate) {
+      whereClause.date = {
+        gte: startDate,
+        lte: endDate,
+      };
+    } else if (date) {
       whereClause.date = date;
     }
 
-    if (status) {
+    if (userId && userId !== "ALL") {
+      whereClause.userId = userId;
+    }
+
+    if (status && status !== "ALL") {
       whereClause.clockInStatus = status;
     }
 
-    if (department) {
+    if (department && department !== "ALL") {
       whereClause.user = {
+        ...(whereClause.user || {}),
         department: department,
       };
     }
