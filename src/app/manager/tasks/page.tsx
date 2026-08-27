@@ -132,13 +132,40 @@ export default function ManagerTeamTasksPage() {
   const uniqueBrands = Array.from(new Set(tasks.map((t) => t.category).filter(Boolean)));
 
   const filteredTasks = tasks.filter((t) => {
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
+      !query ||
       t.title.toLowerCase().includes(query) ||
       (t.description && t.description.toLowerCase().includes(query)) ||
       (t.category && t.category.toLowerCase().includes(query)) ||
-      (t.user?.name && t.user.name.toLowerCase().includes(query));
-    return matchesSearch;
+      (t.user?.name && t.user.name.toLowerCase().includes(query)) ||
+      (t.user?.email && t.user.email.toLowerCase().includes(query));
+
+    const matchesUser =
+      selectedUser === "ALL" ||
+      t.userId === selectedUser ||
+      t.user?.id === selectedUser ||
+      t.user?.email === selectedUser;
+
+    const matchesBrand =
+      selectedBrand === "ALL" ||
+      t.category === selectedBrand ||
+      (t.category && t.category.toLowerCase() === selectedBrand.toLowerCase());
+
+    const matchesStatus =
+      selectedStatus === "ALL" || t.status === selectedStatus;
+
+    let matchesDate = true;
+    const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+    if (startDate && endDate) {
+      matchesDate = taskDate >= startDate && taskDate <= endDate;
+    } else if (startDate) {
+      matchesDate = taskDate >= startDate;
+    } else if (endDate) {
+      matchesDate = taskDate <= endDate;
+    }
+
+    return matchesSearch && matchesUser && matchesBrand && matchesStatus && matchesDate;
   });
 
   // Calculate Summary Metrics

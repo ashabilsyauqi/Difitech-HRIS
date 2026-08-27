@@ -130,10 +130,38 @@ export default function ManagerAttendanceLogsPage() {
   }
 
   const filteredAttendances = attendances.filter((att) => {
-    const nameMatch = att.user?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const emailMatch = att.user?.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const clientMatch = att.clientName?.toLowerCase().includes(searchQuery.toLowerCase());
-    return nameMatch || emailMatch || clientMatch;
+    const query = searchQuery.toLowerCase().trim();
+    const nameMatch =
+      !query ||
+      (att.user?.name && att.user.name.toLowerCase().includes(query)) ||
+      (att.user?.email && att.user.email.toLowerCase().includes(query)) ||
+      (att.clientName && att.clientName.toLowerCase().includes(query));
+
+    const userMatch =
+      selectedUser === "ALL" ||
+      att.userId === selectedUser ||
+      att.user?.id === selectedUser ||
+      att.user?.email === selectedUser;
+
+    const statusMatch =
+      selectedStatus === "ALL" ||
+      att.clockInStatus === selectedStatus ||
+      (selectedStatus === "CLIENT_VISIT" && att.attendanceType === "CLIENT_VISIT");
+
+    const deptMatch =
+      selectedDept === "ALL" ||
+      att.user?.department === selectedDept;
+
+    let dateMatch = true;
+    if (startDate && endDate) {
+      dateMatch = att.date >= startDate && att.date <= endDate;
+    } else if (startDate) {
+      dateMatch = att.date >= startDate;
+    } else if (endDate) {
+      dateMatch = att.date <= endDate;
+    }
+
+    return nameMatch && userMatch && statusMatch && deptMatch && dateMatch;
   });
 
   // Summary Metrics
