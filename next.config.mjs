@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: false,
   swcMinify: true,
+  staticPageGenerationTimeout: 300,
   experimental: {
     cpus: 1,
     workerThreads: false,
