@@ -22,7 +22,20 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, latitude, longitude, radiusMeters, address, workStartTime, workEndTime } = body;
+    const {
+      name,
+      latitude,
+      longitude,
+      radiusMeters,
+      address,
+      workStartTime,
+      workEndTime,
+      flexibleStartWindowStart,
+      flexibleStartWindowEnd,
+      lateGraceMinutes,
+      standardWorkDurationHours,
+      allowedClockInOptions,
+    } = body;
 
     let office = await prisma.officeLocation.findFirst({
       where: { isActive: true },
@@ -31,13 +44,18 @@ export async function PATCH(req: NextRequest) {
     if (!office) {
       office = await prisma.officeLocation.create({
         data: {
-          name: name || "HQ Office",
+          name: name || "Difitech HQ (Jakarta)",
           latitude: Number(latitude) || -6.224647,
           longitude: Number(longitude) || 106.809592,
           radiusMeters: Number(radiusMeters) || 150,
           address: address || "Jakarta HQ",
           workStartTime: workStartTime || "09:00",
           workEndTime: workEndTime || "17:00",
+          flexibleStartWindowStart: flexibleStartWindowStart || "08:00",
+          flexibleStartWindowEnd: flexibleStartWindowEnd || "10:00",
+          lateGraceMinutes: lateGraceMinutes !== undefined ? Number(lateGraceMinutes) : 5,
+          standardWorkDurationHours: standardWorkDurationHours !== undefined ? Number(standardWorkDurationHours) : 8.0,
+          allowedClockInOptions: allowedClockInOptions || "08:00, 09:00, 10:00",
         },
       });
     } else {
@@ -51,13 +69,18 @@ export async function PATCH(req: NextRequest) {
           ...(address && { address }),
           ...(workStartTime && { workStartTime }),
           ...(workEndTime && { workEndTime }),
+          ...(flexibleStartWindowStart && { flexibleStartWindowStart }),
+          ...(flexibleStartWindowEnd && { flexibleStartWindowEnd }),
+          ...(lateGraceMinutes !== undefined && { lateGraceMinutes: Number(lateGraceMinutes) }),
+          ...(standardWorkDurationHours !== undefined && { standardWorkDurationHours: Number(standardWorkDurationHours) }),
+          ...(allowedClockInOptions !== undefined && { allowedClockInOptions }),
         },
       });
     }
 
     return NextResponse.json({ success: true, office });
   } catch (error) {
-    console.error("Update office geofence error:", error);
+    console.error("Update office settings error:", error);
     return NextResponse.json({ error: "Failed to update office settings" }, { status: 500 });
   }
 }

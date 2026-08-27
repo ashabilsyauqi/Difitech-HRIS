@@ -83,13 +83,17 @@ export async function POST(req: NextRequest) {
     let clockInStatus = "ON_TIME";
     let distanceMeters: number | null = null;
 
-    // Check flexible Clock In Window: 08:00 - 10:00 WIB
-    // Jika masuk > 10:05 WIB (dengan toleransi 5 menit) -> LATE
+    // Check flexible Clock In Window dynamically configured by Admin (e.g. 08:00 - 10:00 WIB with grace period)
     const now = new Date();
+    const windowEndStr = office?.flexibleStartWindowEnd || "10:00";
+    const [endHours, endMinutes] = windowEndStr.split(":").map((v) => parseInt(v, 10) || 0);
+    const graceMinutes = office?.lateGraceMinutes !== undefined ? office.lateGraceMinutes : 5;
+
     const shiftDeadline = new Date(now);
-    shiftDeadline.setHours(10, 5, 0, 0); // Batas jam 10:05 pagi
+    shiftDeadline.setHours(endHours, endMinutes + graceMinutes, 0, 0);
 
     const isLate = now.getTime() > shiftDeadline.getTime();
+    const standardWorkMinutes = Math.round((office?.standardWorkDurationHours || 8.0) * 60);
 
     if (attendanceType === "CLIENT_VISIT") {
       clockInStatus = isLate ? "LATE" : "CLIENT_VISIT";
@@ -129,7 +133,7 @@ export async function POST(req: NextRequest) {
         clockInAccuracy: accuracy,
         clockInStatus,
         clockInDistance: distanceMeters,
-        regularWorkMinutes: 480, // 8 Jam standar
+        regularWorkMinutes: standardWorkMinutes,
         deviceInfo: userAgent,
         notes: notes || (attendanceType === "CLIENT_VISIT" ? `Kunjungan Klien: ${clientName} - ${visitPurpose || "Dinas Luar"}` : null),
       },

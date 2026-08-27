@@ -40,10 +40,15 @@ model OfficeLocation {
   radiusMeters   Float        @default(150.0)
   address        String?      @default("Sudirman Central Business District, Jakarta, Indonesia")
   isActive       Boolean      @default(true)
-  workStartTime  String       @default("09:00") // HH:mm
-  workEndTime    String       @default("17:00") // HH:mm
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  workStartTime              String       @default("09:00") // HH:mm
+  workEndTime                String       @default("17:00") // HH:mm
+  flexibleStartWindowStart   String       @default("08:00") // Jam buka presensi paling pagi (misal 08:00)
+  flexibleStartWindowEnd     String       @default("10:00") // Batas akhir jam masuk tepat waktu (misal 10:00)
+  lateGraceMinutes           Int          @default(5)       // Toleransi keterlambatan (menit)
+  standardWorkDurationHours  Float        @default(8.0)     // Lama jam kerja standar (jam)
+  allowedClockInOptions      String       @default("08:00, 09:00, 10:00") // Opsi shift jam masuk (koma separated)
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
 
   attendances    Attendance[]
 }

@@ -107,9 +107,12 @@ export default function EmployeeDashboardPage() {
         setOvertimeDurationStr(`${otHours}:${otMinutes}:${otSeconds}`);
       }
 
-      // Trigger 8-Hour Overtime Prompt when shift reaches 8 hours (28,800 sec)
+      // Trigger Overtime Prompt when shift reaches standard work duration
+      const regularMinutes = todayAttendance.regularWorkMinutes || (office?.standardWorkDurationHours ? office.standardWorkDurationHours * 60 : 480);
+      const regularSeconds = regularMinutes * 60;
+
       if (
-        diffSec >= 8 * 3600 &&
+        diffSec >= regularSeconds &&
         !todayAttendance.isOvertime &&
         !todayAttendance.clockOutTime &&
         !hasShownOvertimePrompt
@@ -122,7 +125,7 @@ export default function EmployeeDashboardPage() {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [todayAttendance, hasShownOvertimePrompt]);
+  }, [todayAttendance, hasShownOvertimePrompt, office]);
 
   if (isLoading || !user) {
     return (
@@ -323,7 +326,7 @@ export default function EmployeeDashboardPage() {
                       : isOvertime && !isClockedOut
                       ? "SESI LEMBUR"
                       : !isClockedOut
-                      ? "AKTIF BEKERJA (8 JAM)"
+                      ? `AKTIF BEKERJA (${((todayAttendance?.regularWorkMinutes || 480) / 60).toFixed(todayAttendance?.regularWorkMinutes % 60 !== 0 ? 1 : 0)} JAM)`
                       : "SUDAH PULANG"}
                   </span>
                 </div>
