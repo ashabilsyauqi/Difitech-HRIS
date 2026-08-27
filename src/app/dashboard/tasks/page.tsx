@@ -128,7 +128,7 @@ export default function EmployeeTasksPage() {
     return matchesSearch && matchesCat && matchesPriority;
   });
 
-  const categories = ["ALL", "Development", "Design", "Quality Assurance", "Operations", "Meeting", "Marketing"];
+  const uniqueBrands = Array.from(new Set(tasks.map((t) => t.category).filter(Boolean)));
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -215,9 +215,10 @@ export default function EmployeeTasksPage() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none"
               >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c === "ALL" ? "Semua Kategori" : c}
+                <option value="ALL">Semua Brand</option>
+                {uniqueBrands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
                   </option>
                 ))}
               </select>

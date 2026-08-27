@@ -31,7 +31,7 @@ export default function TaskFormModal({
 }: TaskFormModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Development");
+  const [category, setCategory] = useState("Difitech");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
   const [status, setStatus] = useState<"PENDING" | "IN_PROGRESS" | "COMPLETED" | "BLOCKED">("PENDING");
   const [estimatedHours, setEstimatedHours] = useState(2.0);
@@ -45,7 +45,7 @@ export default function TaskFormModal({
     if (initialData) {
       setTitle(initialData.title || "");
       setDescription(initialData.description || "");
-      setCategory(initialData.category || "Development");
+      setCategory(initialData.category || "Difitech");
       setPriority(initialData.priority || "MEDIUM");
       setStatus(initialData.status || "PENDING");
       setEstimatedHours(initialData.estimatedHours || 1.0);
@@ -55,7 +55,7 @@ export default function TaskFormModal({
     } else {
       setTitle("");
       setDescription("");
-      setCategory("Development");
+      setCategory("Difitech");
       setPriority("MEDIUM");
       setStatus("PENDING");
       setEstimatedHours(2.0);
@@ -145,19 +145,16 @@ export default function TaskFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Kategori
+                Brand / Klien *
               </label>
-              <select
+              <input
+                type="text"
+                required
+                placeholder="Contoh: Difitech, Client A, Brand X"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:outline-none"
+              />
             </div>
 
             <div>
