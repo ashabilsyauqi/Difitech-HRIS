@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  swcMinify: false,
+  swcMinify: true,
   experimental: {
     cpus: 1,
     workerThreads: false,
@@ -20,6 +20,13 @@ const nextConfig = {
       ...config.resolve.fallback,
       fs: false,
     };
+    if (config.optimization && config.optimization.minimizer) {
+      config.optimization.minimizer.forEach((minimizer) => {
+        if (minimizer && minimizer.options && minimizer.options.parallel !== undefined) {
+          minimizer.options.parallel = false;
+        }
+      });
+    }
     return config;
   },
 };
