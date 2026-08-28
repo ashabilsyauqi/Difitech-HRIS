@@ -39,32 +39,38 @@ export async function GET(req: NextRequest) {
     if (startDate && endDate) {
       whereClause.OR = [
         {
-          attendance: {
-            date: {
-              gte: startDate,
-              lte: endDate,
-            },
+          targetDate: {
+            gte: startDate,
+            lte: endDate,
           },
         },
         {
-          createdAt: {
-            gte: new Date(startDate + "T00:00:00.000Z"),
-            lte: new Date(endDate + "T23:59:59.999Z"),
-          },
+          AND: [
+            { targetDate: null },
+            {
+              createdAt: {
+                gte: new Date(startDate + "T00:00:00.000Z"),
+                lte: new Date(endDate + "T23:59:59.999Z"),
+              },
+            },
+          ],
         },
       ];
     } else if (date) {
       whereClause.OR = [
         {
-          attendance: {
-            date: date,
-          },
+          targetDate: date,
         },
         {
-          createdAt: {
-            gte: new Date(date + "T00:00:00.000Z"),
-            lte: new Date(date + "T23:59:59.999Z"),
-          },
+          AND: [
+            { targetDate: null },
+            {
+              createdAt: {
+                gte: new Date(date + "T00:00:00.000Z"),
+                lte: new Date(date + "T23:59:59.999Z"),
+              },
+            },
+          ],
         },
       ];
     }
@@ -135,6 +141,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: authUser.userId,
         attendanceId: todayAttendance?.id || null,
+        targetDate: body.targetDate || todayStr,
         title: title.trim(),
         description: description?.trim() || null,
         category: category || "General",

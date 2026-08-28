@@ -184,7 +184,11 @@ async function main() {
   // 3. Seed Tasks for Ashabil Syauqi
   const ashabil = await prisma.user.findUnique({ where: { email: "ashabil@difitech.co.id" } });
   if (ashabil) {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
     
     // Check existing tasks
     const existingTasks = await prisma.task.count({ where: { userId: ashabil.id } });
@@ -202,7 +206,7 @@ async function main() {
             actualHours: 3.0,
             trackedSeconds: 10800,
             orderIndex: 0,
-            targetDate: todayStr,
+            targetDate: yesterdayStr,
           },
           {
             userId: ashabil.id,
@@ -215,7 +219,7 @@ async function main() {
             actualHours: 2.0,
             trackedSeconds: 7200,
             orderIndex: 1,
-            targetDate: todayStr,
+            targetDate: yesterdayStr,
           },
           {
             userId: ashabil.id,
@@ -228,7 +232,7 @@ async function main() {
             actualHours: 2.5,
             trackedSeconds: 9000,
             orderIndex: 2,
-            targetDate: todayStr,
+            targetDate: yesterdayStr,
           },
           {
             userId: ashabil.id,

@@ -203,7 +203,12 @@ export async function POST(req: NextRequest) {
     try {
       const taskCount = await prisma.task.count({ where: { userId: user.id } });
       if (taskCount === 0) {
-        const todayStr = new Date().toISOString().split("T")[0];
+        const now = new Date();
+        const todayStr = now.toISOString().split("T")[0];
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
         if (cleanEmail === "ashabil@difitech.co.id") {
           await prisma.task.createMany({
             data: [
@@ -218,7 +223,7 @@ export async function POST(req: NextRequest) {
                 actualHours: 3.0,
                 trackedSeconds: 10800,
                 orderIndex: 0,
-                targetDate: todayStr,
+                targetDate: yesterdayStr,
               },
               {
                 userId: user.id,
@@ -231,7 +236,7 @@ export async function POST(req: NextRequest) {
                 actualHours: 2.0,
                 trackedSeconds: 7200,
                 orderIndex: 1,
-                targetDate: todayStr,
+                targetDate: yesterdayStr,
               },
               {
                 userId: user.id,
@@ -244,7 +249,7 @@ export async function POST(req: NextRequest) {
                 actualHours: 2.5,
                 trackedSeconds: 9000,
                 orderIndex: 2,
-                targetDate: todayStr,
+                targetDate: yesterdayStr,
               },
               {
                 userId: user.id,
