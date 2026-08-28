@@ -10,6 +10,9 @@ interface AttendanceRecord {
     department?: string | null;
   };
   date: string;
+  attendanceType?: string;
+  clientName?: string | null;
+  visitPurpose?: string | null;
   clockInTime: string;
   clockInPhoto: string;
   clockInLat: number;
@@ -30,6 +33,15 @@ interface PhotoViewerModalProps {
   onClose: () => void;
   attendance: AttendanceRecord | null;
   viewType?: "CLOCK_IN" | "CLOCK_OUT";
+  photoDataUrl?: string;
+  userName?: string;
+  timestamp?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  attendanceType?: string;
+  clientName?: string;
+  isOvertime?: boolean;
 }
 
 export default function PhotoViewerModal({
@@ -37,39 +49,57 @@ export default function PhotoViewerModal({
   onClose,
   attendance,
   viewType = "CLOCK_IN",
+  photoDataUrl,
+  userName,
+  timestamp,
+  address: directAddress,
+  latitude: directLat,
+  longitude: directLng,
+  attendanceType: directType,
+  clientName: directClient,
 }: PhotoViewerModalProps) {
-  if (!isOpen || !attendance) return null;
+  if (!isOpen) return null;
 
   const isClockIn = viewType === "CLOCK_IN";
-  const photoUrl = isClockIn ? attendance.clockInPhoto : attendance.clockOutPhoto;
-  const time = isClockIn ? attendance.clockInTime : attendance.clockOutTime;
-  const lat = isClockIn ? attendance.clockInLat : attendance.clockOutLat;
-  const lng = isClockIn ? attendance.clockInLng : attendance.clockOutLng;
-  const address = isClockIn ? attendance.clockInAddress : attendance.clockOutAddress;
-  const status = isClockIn ? attendance.clockInStatus : "COMPLETED";
+  const photoUrl = photoDataUrl || (attendance ? (isClockIn ? attendance.clockInPhoto : attendance.clockOutPhoto) : null);
+  const time = timestamp || (attendance ? (isClockIn ? attendance.clockInTime : attendance.clockOutTime) : null);
+  const lat = directLat !== undefined ? directLat : (attendance ? (isClockIn ? attendance.clockInLat : attendance.clockOutLat) : null);
+  const lng = directLng !== undefined ? directLng : (attendance ? (isClockIn ? attendance.clockInLng : attendance.clockOutLng) : null);
+  const address = directAddress || (attendance ? (isClockIn ? attendance.clockInAddress : attendance.clockOutAddress) : null);
+  const attType = directType || attendance?.attendanceType || "OFFICE";
+  const status = attendance ? (isClockIn ? attendance.clockInStatus : "COMPLETED") : "ON_TIME";
+  const name = userName || attendance?.user?.name || "Karyawan Difitech";
+  const email = attendance?.user?.email || "-";
+  const dept = attendance?.user?.department || "Operasional";
 
   const handleDownload = () => {
     if (!photoUrl) return;
     const link = document.createElement("a");
     link.href = photoUrl;
-    link.download = `Difitech_CamStamp_${attendance.user.name.replace(/\s+/g, "_")}_${attendance.date}_${viewType}.jpg`;
+    link.download = `Difitech_CamStamp_${name.replace(/\s+/g, "_")}_${viewType}.jpg`;
     link.click();
   };
 
-  const getStatusBadge = (st: string) => {
+  const getStatusBadge = (st: string, type?: string) => {
+    if (type === "WFA") {
+      return { label: "🏠 WFA / Remote (Bebas Geofence)", color: "bg-cyan-100 text-cyan-800 border-cyan-200 font-bold" };
+    }
+    if (type === "CLIENT_VISIT") {
+      return { label: "💼 Dinas Luar (Kunjungan Klien)", color: "bg-purple-100 text-purple-800 border-purple-200 font-bold" };
+    }
     switch (st) {
       case "ON_TIME":
         return { label: "Tepat Waktu (Terverifikasi)", color: "bg-emerald-100 text-emerald-800 border-emerald-200" };
       case "LATE":
-        return { label: "Terlambat Masuk", color: "bg-amber-100 text-amber-800 border-amber-200" };
+        return { label: "Terlambat Masuk", color: "bg-amber-100 text-amber-800 border-amber-200 font-bold" };
       case "OUT_OF_GEOFENCE":
-        return { label: "Di Luar Geofence Kantor", color: "bg-red-100 text-red-800 border-red-200" };
+        return { label: "Di Luar Geofence Kantor", color: "bg-red-100 text-red-800 border-red-200 font-bold" };
       default:
         return { label: st, color: "bg-slate-100 text-slate-800 border-slate-200" };
     }
   };
 
-  const statusInfo = getStatusBadge(status);
+  const statusInfo = getStatusBadge(status, attType);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">

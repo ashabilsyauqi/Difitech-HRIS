@@ -49,10 +49,11 @@ export default function CameraStreamModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [stampedPreviewUrl, setStampedPreviewUrl] = useState<string | null>(null);
   
-  // Client Visit Mode
-  const [attendanceType, setAttendanceType] = useState<"OFFICE" | "CLIENT_VISIT">("OFFICE");
+  // Attendance Type Mode: OFFICE, WFA, CLIENT_VISIT
+  const [attendanceType, setAttendanceType] = useState<"OFFICE" | "WFA" | "CLIENT_VISIT">("OFFICE");
   const [clientName, setClientName] = useState("");
   const [visitPurpose, setVisitPurpose] = useState("");
+  const [wfaLocation, setWfaLocation] = useState("");
   const [notes, setNotes] = useState("");
 
   // Start Camera Stream
@@ -157,10 +158,13 @@ export default function CameraStreamModal({
         deviceSignature: `${navigator.platform} | CamStamp v1.0 | Difitech HRIS`,
         type: type,
         attendanceType,
-        clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : undefined,
+        clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : attendanceType === "WFA" ? wfaLocation.trim() : undefined,
         visitPurpose: attendanceType === "CLIENT_VISIT" ? visitPurpose.trim() : undefined,
+        wfaLocation: attendanceType === "WFA" ? wfaLocation.trim() : undefined,
         statusLabel:
-          attendanceType === "CLIENT_VISIT"
+          attendanceType === "WFA"
+            ? `WFA / REMOTE: ${wfaLocation.trim() || "WORK FROM ANYWHERE"}`
+            : attendanceType === "CLIENT_VISIT"
             ? `KUNJUNGAN KLIEN: ${clientName.trim()}`
             : type === "CLOCK_IN"
             ? "DIFITECH CLOCK-IN"
@@ -208,9 +212,9 @@ export default function CameraStreamModal({
         address: locationAddress,
         clientTimestamp: new Date().toISOString(),
         attendanceType,
-        clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : undefined,
+        clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : attendanceType === "WFA" ? (wfaLocation.trim() || "Work From Anywhere") : undefined,
         visitPurpose: attendanceType === "CLIENT_VISIT" ? visitPurpose.trim() : undefined,
-        notes: notes.trim() || undefined,
+        notes: notes.trim() || (attendanceType === "WFA" ? (wfaLocation ? `WFA di: ${wfaLocation}` : "WFA / Remote") : undefined),
       };
 
       const res = await fetch(endpoint, {
@@ -260,32 +264,44 @@ export default function CameraStreamModal({
           </button>
         </div>
 
-        {/* Tab Selection: Kantor vs Kunjungan Klien */}
+        {/* Tab Selection: Kantor vs WFA vs Kunjungan Klien */}
         {!stampedPreviewUrl && (
-          <div className="flex border-b border-slate-200 bg-slate-50 p-1.5 text-xs font-bold">
+          <div className="flex border-b border-slate-200 bg-slate-50 p-1.5 text-xs font-bold gap-1">
             <button
               type="button"
               onClick={() => setAttendanceType("OFFICE")}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition text-center ${
                 attendanceType === "OFFICE"
                   ? "bg-white text-red-600 shadow-xs border border-slate-200"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <Building className="h-4 w-4" />
-              <span>Hadir di Kantor SCBD</span>
+              <Building className="h-3.5 w-3.5" />
+              <span>Kantor SCBD</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAttendanceType("WFA")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition text-center ${
+                attendanceType === "WFA"
+                  ? "bg-cyan-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <span className="text-sm">🏠</span>
+              <span>WFA / Remote</span>
             </button>
             <button
               type="button"
               onClick={() => setAttendanceType("CLIENT_VISIT")}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition text-center ${
                 attendanceType === "CLIENT_VISIT"
                   ? "bg-purple-600 text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <Briefcase className="h-4 w-4" />
-              <span>Kunjungan Klien / Dinas Luar</span>
+              <Briefcase className="h-3.5 w-3.5" />
+              <span>Dinas Luar</span>
             </button>
           </div>
         )}
@@ -330,6 +346,28 @@ export default function CameraStreamModal({
 
         {/* Info & Geolocation Data */}
         <div className="border-t border-slate-100 bg-slate-50/70 p-4 sm:p-5 space-y-3 max-h-[280px] overflow-y-auto">
+          {/* WFA / Remote Additional Inputs */}
+          {attendanceType === "WFA" && !stampedPreviewUrl && (
+            <div className="rounded-2xl border border-cyan-200 bg-cyan-50/60 p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-cyan-900">
+                <span className="text-sm">🏠</span>
+                <span>Detail Lokasi Kerja WFA / Remote</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-cyan-800 mb-0.5">
+                  Keterangan Lokasi WFA (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Rumah / Co-working Space / Cafe / Bandung"
+                  value={wfaLocation}
+                  onChange={(e) => setWfaLocation(e.target.value)}
+                  className="w-full rounded-xl border border-cyan-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-cyan-600 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Client Visit Additional Inputs */}
           {attendanceType === "CLIENT_VISIT" && !stampedPreviewUrl && (
             <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-3 space-y-2 text-xs">

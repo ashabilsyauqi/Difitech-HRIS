@@ -67,8 +67,10 @@ export default function ManagerLiveMapPage() {
     );
   }
 
-  const insideCount = attendances.filter((a) => a.clockInStatus !== "OUT_OF_GEOFENCE").length;
-  const violationCount = attendances.filter((a) => a.clockInStatus === "OUT_OF_GEOFENCE").length;
+  const officeCount = attendances.filter((a) => a.attendanceType === "OFFICE" && a.clockInStatus !== "OUT_OF_GEOFENCE").length;
+  const wfaCount = attendances.filter((a) => a.attendanceType === "WFA").length;
+  const clientCount = attendances.filter((a) => a.attendanceType === "CLIENT_VISIT").length;
+  const violationCount = attendances.filter((a) => a.attendanceType === "OFFICE" && a.clockInStatus === "OUT_OF_GEOFENCE").length;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -83,23 +85,35 @@ export default function ManagerLiveMapPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-600">
                 <MapPin className="h-4 w-4" />
-                <span>Pemantauan Geofence Kantor</span>
+                <span>Pemantauan Geofence & Radar Presensi Real-Time</span>
               </div>
               <h2 className="text-lg font-black text-slate-900">
-                Peta Presensi Karyawan Real-Time
+                Peta Presensi Karyawan (Kantor, WFA & Dinas Luar)
               </h2>
             </div>
 
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 font-medium text-slate-700">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 font-medium text-slate-700">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span>Di Kantor: <b>{insideCount}</b></span>
+                <span>Kantor SCBD: <b>{officeCount}</b></span>
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 font-medium text-slate-700">
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-                <span>Luar Radius: <b>{violationCount}</b></span>
+              <div className="flex items-center gap-1.5 rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-1.5 font-medium text-cyan-800">
+                <span className="h-2 w-2 rounded-full bg-cyan-500" />
+                <span>WFA: <b>{wfaCount}</b></span>
               </div>
+
+              <div className="flex items-center gap-1.5 rounded-xl bg-purple-50 border border-purple-200 px-3 py-1.5 font-medium text-purple-800">
+                <span className="h-2 w-2 rounded-full bg-purple-500" />
+                <span>Dinas Luar: <b>{clientCount}</b></span>
+              </div>
+
+              {violationCount > 0 && (
+                <div className="flex items-center gap-1.5 rounded-xl bg-red-50 border border-red-200 px-3 py-1.5 font-medium text-red-700">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <span>Luar Radius: <b>{violationCount}</b></span>
+                </div>
+              )}
 
               <button
                 onClick={fetchLocations}

@@ -12,6 +12,9 @@ interface EmployeeLocation {
     department?: string | null;
     avatarUrl?: string | null;
   };
+  attendanceType?: string;
+  clientName?: string | null;
+  visitPurpose?: string | null;
   clockInTime: string;
   clockInPhoto: string;
   clockInLat: number;
@@ -59,7 +62,7 @@ function LeafletMapInner({
 
     const map = L.map("attendance-leaflet-map", {
       center: defaultCenter,
-      zoom: 15,
+      zoom: 14,
       zoomControl: true,
     });
 
@@ -108,39 +111,45 @@ function LeafletMapInner({
 
     // 2. Employee Markers
     attendances.forEach((att) => {
-      const isOut = att.clockInStatus === "OUT_OF_GEOFENCE";
+      const isWFA = att.attendanceType === "WFA";
+      const isClient = att.attendanceType === "CLIENT_VISIT";
+      const isOut = !isWFA && !isClient && att.clockInStatus === "OUT_OF_GEOFENCE";
       const isLate = att.clockInStatus === "LATE";
-      const pinColor = isOut ? "#dc2626" : isLate ? "#d97706" : "#16a34a";
-      const statusText = isOut ? "Luar Geofence" : isLate ? "Terlambat" : "Tepat Waktu (Kantor)";
+
+      const pinColor = isWFA ? "#0891b2" : isClient ? "#8b5cf6" : isOut ? "#dc2626" : isLate ? "#d97706" : "#16a34a";
+      const pinIconEmoji = isWFA ? "🏠" : isClient ? "💼" : "📍";
+      const statusText = isWFA ? `🏠 WFA / Remote` : isClient ? `💼 Dinas Luar` : isOut ? "Luar Geofence" : isLate ? "Terlambat" : "Tepat Waktu (Kantor)";
 
       const empIcon = L.divIcon({
         className: "emp-marker-pin",
         html: `
-          <div style="background-color: ${pinColor}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.25); font-size: 14px; font-weight: bold;">
-            📍
+          <div style="background-color: ${pinColor}; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.25); font-size: 14px; font-weight: bold;">
+            ${pinIconEmoji}
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
       });
 
       const popupContent = document.createElement("div");
       popupContent.style.fontFamily = "sans-serif";
-      popupContent.style.minWidth = "200px";
+      popupContent.style.minWidth = "210px";
       popupContent.innerHTML = `
         <div style="font-weight: bold; color: #0f172a; font-size: 13px;">${att.user.name}</div>
         <div style="font-size: 11px; color: #64748b;">${att.user.department || "Karyawan"}</div>
         <div style="margin-top: 5px; display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: bold; background: ${pinColor}18; color: ${pinColor}; border: 1px solid ${pinColor}33;">
           ${statusText}
         </div>
+        ${att.clientName ? `<div style="font-size: 11px; color: ${pinColor}; font-weight: bold; margin-top: 4px;">📌 ${att.clientName}</div>` : ""}
         <div style="font-size: 11px; color: #334155; margin-top: 6px;">
           ⏱ Jam Masuk: <b>${new Date(att.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} WIB</b>
         </div>
         <div style="font-size: 11px; color: #334155;">
-          📏 Jarak Kantor: <b>${att.clockInDistance ? att.clockInDistance.toFixed(0) + "m" : "--"}</b>
+          📏 Jarak SCBD: <b>${att.clockInDistance ? att.clockInDistance.toFixed(0) + "m" : "--"}</b>
         </div>
+        ${att.clockInAddress ? `<div style="font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.3;">📍 ${att.clockInAddress}</div>` : ""}
         <div style="margin-top: 8px;">
-          <button id="inspect-btn-${att.id}" style="width: 100%; background: #dc2626; color: white; border: none; border-radius: 6px; padding: 5px 8px; font-size: 11px; font-weight: bold; cursor: pointer;">
+          <button id="inspect-btn-${att.id}" style="width: 100%; background: ${pinColor}; color: white; border: none; border-radius: 8px; padding: 6px 8px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px ${pinColor}40;">
             🔍 Lihat Foto CamStamp
           </button>
         </div>

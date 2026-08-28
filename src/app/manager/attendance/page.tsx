@@ -145,8 +145,9 @@ export default function ManagerAttendanceLogsPage() {
 
     const statusMatch =
       selectedStatus === "ALL" ||
-      att.clockInStatus === selectedStatus ||
-      (selectedStatus === "CLIENT_VISIT" && att.attendanceType === "CLIENT_VISIT");
+      (selectedStatus === "WFA" && att.attendanceType === "WFA") ||
+      (selectedStatus === "CLIENT_VISIT" && att.attendanceType === "CLIENT_VISIT") ||
+      att.clockInStatus === selectedStatus;
 
     const deptMatch =
       selectedDept === "ALL" ||
@@ -168,6 +169,7 @@ export default function ManagerAttendanceLogsPage() {
   const totalRecords = filteredAttendances.length;
   const onTimeCount = filteredAttendances.filter((a) => a.clockInStatus === "ON_TIME").length;
   const lateCount = filteredAttendances.filter((a) => a.clockInStatus === "LATE").length;
+  const wfaCount = filteredAttendances.filter((a) => a.attendanceType === "WFA").length;
   const clientVisitCount = filteredAttendances.filter((a) => a.attendanceType === "CLIENT_VISIT").length;
   const totalWorkHours = filteredAttendances.reduce((acc, a) => acc + ((a.workDurationMinutes || 0) / 60), 0);
 
@@ -177,10 +179,10 @@ export default function ManagerAttendanceLogsPage() {
       NamaKaryawan: att.user.name,
       Email: att.user.email,
       Departemen: att.user.department || "Umum",
-      TipePresensi: att.attendanceType === "CLIENT_VISIT" ? "Kunjungan Klien" : "Kantor Difitech",
-      NamaKlien: att.clientName || "-",
+      TipePresensi: att.attendanceType === "WFA" ? "WFA / Remote" : att.attendanceType === "CLIENT_VISIT" ? "Kunjungan Klien" : "Kantor Difitech",
+      Lokasi_Klien: att.clientName || "-",
       JamMasuk: new Date(att.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      StatusMasuk: att.clockInStatus === "ON_TIME" ? "Tepat Waktu" : att.clockInStatus === "LATE" ? "Terlambat" : "Luar Geofence",
+      StatusMasuk: att.attendanceType === "WFA" ? "WFA (Remote)" : att.clockInStatus === "ON_TIME" ? "Tepat Waktu" : att.clockInStatus === "LATE" ? "Terlambat" : "Luar Geofence",
       JarakKantor: att.clockInDistance ? `${att.clockInDistance.toFixed(0)}m` : "-",
       JamPulang: att.clockOutTime ? new Date(att.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Aktif",
       DurasiKerja: att.workDurationMinutes ? `${Math.floor(att.workDurationMinutes / 60)}j ${att.workDurationMinutes % 60}m` : "Aktif",
@@ -193,10 +195,16 @@ export default function ManagerAttendanceLogsPage() {
   };
 
   const getStatusBadge = (st: string, type?: string) => {
+    if (type === "WFA") {
+      return {
+        label: "🏠 WFA / Remote",
+        badge: "bg-cyan-100 text-cyan-800 border-cyan-200 font-bold",
+      };
+    }
     if (type === "CLIENT_VISIT") {
       return {
-        label: "Dinas Luar",
-        badge: "bg-purple-100 text-purple-800 border-purple-200",
+        label: "💼 Dinas Luar",
+        badge: "bg-purple-100 text-purple-800 border-purple-200 font-bold",
       };
     }
     switch (st) {
@@ -399,8 +407,9 @@ export default function ManagerAttendanceLogsPage() {
                   <option value="ALL">Semua Status</option>
                   <option value="ON_TIME">Tepat Waktu (On Time)</option>
                   <option value="LATE">Terlambat (Late)</option>
+                  <option value="WFA">🏠 WFA / Remote</option>
+                  <option value="CLIENT_VISIT">💼 Dinas Luar / Klien</option>
                   <option value="OUT_OF_GEOFENCE">Luar Geofence</option>
-                  <option value="CLIENT_VISIT">Dinas Luar / Kunjungan Klien</option>
                 </select>
               </div>
 
@@ -450,6 +459,7 @@ export default function ManagerAttendanceLogsPage() {
                     filteredAttendances.map((att) => {
                       const statusInfo = getStatusBadge(att.clockInStatus, att.attendanceType);
                       const isClient = att.attendanceType === "CLIENT_VISIT";
+                      const isWfa = att.attendanceType === "WFA";
 
                       return (
                         <tr key={att.id} className="hover:bg-slate-50/80 transition">
@@ -475,7 +485,7 @@ export default function ManagerAttendanceLogsPage() {
                               {new Date(att.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} WIB
                             </div>
                             <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1 max-w-[180px]">
-                              {isClient ? `📍 ${att.clientName || "Dinas Luar"}` : `🏢 ${att.office?.name || "Difitech HQ"}`}
+                              {isWfa ? `🏠 ${att.clientName || "WFA / Remote"}` : isClient ? `📍 ${att.clientName || "Dinas Luar"}` : `🏢 ${att.office?.name || "Difitech HQ"}`}
                             </div>
                           </td>
 
@@ -485,7 +495,7 @@ export default function ManagerAttendanceLogsPage() {
                               <span>{statusInfo.label}</span>
                             </span>
                             <div className="text-[10px] text-slate-400 font-mono mt-1">
-                              {isClient ? "Kunjungan Klien" : att.clockInDistance ? `Radius: ${att.clockInDistance.toFixed(0)}m` : "--"}
+                              {isWfa ? "Bebas Geofence (WFA)" : isClient ? "Kunjungan Klien" : att.clockInDistance ? `Radius: ${att.clockInDistance.toFixed(0)}m` : "--"}
                             </div>
                           </td>
 

@@ -145,6 +145,7 @@ export default function EmployeeDashboardPage() {
   const isClockedOut = !!todayAttendance?.clockOutTime;
   const isOvertime = !!todayAttendance?.isOvertime;
   const isClientVisit = todayAttendance?.attendanceType === "CLIENT_VISIT";
+  const isWFA = todayAttendance?.attendanceType === "WFA";
 
   const handleOpenClockIn = () => {
     setCameraModalType("CLOCK_IN");
@@ -240,6 +241,11 @@ export default function EmployeeDashboardPage() {
               <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 uppercase tracking-wider">
                 <Sparkles className="h-4 w-4 text-red-600" />
                 <span>Portal Presensi Difitech HRIS</span>
+                {isWFA && (
+                  <span className="ml-2 rounded-full bg-cyan-100 text-cyan-800 px-2.5 py-0.5 text-[10px] font-extrabold border border-cyan-200">
+                    🏠 WFA / Remote
+                  </span>
+                )}
                 {isClientVisit && (
                   <span className="ml-2 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-[10px] font-extrabold border border-purple-200">
                     💼 Kunjungan Klien
@@ -377,12 +383,14 @@ export default function EmployeeDashboardPage() {
               </div>
             </div>
 
-            {/* Geofence / Lokasi Kunjungan */}
+            {/* Geofence / Lokasi Penugasan / WFA */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
                   <span>Lokasi Penugasan</span>
-                  {isClientVisit ? (
+                  {isWFA ? (
+                    <span className="text-cyan-600 font-bold text-sm">🏠</span>
+                  ) : isClientVisit ? (
                     <Briefcase className="h-4 w-4 text-purple-600" />
                   ) : (
                     <MapPin className="h-4 w-4 text-blue-600" />
@@ -390,7 +398,14 @@ export default function EmployeeDashboardPage() {
                 </div>
 
                 <div className="mt-3">
-                  {isClientVisit ? (
+                  {isWFA ? (
+                    <>
+                      <h4 className="text-sm font-bold text-cyan-900">Work From Anywhere (WFA)</h4>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {todayAttendance?.clientName || todayAttendance?.clockInAddress || "Lokasi remote terverifikasi CamStamp GPS"}
+                      </p>
+                    </>
+                  ) : isClientVisit ? (
                     <>
                       <h4 className="text-sm font-bold text-purple-900">{todayAttendance.clientName || "Kunjungan Klien"}</h4>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
@@ -409,9 +424,9 @@ export default function EmployeeDashboardPage() {
               </div>
 
               <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span className="text-slate-500">{isClientVisit ? "Status Dinas:" : "Radius Kantor:"}</span>
-                <span className={`font-mono font-bold ${isClientVisit ? "text-purple-600" : "text-blue-600"}`}>
-                  {isClientVisit ? "Terverifikasi Klien" : `${office?.radiusMeters || 150} meter`}
+                <span className="text-slate-500">{isWFA ? "Tipe Kerja:" : isClientVisit ? "Status Dinas:" : "Radius Kantor:"}</span>
+                <span className={`font-mono font-bold ${isWFA ? "text-cyan-700 font-bold" : isClientVisit ? "text-purple-600" : "text-blue-600"}`}>
+                  {isWFA ? "Bebas Geofence (WFA)" : isClientVisit ? "Terverifikasi Klien" : `${office?.radiusMeters || 150} meter`}
                 </span>
               </div>
             </div>

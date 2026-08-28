@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
     const clientTimestamp = body.clientTimestamp;
     const notes = body.notes;
     
-    // Mode Kunjungan Klien / Kantor
-    const attendanceType = body.attendanceType === "CLIENT_VISIT" ? "CLIENT_VISIT" : "OFFICE";
+    // Mode Presensi: OFFICE, WFA, CLIENT_VISIT
+    const rawType = body.attendanceType;
+    const attendanceType = rawType === "CLIENT_VISIT" ? "CLIENT_VISIT" : rawType === "WFA" ? "WFA" : "OFFICE";
     const clientName = body.clientName?.trim() || null;
     const visitPurpose = body.visitPurpose?.trim() || null;
 
@@ -99,6 +100,17 @@ export async function POST(req: NextRequest) {
 
     if (attendanceType === "CLIENT_VISIT") {
       clockInStatus = isLate ? "LATE" : "CLIENT_VISIT";
+    } else if (attendanceType === "WFA") {
+      // WFA: Bekerja fleksibel/remote dari mana saja. Bebas dari penalti geofence.
+      clockInStatus = isLate ? "LATE" : "ON_TIME";
+      if (office) {
+        distanceMeters = calculateDistanceMeters(
+          latitude,
+          longitude,
+          office.latitude,
+          office.longitude
+        );
+      }
     } else if (office) {
       distanceMeters = calculateDistanceMeters(
         latitude,
@@ -137,7 +149,7 @@ export async function POST(req: NextRequest) {
         clockInDistance: distanceMeters,
         regularWorkMinutes: standardWorkMinutes,
         deviceInfo: userAgent,
-        notes: notes || (attendanceType === "CLIENT_VISIT" ? `Kunjungan Klien: ${clientName} - ${visitPurpose || "Dinas Luar"}` : null),
+        notes: notes || (attendanceType === "WFA" ? `WFA di: ${clientName || "Remote"}` : attendanceType === "CLIENT_VISIT" ? `Kunjungan Klien: ${clientName} - ${visitPurpose || "Dinas Luar"}` : null),
       },
       include: {
         office: true,

@@ -62,20 +62,32 @@ export default function EmployeeHistoryPage() {
     );
   }
 
-  const getStatusBadge = (st: string) => {
+  const getStatusBadge = (st: string, type?: string) => {
+    if (type === "WFA") {
+      return "bg-cyan-100 text-cyan-800 border-cyan-200 font-bold";
+    }
+    if (type === "CLIENT_VISIT") {
+      return "bg-purple-100 text-purple-800 border-purple-200 font-bold";
+    }
     switch (st) {
       case "ON_TIME":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "LATE":
-        return "bg-amber-100 text-amber-800 border-amber-200";
+        return "bg-amber-100 text-amber-800 border-amber-200 font-bold";
       case "OUT_OF_GEOFENCE":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-100 text-red-800 border-red-200 font-bold";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
-  const getStatusLabel = (st: string) => {
+  const getStatusLabel = (st: string, type?: string) => {
+    if (type === "WFA") {
+      return "🏠 WFA / Remote";
+    }
+    if (type === "CLIENT_VISIT") {
+      return "💼 Dinas Luar";
+    }
     switch (st) {
       case "ON_TIME":
         return "Tepat Waktu";
@@ -164,8 +176,8 @@ export default function EmployeeHistoryPage() {
                         </td>
 
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadge(row.clockInStatus)}`}>
-                            {getStatusLabel(row.clockInStatus)}
+                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadge(row.clockInStatus, row.attendanceType)}`}>
+                            {getStatusLabel(row.clockInStatus, row.attendanceType)}
                           </span>
                         </td>
 

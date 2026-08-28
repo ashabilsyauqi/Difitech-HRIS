@@ -16,9 +16,10 @@ export interface CamStampMetadata {
   type?: "CLOCK_IN" | "CLOCK_OUT";
   statusText?: string;
   statusLabel?: string;
-  attendanceType?: "OFFICE" | "CLIENT_VISIT";
+  attendanceType?: "OFFICE" | "CLIENT_VISIT" | "WFA";
   clientName?: string;
   visitPurpose?: string;
+  wfaLocation?: string;
   isOvertime?: boolean;
 }
 
@@ -48,8 +49,9 @@ export function renderCamStampCanvas(
 
   // 2. Compute dynamic banner sizing based on resolution
   const isClientVisit = metadata.attendanceType === "CLIENT_VISIT" || !!metadata.clientName;
+  const isWFA = metadata.attendanceType === "WFA" || !!metadata.wfaLocation;
   const isOvertime = !!metadata.isOvertime;
-  const bannerHeight = Math.max(145, Math.round(height * (isClientVisit ? 0.32 : 0.28)));
+  const bannerHeight = Math.max(145, Math.round(height * (isClientVisit || isWFA ? 0.32 : 0.28)));
   const bannerY = height - bannerHeight;
 
   // 3. Draw Watermark Backdrop with dark gradient
@@ -57,9 +59,9 @@ export function renderCamStampCanvas(
   ctx.fillStyle = "rgba(15, 23, 42, 0.92)"; // Slate-900 92% opacity
   ctx.fillRect(0, bannerY, width, bannerHeight);
 
-  // Accent boundary line (Red / Blue / Purple for Client Visit)
+  // Accent boundary line (Red / Blue / Purple for Client Visit / Cyan for WFA)
   const isClockIn = metadata.type === "CLOCK_IN" || (metadata.statusLabel && metadata.statusLabel.includes("CLOCK-IN"));
-  ctx.fillStyle = isClientVisit ? "#8b5cf6" : isOvertime ? "#f59e0b" : isClockIn ? "#dc2626" : "#2563eb";
+  ctx.fillStyle = isWFA ? "#06b6d4" : isClientVisit ? "#8b5cf6" : isOvertime ? "#f59e0b" : isClockIn ? "#dc2626" : "#2563eb";
   ctx.fillRect(0, bannerY, width, Math.max(3, Math.round(height * 0.006)));
 
   // 4. Render Watermark Text Elements
@@ -71,10 +73,12 @@ export function renderCamStampCanvas(
 
   // Header Title
   ctx.font = `bold ${fontSizeHeader}px monospace, ui-monospace, sans-serif`;
-  ctx.fillStyle = isClientVisit ? "#c4b5fd" : isOvertime ? "#fde047" : isClockIn ? "#f87171" : "#60a5fa";
+  ctx.fillStyle = isWFA ? "#67e8f9" : isClientVisit ? "#c4b5fd" : isOvertime ? "#fde047" : isClockIn ? "#f87171" : "#60a5fa";
   
   let typeLabel = metadata.statusLabel || (isClockIn ? "DIFITECH CLOCK-IN" : "DIFITECH CLOCK-OUT");
-  if (isClientVisit) {
+  if (isWFA) {
+    typeLabel = `WFA / REMOTE: ${metadata.wfaLocation || "WORK FROM ANYWHERE"}`;
+  } else if (isClientVisit) {
     typeLabel = `KUNJUNGAN KLIEN: ${metadata.clientName || "Dinas Luar"}`;
   } else if (isOvertime) {
     typeLabel = `SESI LEMBUR RESMI DIFITECH`;
@@ -91,8 +95,13 @@ export function renderCamStampCanvas(
   ctx.fillStyle = "#f8fafc";
   ctx.fillText(`USER: ${metadata.userName} (ID: ${metadata.userId.slice(-6).toUpperCase()}) | ${dateStr} - ${timeStr}`, paddingX, currentY);
 
-  // Client Visit Purpose / Overtime Note
-  if (isClientVisit && metadata.visitPurpose) {
+  // WFA / Client Visit Note
+  if (isWFA && metadata.wfaLocation) {
+    currentY += fontSizeBody + 5;
+    ctx.font = `bold ${fontSizeBody}px monospace, ui-monospace, sans-serif`;
+    ctx.fillStyle = "#22d3ee";
+    ctx.fillText(`LOKASI WFA: ${metadata.wfaLocation}`, paddingX, currentY);
+  } else if (isClientVisit && metadata.visitPurpose) {
     currentY += fontSizeBody + 5;
     ctx.font = `bold ${fontSizeBody}px monospace, ui-monospace, sans-serif`;
     ctx.fillStyle = "#a78bfa";

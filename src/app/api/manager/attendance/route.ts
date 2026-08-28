@@ -35,7 +35,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (status && status !== "ALL") {
-      whereClause.clockInStatus = status;
+      if (status === "WFA") {
+        whereClause.attendanceType = "WFA";
+      } else if (status === "CLIENT_VISIT") {
+        whereClause.attendanceType = "CLIENT_VISIT";
+      } else {
+        whereClause.clockInStatus = status;
+      }
     }
 
     if (department && department !== "ALL") {

@@ -64,7 +64,17 @@ export async function POST(req: NextRequest) {
     let clockOutStatus = "ON_TIME";
     let distanceMeters: number | null = null;
 
-    if (attendance.office) {
+    if (attendance.attendanceType === "WFA" || attendance.attendanceType === "CLIENT_VISIT") {
+      clockOutStatus = "ON_TIME";
+      if (attendance.office) {
+        distanceMeters = calculateDistanceMeters(
+          latitude,
+          longitude,
+          attendance.office.latitude,
+          attendance.office.longitude
+        );
+      }
+    } else if (attendance.office) {
       distanceMeters = calculateDistanceMeters(
         latitude,
         longitude,
