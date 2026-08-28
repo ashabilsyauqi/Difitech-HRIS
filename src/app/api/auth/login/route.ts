@@ -199,6 +199,87 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Auto-create initial starter tasks if user has 0 tasks
+    try {
+      const taskCount = await prisma.task.count({ where: { userId: user.id } });
+      if (taskCount === 0) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (cleanEmail === "ashabil@difitech.co.id") {
+          await prisma.task.createMany({
+            data: [
+              {
+                userId: user.id,
+                title: "Development Fitur Presensi WFA & Remote CamStamp",
+                description: "Implementasi 3 opsi presensi (Kantor, WFA, Klien) dengan watermark khusus warna cyan dan bypass radius geofence.",
+                category: "Engineering",
+                priority: "HIGH",
+                status: "COMPLETED",
+                estimatedHours: 3.0,
+                actualHours: 3.0,
+                trackedSeconds: 10800,
+                orderIndex: 0,
+                targetDate: todayStr,
+              },
+              {
+                userId: user.id,
+                title: "Perbaikan State Timer Live Task Persistence",
+                description: "Memperbaiki kalkulasi delta timestamp agar live timer tidak reset ke 0 saat browser di-refresh.",
+                category: "Engineering",
+                priority: "HIGH",
+                status: "COMPLETED",
+                estimatedHours: 2.0,
+                actualHours: 2.0,
+                trackedSeconds: 7200,
+                orderIndex: 1,
+                targetDate: todayStr,
+              },
+              {
+                userId: user.id,
+                title: "Implementasi Date Range & Multi-Filter Audit Presensi",
+                description: "Menambahkan filter instan nama, departemen, preset rentang waktu, dan export Excel.",
+                category: "Engineering",
+                priority: "MEDIUM",
+                status: "COMPLETED",
+                estimatedHours: 2.5,
+                actualHours: 2.5,
+                trackedSeconds: 9000,
+                orderIndex: 2,
+                targetDate: todayStr,
+              },
+              {
+                userId: user.id,
+                title: "Pengujian Geofence SCBD & Live Radar Map",
+                description: "Verifikasi visualisasi pin lokasi karyawan WFA, kantor, dan dinas luar pada peta interaktif Leaflet.",
+                category: "QA & Testing",
+                priority: "MEDIUM",
+                status: "IN_PROGRESS",
+                estimatedHours: 2.0,
+                actualHours: 1.0,
+                trackedSeconds: 3600,
+                orderIndex: 3,
+                targetDate: todayStr,
+              },
+              {
+                userId: user.id,
+                title: "Dokumentasi API & Deployment PM2 cPanel",
+                description: "Penyusunan panduan update 2 detik via pre-built Next.js bundle pada environment production.",
+                category: "DevOps",
+                priority: "LOW",
+                status: "PENDING",
+                estimatedHours: 1.5,
+                actualHours: 0,
+                trackedSeconds: 0,
+                orderIndex: 4,
+                targetDate: todayStr,
+              },
+            ],
+          });
+        }
+      }
+    } catch (tErr) {
+      console.error("Auto task creation error:", tErr);
+    }
+
     const tokenPayload = {
       userId: user.id,
       email: user.email,
