@@ -30,6 +30,7 @@ model User {
   tasks                   Task[]
   salaryProfile           SalaryProfile?
   payslips                Payslip[]
+  leaveRequests           LeaveRequest[]
 }
 
 model OfficeLocation {
@@ -225,3 +226,40 @@ model Payslip {
 
   @@unique([payrollPeriodId, userId])
 }
+
+// ----------------------------------------------------------------------------
+// LEAVE & PERMISSION REQUEST MODULE (IZIN SAKIT, CUTI & IZIN KHUSUS)
+// ----------------------------------------------------------------------------
+
+model LeaveRequest {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Tipe Pengajuan: SICK (Izin Sakit), ANNUAL_LEAVE (Cuti Tahunan), SPECIAL_LEAVE (Izin Keperluan Tertentu)
+  type            String        @default("SICK") // SICK, ANNUAL_LEAVE, SPECIAL_LEAVE
+  
+  // Rentang Tanggal
+  startDate       String        // "YYYY-MM-DD"
+  endDate         String        // "YYYY-MM-DD"
+  durationDays    Int           @default(1)
+  
+  // Alasan & Deskripsi Permohonan
+  reason          String
+  emergencyContact String?
+  
+  // Dokumen Lampiran (Attachment Wajib / Pendukung)
+  attachmentUrl   String?       // Base64 Data URL or file path
+  attachmentName  String?       // Misal: "Surat_Dokter_Klinik_Medika.pdf"
+  attachmentType  String?       // MIME type: "image/jpeg", "image/png", "application/pdf"
+  
+  // Status Persetujuan Management
+  status          String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy      String?       // Admin / Manager User Name or ID
+  approvedAt      DateTime?
+  reviewNotes     String?       // Catatan persetujuan / alasan penolakan dari manajemen
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
