@@ -3,9 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureLeaveTable } from "@/lib/ensure-leave-table";
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureLeaveTable();
     const authUser = await getAuthenticatedUser(req);
     if (!authUser || (authUser.role !== "ADMIN" && authUser.role !== "MANAGER")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
