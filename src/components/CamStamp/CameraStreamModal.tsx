@@ -12,7 +12,7 @@ import { getReverseGeocodeAddress } from "@/lib/geofence";
 interface CameraStreamModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: "CLOCK_IN" | "CLOCK_OUT";
+  type: "CLOCK_IN" | "CLOCK_OUT" | "RETAKE_CLOCK_IN";
   user: {
     id: string;
     name: string;
@@ -24,6 +24,7 @@ interface CameraStreamModalProps {
     radiusMeters: number;
   } | null;
   onSuccess: (attendanceData: any) => void;
+  lockedTimestampIso?: string | Date | null;
 }
 
 export default function CameraStreamModal({
@@ -33,6 +34,7 @@ export default function CameraStreamModal({
   user,
   office,
   onSuccess,
+  lockedTimestampIso,
 }: CameraStreamModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -146,9 +148,14 @@ export default function CameraStreamModal({
 
     setIsProcessing(true);
     try {
-      const nowIso = new Date().toISOString();
+      const nowIso = lockedTimestampIso ? new Date(lockedTimestampIso).toISOString() : new Date().toISOString();
+      const localTimeString = lockedTimestampIso
+        ? new Date(lockedTimestampIso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " WIB"
+        : undefined;
+
       const watermarkData: CamStampWatermarkData = {
         timestampIso: nowIso,
+        localTimeString: localTimeString,
         latitude: coords.lat,
         longitude: coords.lng,
         accuracyMeters: coords.accuracy,
@@ -156,7 +163,7 @@ export default function CameraStreamModal({
         userId: user.id,
         userName: user.name,
         deviceSignature: `${navigator.platform} | CamStamp v1.0 | Difitech HRIS`,
-        type: type,
+        type: type === "RETAKE_CLOCK_IN" ? "CLOCK_IN" : type,
         attendanceType,
         clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : attendanceType === "WFA" ? wfaLocation.trim() : undefined,
         visitPurpose: attendanceType === "CLIENT_VISIT" ? visitPurpose.trim() : undefined,
@@ -166,7 +173,7 @@ export default function CameraStreamModal({
             ? `WFA / REMOTE: ${wfaLocation.trim() || "WORK FROM ANYWHERE"}`
             : attendanceType === "CLIENT_VISIT"
             ? `KUNJUNGAN KLIEN: ${clientName.trim()}`
-            : type === "CLOCK_IN"
+            : (type === "CLOCK_IN" || type === "RETAKE_CLOCK_IN")
             ? "DIFITECH CLOCK-IN"
             : "DIFITECH CLOCK-OUT",
       };
@@ -199,7 +206,9 @@ export default function CameraStreamModal({
     setIsProcessing(true);
     try {
       const endpoint =
-        type === "CLOCK_IN"
+        type === "RETAKE_CLOCK_IN"
+          ? "/api/attendance/retake-photo"
+          : type === "CLOCK_IN"
           ? "/api/attendance/clock-in"
           : "/api/attendance/clock-out";
 
@@ -210,7 +219,7 @@ export default function CameraStreamModal({
         longitude: coords.lng,
         accuracy: coords.accuracy,
         address: locationAddress,
-        clientTimestamp: new Date().toISOString(),
+        clientTimestamp: lockedTimestampIso ? new Date(lockedTimestampIso).toISOString() : new Date().toISOString(),
         attendanceType,
         clientName: attendanceType === "CLIENT_VISIT" ? clientName.trim() : attendanceType === "WFA" ? (wfaLocation.trim() || "Work From Anywhere") : undefined,
         visitPurpose: attendanceType === "CLIENT_VISIT" ? visitPurpose.trim() : undefined,
@@ -251,9 +260,17 @@ export default function CameraStreamModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                {type === "CLOCK_IN" ? "Presensi Masuk CamStamp" : "Presensi Pulang CamStamp"}
+                {type === "RETAKE_CLOCK_IN"
+                  ? "Foto Ulang Presensi Masuk (Stempel Pagi)"
+                  : type === "CLOCK_IN"
+                  ? "Presensi Masuk CamStamp"
+                  : "Presensi Pulang CamStamp"}
               </h3>
-              <p className="text-[11px] text-slate-500">Difitech Anti-Buddy Punching & Geofence</p>
+              <p className="text-[11px] text-slate-500">
+                {type === "RETAKE_CLOCK_IN"
+                  ? "Stempel waktu tetap menggunakan jam masuk pagi Anda"
+                  : "Difitech Anti-Buddy Punching & Geofence"}
+              </p>
             </div>
           </div>
           <button

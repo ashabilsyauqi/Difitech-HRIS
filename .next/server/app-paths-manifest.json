@@ -6,6 +6,7 @@
   "/api/attendance/clock-out/route": "app/api/attendance/clock-out/route.js",
   "/api/attendance/history/route": "app/api/attendance/history/route.js",
   "/api/attendance/overtime/route": "app/api/attendance/overtime/route.js",
+  "/api/attendance/retake-photo/route": "app/api/attendance/retake-photo/route.js",
   "/api/attendance/today/route": "app/api/attendance/today/route.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
   "/api/auth/logout/route": "app/api/auth/logout/route.js",

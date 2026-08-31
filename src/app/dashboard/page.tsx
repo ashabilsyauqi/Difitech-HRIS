@@ -35,7 +35,7 @@ export default function EmployeeDashboardPage() {
 
   // Modals
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
-  const [cameraModalType, setCameraModalType] = useState<"CLOCK_IN" | "CLOCK_OUT">("CLOCK_IN");
+  const [cameraModalType, setCameraModalType] = useState<"CLOCK_IN" | "CLOCK_OUT" | "RETAKE_CLOCK_IN">("CLOCK_IN");
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewType, setPhotoViewType] = useState<"CLOCK_IN" | "CLOCK_OUT">("CLOCK_IN");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -487,6 +487,18 @@ export default function EmployeeDashboardPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
+                      setCameraModalType("RETAKE_CLOCK_IN");
+                      setCameraModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition shadow-2xs"
+                    title="Ambil ulang foto selfie presensi masuk dengan tetap memakai stempel jam masuk pagi"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    <span>Foto Ulang Masuk</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
                       setPhotoViewType("CLOCK_IN");
                       setPhotoViewerOpen(true);
                     }}
@@ -616,6 +628,7 @@ export default function EmployeeDashboardPage() {
         user={user}
         office={office}
         onSuccess={handleAttendanceSuccess}
+        lockedTimestampIso={cameraModalType === "RETAKE_CLOCK_IN" ? todayAttendance?.clockInTime : undefined}
       />
 
       <PhotoViewerModal
