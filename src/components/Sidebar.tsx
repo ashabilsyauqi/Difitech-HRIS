@@ -34,7 +34,6 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
     { href: "/dashboard/tasks", label: "Papan Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/tasks/history", label: "Arsip Riwayat Tugas", icon: History },
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
-    { href: "/dashboard/payroll", label: "Slip Gaji Saya", icon: Wallet },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];
 
@@ -45,10 +44,8 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
     { href: "/manager/attendance", label: "Log & Audit Presensi", icon: CalendarCheck },
     { href: "/manager/tasks", label: "Matriks Tugas Tim", icon: Users },
     { href: "/manager/leave", label: "Persetujuan Izin & Cuti", icon: FileCheck2 },
-    { href: "/manager/payroll", label: "Penggajian & Payroll", icon: Wallet },
-    { href: "/manager/payroll/settings", label: "Pengaturan Gaji", icon: Settings },
     { href: "/manager/reports", label: "Ekspor Laporan (Excel/PDF)", icon: FileSpreadsheet },
-    { href: "/manager/settings", label: "Pengaturan Geofence", icon: MapPin },
+    { href: "/manager/settings", label: "Pengaturan Kantor & Shift", icon: Settings },
   ];
 
   const links = isManagerOrAdmin ? managerLinks : employeeLinks;

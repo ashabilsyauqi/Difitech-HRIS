@@ -123,28 +123,6 @@ export default function ManagerOverviewPage() {
             </div>
           </div>
 
-          {/* Idle Employee Alerts */}
-          {idleEmployees.length > 0 && (
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600 mt-0.5" />
-              <div className="flex-1 text-xs">
-                <p className="font-bold text-amber-900">
-                  ⚠️ Perhatian: {idleEmployees.length} Karyawan Belum Memperbarui Tugas ({">"} 2 Jam)
-                </p>
-                <p className="mt-0.5 text-amber-800 leading-relaxed">
-                  Karyawan berikut telah presensi masuk tetapi belum memulai tugas:{" "}
-                  <b>{idleEmployees.map((e: any) => e.name).join(", ")}</b>.
-                </p>
-              </div>
-              <Link
-                href="/manager/tasks"
-                className="rounded-xl bg-amber-200/80 px-3 py-1 text-xs font-bold text-amber-900 hover:bg-amber-300 transition whitespace-nowrap"
-              >
-                Tinjau Tugas →
-              </Link>
-            </div>
-          )}
-
           {/* KPI Summary Cards Grid with Red & Blue accents */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Active Clocked In */}
