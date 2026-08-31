@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const flags = getFeatureFlags();
     const todayStr = new Date().toISOString().split("T")[0];
     let attendance = await prisma.attendance.findUnique({
       where: {
@@ -72,6 +74,9 @@ export async function GET(req: NextRequest) {
       todayAttendance: attendance,
       tasks: allUserTasks,
       office,
+      features: {
+        allowRetakeClockInPhoto: flags.allowRetakeClockInPhoto,
+      },
     });
   } catch (error) {
     console.error("Today attendance fetch error:", error);

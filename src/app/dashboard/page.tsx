@@ -32,6 +32,7 @@ export default function EmployeeDashboardPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [office, setOffice] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [allowRetakePhoto, setAllowRetakePhoto] = useState<boolean>(true);
 
   // Modals
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
@@ -64,6 +65,9 @@ export default function EmployeeDashboardPage() {
         const attData = await todayRes.json();
         setTodayAttendance(attData.todayAttendance);
         setOffice(attData.office);
+        if (attData.features && typeof attData.features.allowRetakeClockInPhoto === "boolean") {
+          setAllowRetakePhoto(attData.features.allowRetakeClockInPhoto);
+        }
         if (attData.tasks) {
           setTasks(attData.tasks);
         }
@@ -485,17 +489,19 @@ export default function EmployeeDashboardPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setCameraModalType("RETAKE_CLOCK_IN");
-                      setCameraModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition shadow-2xs"
-                    title="Ambil ulang foto selfie presensi masuk dengan tetap memakai stempel jam masuk pagi"
-                  >
-                    <Camera className="h-3.5 w-3.5" />
-                    <span>Foto Ulang Masuk</span>
-                  </button>
+                  {allowRetakePhoto && (
+                    <button
+                      onClick={() => {
+                        setCameraModalType("RETAKE_CLOCK_IN");
+                        setCameraModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition shadow-2xs"
+                      title="Ambil ulang foto selfie presensi masuk dengan tetap memakai stempel jam masuk pagi"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                      <span>Foto Ulang Masuk</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {

@@ -19,4 +19,4 @@
         "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "LeaveRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
-    `),s=!0}catch(e){console.error("Auto ensure LeaveRequest table error:",e)}}},20728:(e,t,r)=>{r.d(t,{_:()=>s});let a=require("@prisma/client"),s=globalThis.prisma??new a.PrismaClient({log:["error"]})}};var t=require("../../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),a=t.X(0,[9276,8840,5972],()=>r(61317));module.exports=a})();
+    `),s=!0}catch(e){console.error("Auto ensure LeaveRequest table error:",e)}}},20728:(e,t,r)=>{r.d(t,{_:()=>s});let a=require("@prisma/client"),s=globalThis.prisma??new a.PrismaClient({log:["error"]})}};var t=require("../../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),a=t.X(0,[9276,5972,8840],()=>r(61317));module.exports=a})();

@@ -3,12 +3,21 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const flags = getFeatureFlags();
+    if (!flags.allowRetakeClockInPhoto) {
+      return NextResponse.json(
+        { error: "Fitur foto ulang masuk sedang dinonaktifkan oleh Administrator." },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();
