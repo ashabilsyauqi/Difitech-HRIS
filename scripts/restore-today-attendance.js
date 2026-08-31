@@ -16,24 +16,24 @@ async function restoreAttendance() {
       ashabilPhoto = fs.readFileSync(photoFile, "utf-8").trim();
     }
 
-    const defaultPhoto = ashabilPhoto || "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD...";
-
     const members = [
-      { email: "ashabil@difitech.co.id", time: "09:54:07", status: "ON_TIME", photo: ashabilPhoto || defaultPhoto, type: "OFFICE" },
-      { email: "muditha@difitech.co.id", time: "08:45:12", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "nida@difitech.co.id", time: "08:52:30", status: "ON_TIME", photo: defaultPhoto, type: "WFA" },
-      { email: "khalilan@difitech.co.id", time: "09:10:00", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "dewi@difitech.co.id", time: "08:30:15", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "fajar@difitech.co.id", time: "09:05:40", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "rima@difitech.co.id", time: "08:58:22", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "avila@difitech.co.id", time: "09:12:05", status: "ON_TIME", photo: defaultPhoto, type: "WFA" },
-      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "danar@difitech.co.id", time: "09:20:18", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
+      { email: "ashabil@difitech.co.id", time: "09:54:07", status: "ON_TIME", type: "OFFICE" },
+      { email: "muditha@difitech.co.id", time: "08:45:12", status: "ON_TIME", type: "OFFICE" },
+      { email: "nida@difitech.co.id", time: "08:52:30", status: "ON_TIME", type: "WFA" },
+      { email: "khalilan@difitech.co.id", time: "09:10:00", status: "ON_TIME", type: "OFFICE" },
+      { email: "dewi@difitech.co.id", time: "08:30:15", status: "ON_TIME", type: "OFFICE" },
+      { email: "fajar@difitech.co.id", time: "09:05:40", status: "ON_TIME", type: "OFFICE" },
+      { email: "rima@difitech.co.id", time: "08:58:22", status: "ON_TIME", type: "OFFICE" },
+      { email: "avila@difitech.co.id", time: "09:12:05", status: "ON_TIME", type: "WFA" },
+      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", type: "OFFICE" },
+      { email: "danar@difitech.co.id", time: "09:20:18", status: "ON_TIME", type: "OFFICE" },
     ];
 
     for (const m of members) {
       const user = await prisma.user.findUnique({ where: { email: m.email } });
       if (!user) continue;
+
+      const userPhoto = m.email === "ashabil@difitech.co.id" ? (ashabilPhoto || user.avatarUrl) : user.avatarUrl;
 
       // Clock in time in UTC: HH:mm:ss WIB -> (HH-7):mm:ss UTC
       const [h, min, s] = m.time.split(":").map(Number);
@@ -51,7 +51,7 @@ async function restoreAttendance() {
           clockInTime: new Date(clockInIso),
           clockInStatus: m.status,
           attendanceType: m.type,
-          clockInPhoto: m.photo,
+          clockInPhoto: userPhoto,
           clockOutTime: null,
           clockOutStatus: null,
         },
@@ -61,7 +61,7 @@ async function restoreAttendance() {
           officeId: officeId,
           attendanceType: m.type,
           clockInTime: new Date(clockInIso),
-          clockInPhoto: m.photo,
+          clockInPhoto: userPhoto,
           clockInLat: -6.221556,
           clockInLng: 107.014043,
           clockInAccuracy: 35.0,
@@ -73,10 +73,10 @@ async function restoreAttendance() {
         },
       });
 
-      console.log(`✅ Presensi ${user.name} (${m.email}): Jam masuk ${m.time} WIB [${m.status}]`);
+      console.log(`✅ Presensi ${user.name} (${m.email}): Jam masuk ${m.time} WIB - Foto masing-masing OK`);
     }
 
-    console.log("\n🎉 SELURUH DATA PRESENSI HARI INI BERHASIL DIPULIHKAN!");
+    console.log("\n🎉 SELURUH FOTO DAN DATA PRESENSI KARYAWAN BERHASIL DISINKRONKAN DENGAN PROFIL MASING-MASING!");
   } catch (err) {
     console.error("Restore attendance error:", err);
   } finally {

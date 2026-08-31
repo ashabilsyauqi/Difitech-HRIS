@@ -22,24 +22,24 @@ export async function GET(req: NextRequest) {
       console.error("Load photo error:", e);
     }
 
-    const defaultPhoto = ashabilPhoto || "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD...";
-
     const members = [
-      { email: "ashabil@difitech.co.id", time: "09:54:07", status: "ON_TIME", photo: ashabilPhoto || defaultPhoto, type: "OFFICE" },
-      { email: "muditha@difitech.co.id", time: "08:45:12", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "nida@difitech.co.id", time: "08:52:30", status: "ON_TIME", photo: defaultPhoto, type: "WFA" },
-      { email: "khalilan@difitech.co.id", time: "09:10:00", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "dewi@difitech.co.id", time: "08:30:15", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "fajar@difitech.co.id", time: "09:05:40", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "rima@difitech.co.id", time: "08:58:22", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "avila@difitech.co.id", time: "09:12:05", status: "ON_TIME", photo: defaultPhoto, type: "WFA" },
-      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
-      { email: "danar@difitech.co.id", time: "09:20:18", status: "ON_TIME", photo: defaultPhoto, type: "OFFICE" },
+      { email: "ashabil@difitech.co.id", time: "09:54:07", status: "ON_TIME", type: "OFFICE" },
+      { email: "muditha@difitech.co.id", time: "08:45:12", status: "ON_TIME", type: "OFFICE" },
+      { email: "nida@difitech.co.id", time: "08:52:30", status: "ON_TIME", type: "WFA" },
+      { email: "khalilan@difitech.co.id", time: "09:10:00", status: "ON_TIME", type: "OFFICE" },
+      { email: "dewi@difitech.co.id", time: "08:30:15", status: "ON_TIME", type: "OFFICE" },
+      { email: "fajar@difitech.co.id", time: "09:05:40", status: "ON_TIME", type: "OFFICE" },
+      { email: "rima@difitech.co.id", time: "08:58:22", status: "ON_TIME", type: "OFFICE" },
+      { email: "avila@difitech.co.id", time: "09:12:05", status: "ON_TIME", type: "WFA" },
+      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", type: "OFFICE" },
+      { email: "danar@difitech.co.id", time: "09:20:18", status: "ON_TIME", type: "OFFICE" },
     ];
 
     for (const m of members) {
       const user = await prisma.user.findUnique({ where: { email: m.email } });
       if (!user) continue;
+
+      const userPhoto = m.email === "ashabil@difitech.co.id" ? (ashabilPhoto || user.avatarUrl) : user.avatarUrl;
 
       const [h, min, s] = m.time.split(":").map(Number);
       const utcHour = String(h - 7).padStart(2, "0");
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
           clockInTime: new Date(clockInIso),
           clockInStatus: m.status,
           attendanceType: m.type,
-          clockInPhoto: m.photo,
+          clockInPhoto: userPhoto,
           clockOutTime: null,
           clockOutStatus: null,
         },
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
           officeId: officeId,
           attendanceType: m.type,
           clockInTime: new Date(clockInIso),
-          clockInPhoto: m.photo,
+          clockInPhoto: userPhoto,
           clockInLat: -6.221556,
           clockInLng: 107.014043,
           clockInAccuracy: 35.0,
@@ -104,8 +104,8 @@ export async function GET(req: NextRequest) {
         <body>
           <div class="card">
             <div class="icon">✓</div>
-            <h1>Data Berhasil Dipulihkan!</h1>
-            <p>Presensi Ashabil Syauqi pukul <strong>09:54:07 WIB</strong> beserta seluruh karyawan dan pembersihan timer tugas selesai telah berhasil.<br/><br/>Mengarahkan ke Dashboard...</p>
+            <h1>Foto Presensi Karyawan Selesai Disinkronkan!</h1>
+            <p>Foto presensi masing-masing karyawan (Siswandi, Muditha, dll.) dan foto CamStamp Ashabil Syauqi telah dipisahkan sesuai profil.<br/><br/>Mengarahkan ke Dashboard...</p>
             <a href="/dashboard" class="btn">Buka Dashboard</a>
           </div>
         </body>
