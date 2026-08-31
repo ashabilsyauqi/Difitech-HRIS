@@ -211,6 +211,11 @@ export default function TaskKanbanBoard({
     if (onRefresh) onRefresh();
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    if (readOnly) return;
+    e.preventDefault();
+  };
+
   const handleDrop = async (e: React.DragEvent, targetStatus: TaskItem["status"]) => {
     if (readOnly) return;
     e.preventDefault();
