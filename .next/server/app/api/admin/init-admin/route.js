@@ -9,7 +9,13 @@
           updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `)}catch(e){}for(let e of[{id:"dept_eng",name:"Engineering & Teknologi",code:"ENG",description:"Tim Software Engineering & IT Infrastructure",color:"#dc2626"},{id:"dept_dsn",name:"Kreatif & Desain",code:"DSN",description:"Tim UI/UX, Multimedia & Creative Graphic",color:"#8b5cf6"},{id:"dept_ops",name:"Operasional & Bisnis",code:"OPS",description:"Tim Operasional, Finance & Business Admin",color:"#0ea5e9"},{id:"dept_hrd",name:"Manajemen & HR",code:"HRD",description:"Tim Human Capital, Legal & General Affair",color:"#10b981"},{id:"dept_mkt",name:"Pemasaran & Sales",code:"MKT",description:"Tim Digital Marketing, Growth & Sales Strategy",color:"#f59e0b"}])try{await s._.$executeRawUnsafe("INSERT OR IGNORE INTO Department (id, name, code, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",e.id,e.name,e.code,e.description,e.color)}catch(e){}let e=await m().hash("password123",10);await s._.$executeRawUnsafe(`INSERT OR REPLACE INTO User (id, email, passwordHash, name, role, department, jobTitle, employmentStatus, avatarUrl, bankName, bankAccountNumber, bankAccountHolder, createdAt, updatedAt)
-       VALUES ('user_admin_wijaya', 'wijaya@difitech.co.id', ?, 'Wijaya', 'ADMIN', 'Manajemen & HR', 'Human Capital & Operations Administrator', 'FULL_TIME', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 'BCA', '8012349988', 'Wijaya', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,e);let a=`
+       VALUES ('user_admin_wijaya', 'wijaya@difitech.co.id', ?, 'Wijaya', 'ADMIN', 'Manajemen & HR', 'Human Capital & Operations Administrator', 'FULL_TIME', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 'BCA', '8012349988', 'Wijaya', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,e);try{await s._.$executeRawUnsafe(`UPDATE OfficeLocation SET 
+          name = 'Difitech Office (Bekasi)', 
+          address = 'Ruko Burgundy Summarecon Bekasi, Blok RAL/38, RT.001/RW.001, Harapan Baru, Kec. Bekasi Utara, Kota Bks, Jawa Barat 17123',
+          latitude = -6.221538,
+          longitude = 107.013962,
+          radiusMeters = 150
+        WHERE isActive = 1;`)}catch(e){}let a=`
       <!DOCTYPE html>
       <html>
         <head>

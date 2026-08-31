@@ -46,11 +46,11 @@ export async function PATCH(req: NextRequest) {
     if (!office) {
       office = await prisma.officeLocation.create({
         data: {
-          name: name || "Difitech HQ (Jakarta)",
-          latitude: Number(latitude) || -6.224647,
-          longitude: Number(longitude) || 106.809592,
+          name: name || "Difitech Office (Bekasi)",
+          latitude: Number(latitude) || -6.221538,
+          longitude: Number(longitude) || 107.013962,
           radiusMeters: Number(radiusMeters) || 150,
-          address: address || "Jakarta HQ",
+          address: address || "Ruko Burgundy Summarecon Bekasi, Blok RAL/38, RT.001/RW.001, Harapan Baru, Kec. Bekasi Utara, Kota Bks, Jawa Barat 17123",
           workStartTime: workStartTime || "09:00",
           workEndTime: workEndTime || "17:00",
           flexibleStartWindowStart: flexibleStartWindowStart || "08:00",

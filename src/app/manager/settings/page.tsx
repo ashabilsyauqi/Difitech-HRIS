@@ -34,10 +34,10 @@ export default function ManagerSettingsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Office Location & Geofence Fields
-  const [name, setName] = useState("Difitech HQ (Jakarta)");
-  const [address, setAddress] = useState("Gedung Pacific Century Place, SCBD Lot 10, Jl. Jend. Sudirman Kav. 52-53, Jakarta Selatan");
-  const [latitude, setLatitude] = useState(-6.224647);
-  const [longitude, setLongitude] = useState(106.809592);
+  const [name, setName] = useState("Difitech Office (Bekasi)");
+  const [address, setAddress] = useState("Ruko Burgundy Summarecon Bekasi, Blok RAL/38, RT.001/RW.001, Harapan Baru, Kec. Bekasi Utara, Kota Bks, Jawa Barat 17123");
+  const [latitude, setLatitude] = useState(-6.221538);
+  const [longitude, setLongitude] = useState(107.013962);
   const [radiusMeters, setRadiusMeters] = useState(150);
 
   // Shift & Flexible Hours Configuration

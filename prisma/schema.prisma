@@ -46,11 +46,11 @@ model Department {
 
 model OfficeLocation {
   id             String       @id @default(cuid())
-  name           String       @default("Difitech HQ (Jakarta)")
-  latitude       Float        @default(-6.224647)
-  longitude      Float        @default(106.809592)
+  name           String       @default("Difitech Office (Bekasi)")
+  latitude       Float        @default(-6.221538)
+  longitude      Float        @default(107.013962)
   radiusMeters   Float        @default(150.0)
-  address        String?      @default("Sudirman Central Business District, Jakarta, Indonesia")
+  address        String?      @default("Ruko Burgundy Summarecon Bekasi, Blok RAL/38, RT.001/RW.001, Harapan Baru, Kec. Bekasi Utara, Kota Bks, Jawa Barat 17123")
   isActive       Boolean      @default(true)
   workStartTime              String       @default("09:00") // HH:mm
   workEndTime                String       @default("17:00") // HH:mm

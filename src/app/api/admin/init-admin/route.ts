@@ -52,6 +52,19 @@ export async function GET(req: NextRequest) {
       passwordHash
     );
 
+    // 5. Update Office Location to Bekasi HQ
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE OfficeLocation SET 
+          name = 'Difitech Office (Bekasi)', 
+          address = 'Ruko Burgundy Summarecon Bekasi, Blok RAL/38, RT.001/RW.001, Harapan Baru, Kec. Bekasi Utara, Kota Bks, Jawa Barat 17123',
+          latitude = -6.221538,
+          longitude = 107.013962,
+          radiusMeters = 150
+        WHERE isActive = 1;`
+      );
+    } catch(e) {}
+
     const html = `
       <!DOCTYPE html>
       <html>
