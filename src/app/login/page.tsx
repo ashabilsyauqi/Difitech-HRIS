@@ -138,9 +138,9 @@ export default function LoginPage() {
                   <MapPin className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Geofence Kantor Difitech</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Geofence Kantor PT Jaya Bersama Digital</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                    Validasi radius perimeter kantor SCBD Jakarta dengan filter anti-manipulasi lokasi.
+                    Validasi radius perimeter kantor fisik dengan filter anti-manipulasi lokasi.
                   </p>
                 </div>
               </div>
@@ -285,7 +285,7 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center">
             <p className="text-[11px] text-slate-400">
-              Hak Cipta © {new Date().getFullYear()} PT. Difitech Group. Seluruh Hak Dilindungi.
+              Hak Cipta © {new Date().getFullYear()} PT Jaya Bersama Digital. Seluruh Hak Dilindungi.
             </p>
           </div>
         </div>

@@ -532,7 +532,7 @@ export default function ManagerEmployeesPage() {
                   <h4 className="font-bold text-slate-900 text-base">
                     {isEditing ? "Edit Data Karyawan" : "Tambah Karyawan Baru"}
                   </h4>
-                  <p className="text-xs text-slate-500">PT. Difitech Group • Pengaturan Role & Divisi</p>
+                  <p className="text-xs text-slate-500">PT Jaya Bersama Digital • Pengaturan Role & Divisi</p>
                 </div>
               </div>
               <button onClick={() => setModalOpen(false)} className="rounded p-1 text-slate-400 hover:text-slate-700">
