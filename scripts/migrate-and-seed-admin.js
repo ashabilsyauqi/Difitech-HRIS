@@ -2,7 +2,7 @@ const { execSync } = require("child_process");
 const bcrypt = require("bcryptjs");
 
 async function main() {
-  console.log("🚀 [1/3] Generating Prisma Client di server...");
+  console.log("🚀 [1/3] Generating Prisma Client...");
   try {
     execSync("npx prisma generate", { stdio: "inherit" });
   } catch (e) {
@@ -12,14 +12,11 @@ async function main() {
   const { PrismaClient } = require("@prisma/client");
   const prisma = new PrismaClient();
 
-  console.log("\n🚀 [2/3] Sinkronisasi kolom database & tabel divisi...");
+  console.log("🚀 [2/3] Sinkronisasi kolom database & tabel divisi...");
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE User ADD COLUMN employmentStatus TEXT DEFAULT 'FULL_TIME';`);
-    console.log("✅ Kolom 'employmentStatus' siap di tabel User.");
-  } catch (e) {
-    // Column might already exist
-    console.log("ℹ️ Kolom 'employmentStatus' sudah ada.");
-  }
+    console.log("✅ Kolom 'employmentStatus' siap.");
+  } catch (e) {}
 
   try {
     await prisma.$executeRawUnsafe(`
@@ -34,11 +31,8 @@ async function main() {
       );
     `);
     console.log("✅ Tabel 'Department' siap.");
-  } catch (e) {
-    console.warn("Notice Department table:", e.message);
-  }
+  } catch (e) {}
 
-  // Insert default departments using raw SQL
   const defaultDepts = [
     { id: "dept_eng", name: "Engineering & Teknologi", code: "ENG", description: "Tim Software Engineering & IT Infrastructure", color: "#dc2626" },
     { id: "dept_dsn", name: "Kreatif & Desain", code: "DSN", description: "Tim UI/UX, Multimedia & Creative Graphic", color: "#8b5cf6" },
@@ -53,17 +47,12 @@ async function main() {
         `INSERT OR IGNORE INTO Department (id, name, code, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         d.id, d.name, d.code, d.description, d.color
       );
-      console.log(`✅ Divisi '${d.name}' (${d.code}) siap.`);
-    } catch (e) {
-      console.warn("Dept insert notice:", e.message);
-    }
+    } catch (e) {}
   }
 
-  console.log("\n🚀 [3/3] Mendaftarkan Akun Admin: wijaya@difitech.co.id...");
+  console.log("🚀 [3/3] Mendaftarkan Admin: wijaya@difitech.co.id...");
   const passwordHash = await bcrypt.hash("password123", 10);
-  const adminId = "user_admin_wijaya";
 
-  // Check if exists
   const existingUser = await prisma.user.findUnique({ where: { email: "wijaya@difitech.co.id" } });
   if (existingUser) {
     await prisma.$executeRawUnsafe(
@@ -73,17 +62,18 @@ async function main() {
   } else {
     await prisma.$executeRawUnsafe(
       `INSERT INTO User (id, email, passwordHash, name, role, department, jobTitle, employmentStatus, avatarUrl, bankName, bankAccountNumber, bankAccountHolder, createdAt, updatedAt) 
-       VALUES (?, 'wijaya@difitech.co.id', ?, 'Wijaya', 'ADMIN', 'Manajemen & HR', 'Human Capital & Operations Administrator', 'FULL_TIME', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 'BCA', '8012349988', 'Wijaya', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      adminId, passwordHash
+       VALUES ('user_admin_wijaya', 'wijaya@difitech.co.id', ?, 'Wijaya', 'ADMIN', 'Manajemen & HR', 'Human Capital & Operations Administrator', 'FULL_TIME', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 'BCA', '8012349988', 'Wijaya', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      passwordHash
     );
   }
 
-  console.log(`\n🎉 AKUN ADMIN BERHASIL DIAKTIFKAN:`);
-  console.log(`   - Email: wijaya@difitech.co.id`);
-  console.log(`   - Password: password123`);
-  console.log(`   - Role: ADMIN`);
-  console.log(`   - Divisi: Manajemen & HR`);
-  console.log(`   - Status Karyawan: Full Time\n`);
+  await prisma.$disconnect();
+  console.log("🎉 SELESAI!");
 }
 
-main().catch(console.error);
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
