@@ -79,17 +79,19 @@ export default function TaskKanbanBoard({
   useEffect(() => {
     const initial: Record<string, number> = {};
     const now = Date.now();
-    tasks.forEach((t) => {
-      if (t.id) {
-        let baseSec = (t as any).trackedSeconds || Math.round((t.actualHours || 0) * 3600) || 0;
-        if (t.status !== "COMPLETED" && (t as any).isTracking && (t as any).trackingStartedAt) {
-          const startedAt = new Date((t as any).trackingStartedAt).getTime();
-          const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
-          baseSec += elapsed;
+    if (Array.isArray(tasks)) {
+      tasks.forEach((t) => {
+        if (t && t.id) {
+          let baseSec = (t as any).trackedSeconds || Math.round((t.actualHours || 0) * 3600) || 0;
+          if (t.status !== "COMPLETED" && (t as any).isTracking && (t as any).trackingStartedAt) {
+            const startedAt = new Date((t as any).trackingStartedAt).getTime();
+            const elapsed = isNaN(startedAt) ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+            baseSec += elapsed;
+          }
+          initial[t.id] = baseSec;
         }
-        initial[t.id] = baseSec;
-      }
-    });
+      });
+    }
     setActiveTimers(initial);
   }, [tasks]);
 
@@ -100,19 +102,21 @@ export default function TaskKanbanBoard({
       setActiveTimers((prev) => {
         let changed = false;
         const next = { ...prev };
-        tasks.forEach((t) => {
-          if (t.id && t.status !== "COMPLETED" && (t as any).isTracking) {
-            let baseSec = (t as any).trackedSeconds || 0;
-            if ((t as any).trackingStartedAt) {
-              const startedAt = new Date((t as any).trackingStartedAt).getTime();
-              const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
-              next[t.id] = baseSec + elapsed;
-            } else {
-              next[t.id] = (next[t.id] || 0) + 1;
+        if (Array.isArray(tasks)) {
+          tasks.forEach((t) => {
+            if (t && t.id && t.status !== "COMPLETED" && (t as any).isTracking) {
+              let baseSec = (t as any).trackedSeconds || 0;
+              if ((t as any).trackingStartedAt) {
+                const startedAt = new Date((t as any).trackingStartedAt).getTime();
+                const elapsed = isNaN(startedAt) ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+                next[t.id] = baseSec + elapsed;
+              } else {
+                next[t.id] = (next[t.id] || 0) + 1;
+              }
+              changed = true;
             }
-            changed = true;
-          }
-        });
+          });
+        }
         return changed ? next : prev;
       });
     }, 1000);
@@ -121,7 +125,7 @@ export default function TaskKanbanBoard({
   }, [tasks]);
 
   const handleToggleTimer = async (task: TaskItem) => {
-    if (!task.id) return;
+    if (!task || !task.id) return;
     const isCurrentlyTracking = (task as any).isTracking;
     const currentSeconds = activeTimers[task.id] || 0;
 
@@ -143,9 +147,10 @@ export default function TaskKanbanBoard({
   };
 
   const formatTimer = (totalSeconds: number) => {
-    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    const sec = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const hours = String(Math.floor(sec / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+    const seconds = String(sec % 60).padStart(2, "0");
     return `${hours}:${minutes}:${seconds}`;
   };
 

@@ -45,10 +45,13 @@ export default function EmployeeTasksPage() {
       const tasksRes = await fetch(`/api/tasks?date=${selectedDate}`);
       if (tasksRes.ok) {
         const tData = await tasksRes.json();
-        setTasks(tData.tasks);
+        setTasks(Array.isArray(tData.tasks) ? tData.tasks : []);
+      } else {
+        setTasks([]);
       }
     } catch (err) {
       console.error("Task page error:", err);
+      setTasks([]);
     } finally {
       setIsLoading(false);
     }
@@ -139,16 +142,19 @@ export default function EmployeeTasksPage() {
     );
   }
 
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = (tasks || []).filter((t) => {
+    if (!t) return false;
+    const title = t.title || "";
+    const desc = t.description || "";
     const matchesSearch =
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      desc.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCat = selectedCategory === "ALL" || t.category === selectedCategory;
     const matchesPriority = selectedPriority === "ALL" || t.priority === selectedPriority;
-    return matchesSearch && matchesCat && matchesPriority;
+    return Boolean(matchesSearch && matchesCat && matchesPriority);
   });
 
-  const uniqueBrands = Array.from(new Set(tasks.map((t) => t.category).filter(Boolean)));
+  const uniqueBrands = Array.from(new Set((tasks || []).map((t) => t?.category).filter(Boolean)));
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
