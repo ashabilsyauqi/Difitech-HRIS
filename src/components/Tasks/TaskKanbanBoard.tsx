@@ -82,7 +82,7 @@ export default function TaskKanbanBoard({
     tasks.forEach((t) => {
       if (t.id) {
         let baseSec = (t as any).trackedSeconds || Math.round((t.actualHours || 0) * 3600) || 0;
-        if ((t as any).isTracking && (t as any).trackingStartedAt) {
+        if (t.status !== "COMPLETED" && (t as any).isTracking && (t as any).trackingStartedAt) {
           const startedAt = new Date((t as any).trackingStartedAt).getTime();
           const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
           baseSec += elapsed;
@@ -101,7 +101,7 @@ export default function TaskKanbanBoard({
         let changed = false;
         const next = { ...prev };
         tasks.forEach((t) => {
-          if (t.id && (t as any).isTracking) {
+          if (t.id && t.status !== "COMPLETED" && (t as any).isTracking) {
             let baseSec = (t as any).trackedSeconds || 0;
             if ((t as any).trackingStartedAt) {
               const startedAt = new Date((t as any).trackingStartedAt).getTime();
@@ -181,9 +181,29 @@ export default function TaskKanbanBoard({
     e.dataTransfer.setData("text/plain", id);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    if (readOnly) return;
-    e.preventDefault();
+  const handleStatusChangeInternal = async (taskId: string, targetStatus: TaskItem["status"]) => {
+    const task = tasks.find((t) => t.id === taskId);
+    const currentSeconds = activeTimers[taskId] || (task as any)?.trackedSeconds || 0;
+
+    // If moving away from IN_PROGRESS or into COMPLETED, stop tracking immediately
+    if (targetStatus === "COMPLETED" || (targetStatus !== "IN_PROGRESS" && (task as any)?.isTracking)) {
+      try {
+        await fetch("/api/tasks/timer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            taskId,
+            action: "PAUSE",
+            trackedSeconds: currentSeconds,
+          }),
+        });
+      } catch (e) {
+        console.error("Auto pause timer error:", e);
+      }
+    }
+
+    await onStatusChange(taskId, targetStatus);
+    if (onRefresh) onRefresh();
   };
 
   const handleDrop = async (e: React.DragEvent, targetStatus: TaskItem["status"]) => {
@@ -191,7 +211,7 @@ export default function TaskKanbanBoard({
     e.preventDefault();
     const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
     if (taskId) {
-      await onStatusChange(taskId, targetStatus);
+      await handleStatusChangeInternal(taskId, targetStatus);
     }
     setDraggedTaskId(null);
   };
@@ -400,7 +420,7 @@ export default function TaskKanbanBoard({
                             <select
                               value={task.status}
                               onChange={(e) =>
-                                task.id && onStatusChange(task.id, e.target.value as TaskItem["status"])
+                                task.id && handleStatusChangeInternal(task.id, e.target.value as TaskItem["status"])
                               }
                               className="rounded bg-slate-50 border border-slate-200 text-[10px] text-slate-700 px-1.5 py-0.5 focus:border-red-500 focus:outline-none"
                             >

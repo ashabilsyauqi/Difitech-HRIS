@@ -45,12 +45,46 @@ export async function PATCH(
       "deliverableUrl",
       "completionNote",
       "orderIndex",
+      "isTracking",
+      "trackedSeconds",
+      "trackingStartedAt",
     ];
 
     const updateData: Record<string, unknown> = {};
     for (const field of allowedFields) {
       if (field in body) {
         updateData[field] = body[field];
+      }
+    }
+
+    const now = new Date();
+
+    // Auto-stop time tracking if task status changed to COMPLETED or any status other than IN_PROGRESS
+    if (updateData.status === "COMPLETED" || (updateData.status && updateData.status !== "IN_PROGRESS")) {
+      if (existingTask.isTracking) {
+        let finalSeconds = existingTask.trackedSeconds || 0;
+        if (existingTask.trackingStartedAt) {
+          const elapsed = Math.max(
+            0,
+            Math.floor((now.getTime() - new Date(existingTask.trackingStartedAt).getTime()) / 1000)
+          );
+          finalSeconds += elapsed;
+        } else if (body.trackedSeconds !== undefined) {
+          finalSeconds = Number(body.trackedSeconds);
+        }
+
+        updateData.isTracking = false;
+        updateData.trackingStartedAt = null;
+        updateData.trackedSeconds = finalSeconds;
+        if (!updateData.actualHours) {
+          updateData.actualHours = Math.max(0.1, Number((finalSeconds / 3600).toFixed(2)));
+        }
+      } else if (updateData.status === "COMPLETED") {
+        updateData.isTracking = false;
+        updateData.trackingStartedAt = null;
+        if (existingTask.trackedSeconds && !updateData.actualHours) {
+          updateData.actualHours = Math.max(0.1, Number((existingTask.trackedSeconds / 3600).toFixed(2)));
+        }
       }
     }
 

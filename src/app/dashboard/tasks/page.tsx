@@ -59,16 +59,33 @@ export default function EmployeeTasksPage() {
   }, [selectedDate]);
 
   const handleStatusChange = async (taskId: string, newStatus: TaskItem["status"]) => {
+    const isCompleted = newStatus === "COMPLETED";
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: newStatus,
+              isTracking: isCompleted ? false : (t as any).isTracking,
+            }
+          : t
+      )
     );
 
     try {
-      await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, ...data.task } : t))
+          );
+        }
+      }
     } catch (err) {
       console.error("Failed to update status:", err);
       fetchSessionAndTasks();
