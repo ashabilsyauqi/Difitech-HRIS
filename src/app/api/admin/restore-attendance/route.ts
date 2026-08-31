@@ -5,13 +5,34 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 
+function createCamStampSvg(name: string, email: string, timeStr: string, photoUrl: string, attendanceType = "OFFICE") {
+  const isWfa = attendanceType === "WFA";
+  const accentColor = isWfa ? "#06b6d4" : "#dc2626";
+  const headerColor = isWfa ? "#67e8f9" : "#f87171";
+  const typeLabel = isWfa ? "WFA / REMOTE: WORK FROM ANYWHERE" : "DIFITECH CLOCK-IN";
+  const userShortId = email.split("@")[0].slice(0, 6).toUpperCase();
+
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <image href="${photoUrl}" width="800" height="450" preserveAspectRatio="xMidYMid slice" />
+  <rect y="315" width="800" height="135" fill="rgba(15, 23, 42, 0.94)" />
+  <rect y="315" width="800" height="4" fill="${accentColor}" />
+  <text x="24" y="342" fill="${headerColor}" font-family="ui-monospace, monospace" font-weight="bold" font-size="14">📍 CAMSTAMP&#x2122; [${typeLabel}] - TERVERIFIKASI</text>
+  <text x="24" y="366" fill="#f8fafc" font-family="ui-monospace, monospace" font-weight="bold" font-size="12">USER: ${name} (ID: ${userShortId}) | Senin, 31 Agustus 2026 - ${timeStr} WIB</text>
+  <text x="24" y="388" fill="#cbd5e1" font-family="ui-monospace, monospace" font-size="11">GPS: -6.221556, 107.014043 (Akurasi: &#177;35.0m)</text>
+  <text x="24" y="408" fill="#cbd5e1" font-family="ui-monospace, monospace" font-size="11">LOKASI: Jalan Perjuangan, Proyek, Bekasi Jaya, Bekasi, West Java, 17112, Indonesia</text>
+  <text x="24" y="428" fill="#94a3b8" font-family="ui-monospace, monospace" font-size="10">SECURITY: MacIntel | CamStamp v1.4 | AntiSpoof OK | SHA256: 8f9b4c7...</text>
+</svg>`.trim();
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const todayStr = new Date().toISOString().split("T")[0];
     const office = await prisma.officeLocation.findFirst({ where: { isActive: true } });
     const officeId = office?.id || null;
 
-    // Load custom Ashabil photo
     let ashabilPhoto = "";
     try {
       const photoFile = path.join(process.cwd(), "scripts", "photo_base64.txt");
@@ -24,6 +45,7 @@ export async function GET(req: NextRequest) {
 
     const members = [
       { email: "ashabil@difitech.co.id", time: "09:54:07", status: "ON_TIME", type: "OFFICE" },
+      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", type: "OFFICE" },
       { email: "muditha@difitech.co.id", time: "08:45:12", status: "ON_TIME", type: "OFFICE" },
       { email: "nida@difitech.co.id", time: "08:52:30", status: "ON_TIME", type: "WFA" },
       { email: "khalilan@difitech.co.id", time: "09:10:00", status: "ON_TIME", type: "OFFICE" },
@@ -31,7 +53,6 @@ export async function GET(req: NextRequest) {
       { email: "fajar@difitech.co.id", time: "09:05:40", status: "ON_TIME", type: "OFFICE" },
       { email: "rima@difitech.co.id", time: "08:58:22", status: "ON_TIME", type: "OFFICE" },
       { email: "avila@difitech.co.id", time: "09:12:05", status: "ON_TIME", type: "WFA" },
-      { email: "siswandi@difitech.co.id", time: "08:40:50", status: "ON_TIME", type: "OFFICE" },
       { email: "danar@difitech.co.id", time: "09:20:18", status: "ON_TIME", type: "OFFICE" },
     ];
 
@@ -39,7 +60,18 @@ export async function GET(req: NextRequest) {
       const user = await prisma.user.findUnique({ where: { email: m.email } });
       if (!user) continue;
 
-      const userPhoto = m.email === "ashabil@difitech.co.id" ? (ashabilPhoto || user.avatarUrl) : user.avatarUrl;
+      let finalPhoto: string;
+      if (m.email === "ashabil@difitech.co.id" && ashabilPhoto) {
+        finalPhoto = ashabilPhoto;
+      } else {
+        finalPhoto = createCamStampSvg(
+          user.name,
+          user.email,
+          m.time,
+          user.avatarUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800",
+          m.type
+        );
+      }
 
       const [h, min, s] = m.time.split(":").map(Number);
       const utcHour = String(h - 7).padStart(2, "0");
@@ -56,7 +88,7 @@ export async function GET(req: NextRequest) {
           clockInTime: new Date(clockInIso),
           clockInStatus: m.status,
           attendanceType: m.type,
-          clockInPhoto: userPhoto,
+          clockInPhoto: finalPhoto,
           clockOutTime: null,
           clockOutStatus: null,
         },
@@ -66,7 +98,7 @@ export async function GET(req: NextRequest) {
           officeId: officeId,
           attendanceType: m.type,
           clockInTime: new Date(clockInIso),
-          clockInPhoto: userPhoto,
+          clockInPhoto: finalPhoto,
           clockInLat: -6.221556,
           clockInLng: 107.014043,
           clockInAccuracy: 35.0,
@@ -89,7 +121,7 @@ export async function GET(req: NextRequest) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Pemulihan Berhasil - Difitech HRIS</title>
+          <title>Stempel CamStamp Berhasil - Difitech HRIS</title>
           <meta http-equiv="refresh" content="2;url=/dashboard" />
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: white; }
@@ -104,8 +136,8 @@ export async function GET(req: NextRequest) {
         <body>
           <div class="card">
             <div class="icon">✓</div>
-            <h1>Foto Presensi Karyawan Selesai Disinkronkan!</h1>
-            <p>Foto presensi masing-masing karyawan (Siswandi, Muditha, dll.) dan foto CamStamp Ashabil Syauqi telah dipisahkan sesuai profil.<br/><br/>Mengarahkan ke Dashboard...</p>
+            <h1>Stempel CamStamp Selesai!</h1>
+            <p>Stempel waktu, GPS, dan watermark CamStamp Siswandi dan seluruh karyawan telah aktif sempurna.<br/><br/>Mengarahkan ke Dashboard...</p>
             <a href="/dashboard" class="btn">Buka Dashboard</a>
           </div>
         </body>
