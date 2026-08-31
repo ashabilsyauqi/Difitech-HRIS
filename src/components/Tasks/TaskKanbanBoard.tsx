@@ -436,12 +436,9 @@ export default function TaskKanbanBoard({
 
                         {/* Card Footer */}
                         <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                          <div className="flex items-center gap-1 font-medium">
+                          <div className="flex items-center gap-1 font-medium text-slate-500">
                             <Clock className="h-3 w-3 text-slate-400" />
-                            <span>Est: {task.estimatedHours}j</span>
-                            {task.actualHours && (
-                              <span className="text-slate-800 font-bold">({task.actualHours}j real)</span>
-                            )}
+                            <span>{task.actualHours ? `${task.actualHours} jam kerja` : "Aktif"}</span>
                           </div>
 
                           {!readOnly && task.id && (
@@ -467,7 +464,7 @@ export default function TaskKanbanBoard({
 
               {/* Column Footer */}
               <div className="mt-2.5 pt-2 border-t border-slate-200 text-right text-[10px] text-slate-500 font-mono">
-                Total Est: {totalEstimated.toFixed(1)} Jam
+                {colTasks.length} Tugas
               </div>
             </div>
           );

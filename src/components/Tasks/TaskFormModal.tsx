@@ -174,37 +174,20 @@ export default function TaskFormModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Status Tugas
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
-              >
-                <option value="PENDING">Belum Dikerjakan (Backlog)</option>
-                <option value="IN_PROGRESS">Sedang Berjalan</option>
-                <option value="COMPLETED">Selesai</option>
-                <option value="BLOCKED">Terkendala (Blocked)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Estimasi Waktu (Jam)
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                min="0.5"
-                max="24"
-                value={estimatedHours}
-                onChange={(e) => setEstimatedHours(parseFloat(e.target.value) || 1)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
-              />
-            </div>
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+              Status Tugas
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
+            >
+              <option value="PENDING">Belum Dikerjakan (Backlog)</option>
+              <option value="IN_PROGRESS">Sedang Berjalan</option>
+              <option value="COMPLETED">Selesai</option>
+              <option value="BLOCKED">Terkendala (Blocked)</option>
+            </select>
           </div>
 
           <div>
