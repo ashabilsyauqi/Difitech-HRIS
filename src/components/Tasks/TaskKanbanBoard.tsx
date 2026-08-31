@@ -231,7 +231,7 @@ export default function TaskKanbanBoard({
             Papan Aktivitas Harian Difitech
           </span>
           <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-xs text-slate-700 font-bold font-mono">
-            {tasks.length} Tugas
+            {(tasks || []).length} Tugas
           </span>
         </div>
 
@@ -250,7 +250,7 @@ export default function TaskKanbanBoard({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((col) => {
           const ColIcon = col.icon;
-          const colTasks = tasks.filter((t) => t.status === col.id);
+          const colTasks = (tasks || []).filter((t) => t && t.status === col.id);
           const totalEstimated = colTasks.reduce((acc, t) => acc + (t.estimatedHours || 0), 0);
 
           return (
