@@ -99,7 +99,19 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ tasks });
+    const sanitizedTasks = tasks.map((t) => {
+      if (t.status === "COMPLETED") {
+        return {
+          ...t,
+          isTracking: false,
+          trackingStartedAt: null,
+          actualHours: t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : t.estimatedHours),
+        };
+      }
+      return t;
+    });
+
+    return NextResponse.json({ tasks: sanitizedTasks });
   } catch (error) {
     console.error("Fetch tasks error:", error);
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });

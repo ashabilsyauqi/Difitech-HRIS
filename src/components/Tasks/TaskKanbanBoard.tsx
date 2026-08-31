@@ -287,8 +287,9 @@ export default function TaskKanbanBoard({
                   </div>
                 ) : (
                   colTasks.map((task) => {
-                    const isTracking = (task as any).isTracking;
-                    const seconds = task.id ? activeTimers[task.id] || 0 : 0;
+                    const isCompleted = task.status === "COMPLETED";
+                    const isTracking = !isCompleted && Boolean((task as any).isTracking);
+                    const seconds = task.id ? activeTimers[task.id] || (task as any).trackedSeconds || 0 : 0;
 
                     return (
                       <div
@@ -296,7 +297,11 @@ export default function TaskKanbanBoard({
                         draggable={!readOnly}
                         onDragStart={(e) => task.id && handleDragStart(e, task.id)}
                         className={`group relative rounded-xl border bg-white p-3.5 shadow-2xs transition hover:border-slate-300 hover:shadow-md ${
-                          isTracking ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-200"
+                          isTracking
+                            ? "border-blue-500 ring-2 ring-blue-500/20"
+                            : isCompleted
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : "border-slate-200"
                         } ${!readOnly ? "cursor-grab active:cursor-grabbing" : ""}`}
                       >
                         {/* Top Badges */}
@@ -351,36 +356,54 @@ export default function TaskKanbanBoard({
                           <div className="flex items-center gap-1.5 font-mono text-[11px]">
                             <Timer
                               className={`h-3.5 w-3.5 ${
-                                isTracking ? "text-blue-600 animate-spin" : "text-slate-400"
+                                isTracking
+                                  ? "text-blue-600 animate-spin"
+                                  : isCompleted
+                                  ? "text-emerald-600"
+                                  : "text-slate-400"
                               }`}
                             />
-                            <span className={`font-bold ${isTracking ? "text-blue-700" : "text-slate-700"}`}>
+                            <span
+                              className={`font-bold ${
+                                isTracking
+                                  ? "text-blue-700"
+                                  : isCompleted
+                                  ? "text-emerald-700"
+                                  : "text-slate-700"
+                              }`}
+                            >
                               {formatTimer(seconds)}
                             </span>
                           </div>
 
-                          {!readOnly && task.status !== "COMPLETED" && (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTimer(task)}
-                              className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
-                                isTracking
-                                  ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                                  : "bg-blue-600 text-white hover:bg-blue-700 shadow-2xs"
-                              }`}
-                            >
-                              {isTracking ? (
-                                <>
-                                  <PauseCircle className="h-3 w-3" />
-                                  <span>Jeda</span>
-                                </>
-                              ) : (
-                                <>
-                                  <PlayCircle className="h-3 w-3" />
-                                  <span>Mulai</span>
-                                </>
-                              )}
-                            </button>
+                          {isCompleted ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">
+                              ✓ Selesai
+                            </span>
+                          ) : (
+                            !readOnly && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTimer(task)}
+                                className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                                  isTracking
+                                    ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-2xs"
+                                }`}
+                              >
+                                {isTracking ? (
+                                  <>
+                                    <PauseCircle className="h-3 w-3" />
+                                    <span>Jeda</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <PlayCircle className="h-3 w-3" />
+                                    <span>Mulai</span>
+                                  </>
+                                )}
+                              </button>
+                            )
                           )}
                         </div>
 
