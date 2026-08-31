@@ -49,6 +49,7 @@ export async function PATCH(
       role,
       department,
       jobTitle,
+      employmentStatus,
       password,
       bankName,
       bankAccountNumber,
@@ -66,6 +67,7 @@ export async function PATCH(
     if (role) dataToUpdate.role = role;
     if (department !== undefined) dataToUpdate.department = department;
     if (jobTitle !== undefined) dataToUpdate.jobTitle = jobTitle;
+    if (employmentStatus !== undefined) dataToUpdate.employmentStatus = employmentStatus;
     if (bankName !== undefined) dataToUpdate.bankName = bankName;
     if (bankAccountNumber !== undefined) dataToUpdate.bankAccountNumber = bankAccountNumber;
     if (npwpNumber !== undefined) dataToUpdate.npwpNumber = npwpNumber;

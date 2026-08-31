@@ -14,6 +14,8 @@
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/leave/request/route": "app/api/leave/request/route.js",
   "/api/manager/attendance/route": "app/api/manager/attendance/route.js",
+  "/api/manager/departments/[id]/route": "app/api/manager/departments/[id]/route.js",
+  "/api/manager/departments/route": "app/api/manager/departments/route.js",
   "/api/manager/employees/[id]/route": "app/api/manager/employees/[id]/route.js",
   "/api/manager/employees/route": "app/api/manager/employees/route.js",
   "/api/manager/leave/[id]/route": "app/api/manager/leave/[id]/route.js",

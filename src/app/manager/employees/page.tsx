@@ -2,7 +2,6 @@
 
 export const dynamic = "force-dynamic";
 
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
@@ -22,6 +21,9 @@ import {
   X,
   UserCheck,
   UserPlus,
+  Briefcase,
+  Layers,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,6 +31,7 @@ export default function ManagerEmployeesPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -36,8 +39,9 @@ export default function ManagerEmployeesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("ALL");
   const [selectedRole, setSelectedRole] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-  // Add / Edit Modal
+  // Add / Edit Employee Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
@@ -49,6 +53,7 @@ export default function ManagerEmployeesPage() {
   const [role, setRole] = useState("EMPLOYEE");
   const [department, setDepartment] = useState("Engineering & Teknologi");
   const [jobTitle, setJobTitle] = useState("Software Engineer");
+  const [employmentStatus, setEmploymentStatus] = useState("FULL_TIME");
   const [bankName, setBankName] = useState("BCA");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [npwpNumber, setNpwpNumber] = useState("");
@@ -57,7 +62,14 @@ export default function ManagerEmployeesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchEmployees = async () => {
+  // Department Management Modal
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptCode, setNewDeptCode] = useState("");
+  const [newDeptDesc, setNewDeptDesc] = useState("");
+  const [isAddingDept, setIsAddingDept] = useState(false);
+
+  const fetchEmployeesAndDepts = async () => {
     try {
       const authRes = await fetch("/api/auth/me");
       if (!authRes.ok) {
@@ -71,20 +83,29 @@ export default function ManagerEmployeesPage() {
       }
       setUser(authData.user);
 
-      const res = await fetch("/api/manager/employees");
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data.employees);
+      const [empRes, deptRes] = await Promise.all([
+        fetch("/api/manager/employees"),
+        fetch("/api/manager/departments"),
+      ]);
+
+      if (empRes.ok) {
+        const data = await empRes.json();
+        setEmployees(data.employees || []);
+      }
+
+      if (deptRes.ok) {
+        const dData = await deptRes.json();
+        setDepartments(dData.departments || []);
       }
     } catch (err) {
-      console.error("Fetch employees error:", err);
+      console.error("Fetch data error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
+    fetchEmployeesAndDepts();
   }, []);
 
   const handleOpenAdd = () => {
@@ -94,8 +115,9 @@ export default function ManagerEmployeesPage() {
     setEmail("");
     setPassword("password123");
     setRole("EMPLOYEE");
-    setDepartment("Engineering & Teknologi");
+    setDepartment(departments[0]?.name || "Engineering & Teknologi");
     setJobTitle("Software Engineer");
+    setEmploymentStatus("FULL_TIME");
     setBankName("BCA");
     setBankAccountNumber("8012345678");
     setNpwpNumber("09.123.456.7-000.000");
@@ -111,8 +133,9 @@ export default function ManagerEmployeesPage() {
     setEmail(emp.email);
     setPassword("");
     setRole(emp.role);
-    setDepartment(emp.department || "Engineering & Teknologi");
+    setDepartment(emp.department || (departments[0]?.name || "Engineering & Teknologi"));
     setJobTitle(emp.jobTitle || "Karyawan");
+    setEmploymentStatus(emp.employmentStatus || "FULL_TIME");
     setBankName(emp.bankName || "BCA");
     setBankAccountNumber(emp.bankAccountNumber || "");
     setNpwpNumber(emp.npwpNumber || "");
@@ -137,6 +160,7 @@ export default function ManagerEmployeesPage() {
             role,
             department,
             jobTitle,
+            employmentStatus,
             password: password ? password : undefined,
             bankName,
             bankAccountNumber,
@@ -158,6 +182,7 @@ export default function ManagerEmployeesPage() {
             role,
             department,
             jobTitle,
+            employmentStatus,
             bankName,
             bankAccountNumber,
             npwpNumber,
@@ -170,7 +195,7 @@ export default function ManagerEmployeesPage() {
       }
 
       setModalOpen(false);
-      await fetchEmployees();
+      await fetchEmployeesAndDepts();
       setFeedbackMsg({ type: "success", text: isEditing ? "Data karyawan berhasil diperbarui!" : "Karyawan baru berhasil ditambahkan!" });
       setTimeout(() => setFeedbackMsg(null), 4000);
     } catch (err: any) {
@@ -187,11 +212,51 @@ export default function ManagerEmployeesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menghapus karyawan");
 
-      await fetchEmployees();
+      await fetchEmployeesAndDepts();
       setFeedbackMsg({ type: "success", text: `Karyawan ${empName} berhasil dihapus.` });
       setTimeout(() => setFeedbackMsg(null), 4000);
     } catch (err: any) {
       alert("Error: " + err.message);
+    }
+  };
+
+  const handleAddDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeptName.trim()) return;
+    setIsAddingDept(true);
+    try {
+      const res = await fetch("/api/manager/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newDeptName.trim(),
+          code: newDeptCode.trim() || undefined,
+          description: newDeptDesc.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menambah divisi");
+      setNewDeptName("");
+      setNewDeptCode("");
+      setNewDeptDesc("");
+      await fetchEmployeesAndDepts();
+      alert("Divisi baru berhasil ditambahkan!");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsAddingDept(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (id: string, name: string) => {
+    if (!confirm(`Hapus divisi "${name}"? Karyawan pada divisi ini akan dipindahkan ke "Umum / General".`)) return;
+    try {
+      const res = await fetch(`/api/manager/departments/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menghapus divisi");
+      await fetchEmployeesAndDepts();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -200,7 +265,7 @@ export default function ManagerEmployeesPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-50 text-slate-500">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
-          <p className="text-xs font-semibold">Memuat Manajemen Karyawan...</p>
+          <p className="text-xs font-semibold">Memuat Manajemen Karyawan & Divisi...</p>
         </div>
       </div>
     );
@@ -213,10 +278,9 @@ export default function ManagerEmployeesPage() {
       (emp.jobTitle && emp.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesDept = selectedDept === "ALL" || emp.department === selectedDept;
     const matchesRole = selectedRole === "ALL" || emp.role === selectedRole;
-    return matchesSearch && matchesDept && matchesRole;
+    const matchesStatus = selectedStatus === "ALL" || (emp.employmentStatus || "FULL_TIME") === selectedStatus;
+    return matchesSearch && matchesDept && matchesRole && matchesStatus;
   });
-
-  const departments = ["ALL", "Engineering & Teknologi", "Human Capital & People", "Produk & Desain", "Quality Assurance", "Pemasaran & Growth"];
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -234,20 +298,30 @@ export default function ManagerEmployeesPage() {
                 <span>Direktori & Manajemen SDM Difitech HRIS</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                Manajemen Data Karyawan
+                Manajemen Data Karyawan & Divisi
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Kelola data profil, jabatan, hak akses peran (Admin, Manager, Karyawan), dan struktur kompensasi anggota tim.
+                Kelola data profil, divisi/departemen, peran akses (Admin, Manager, Karyawan), dan status kerja (Full Time, Part Time).
               </p>
             </div>
 
-            <button
-              onClick={handleOpenAdd}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-3 text-xs font-bold text-white shadow-md shadow-red-600/25 hover:from-red-700 hover:to-rose-700 transition"
-            >
-              <UserPlus className="h-4 w-4" />
-              <span>Tambah Karyawan Baru</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setDeptModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+              >
+                <Layers className="h-4 w-4 text-red-600" />
+                <span>Kelola Divisi ({departments.length})</span>
+              </button>
+
+              <button
+                onClick={handleOpenAdd}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-3 text-xs font-bold text-white shadow-md shadow-red-600/25 hover:from-red-700 hover:to-rose-700 transition"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Tambah Karyawan</span>
+              </button>
+            </div>
           </div>
 
           {/* Feedback Toast */}
@@ -282,27 +356,43 @@ export default function ManagerEmployeesPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              {/* Filter Status Karyawan */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-red-500 focus:outline-none"
+              >
+                <option value="ALL">Semua Status Kerja</option>
+                <option value="FULL_TIME">💼 Full Time</option>
+                <option value="PART_TIME">⏱️ Part Time</option>
+                <option value="CONTRACT">📄 Kontrak</option>
+                <option value="INTERNSHIP">🎓 Magang</option>
+              </select>
+
+              {/* Filter Divisi */}
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-red-500 focus:outline-none"
               >
+                <option value="ALL">Semua Divisi / Departemen</option>
                 {departments.map((d) => (
-                  <option key={d} value={d}>
-                    {d === "ALL" ? "Semua Departemen" : d}
+                  <option key={d.id || d.name} value={d.name}>
+                    {d.name} {d.code ? `(${d.code})` : ""}
                   </option>
                 ))}
               </select>
 
+              {/* Filter Role */}
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-red-500 focus:outline-none"
               >
-                <option value="ALL">Semua Peran</option>
-                <option value="ADMIN">Admin HR</option>
-                <option value="MANAGER">Manager</option>
-                <option value="EMPLOYEE">Karyawan</option>
+                <option value="ALL">Semua Peran (Role)</option>
+                <option value="ADMIN">🔴 Admin HR</option>
+                <option value="MANAGER">🔵 Manager</option>
+                <option value="EMPLOYEE">⚪ Karyawan</option>
               </select>
             </div>
           </div>
@@ -315,92 +405,113 @@ export default function ManagerEmployeesPage() {
                   <tr>
                     <th className="px-5 py-4">Karyawan</th>
                     <th className="px-4 py-4">Peran (Role)</th>
-                    <th className="px-4 py-4">Departemen</th>
+                    <th className="px-4 py-4">Status Kerja</th>
+                    <th className="px-4 py-4">Divisi / Departemen</th>
                     <th className="px-4 py-4">Jabatan</th>
                     <th className="px-4 py-4">Rekening Bank</th>
-                    <th className="px-4 py-4">No. NPWP</th>
                     <th className="px-4 py-4">Aktivitas</th>
                     <th className="px-4 py-4 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {filteredEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-50 transition">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                            {emp.avatarUrl ? (
-                              <img src={emp.avatarUrl} alt={emp.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
-                                {emp.name.charAt(0)}
-                              </div>
+                  {filteredEmployees.map((emp) => {
+                    const status = emp.employmentStatus || "FULL_TIME";
+                    return (
+                      <tr key={emp.id} className="hover:bg-slate-50 transition">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                              {emp.avatarUrl ? (
+                                <img src={emp.avatarUrl} alt={emp.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center font-bold text-slate-600">
+                                  {emp.name.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900 text-xs">{emp.name}</p>
+                              <p className="text-[11px] text-slate-500">{emp.email}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                              emp.role === "ADMIN"
+                                ? "bg-red-100 text-red-700 border border-red-200"
+                                : emp.role === "MANAGER"
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}
+                          >
+                            {emp.role === "ADMIN" ? "Admin HR" : emp.role === "MANAGER" ? "Manager" : "Karyawan"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              status === "FULL_TIME"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : status === "PART_TIME"
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                : status === "CONTRACT"
+                                ? "bg-purple-50 text-purple-800 border border-purple-200"
+                                : "bg-cyan-50 text-cyan-800 border border-cyan-200"
+                            }`}
+                          >
+                            {status === "FULL_TIME"
+                              ? "Full Time"
+                              : status === "PART_TIME"
+                              ? "Part Time"
+                              : status === "CONTRACT"
+                              ? "Kontrak"
+                              : "Magang"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4 text-slate-800 font-semibold whitespace-nowrap">
+                          {emp.department || "Umum"}
+                        </td>
+
+                        <td className="px-4 py-4 font-semibold text-slate-900 whitespace-nowrap">
+                          {emp.jobTitle || "Karyawan"}
+                        </td>
+
+                        <td className="px-4 py-4 font-mono text-slate-700 whitespace-nowrap">
+                          <span className="font-bold text-slate-900">{emp.bankName || "BCA"}</span> - {emp.bankAccountNumber || "-"}
+                        </td>
+
+                        <td className="px-4 py-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                          {emp._count?.attendances || 0} presensi • {emp._count?.tasks || 0} tugas
+                        </td>
+
+                        <td className="px-4 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEdit(emp)}
+                              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition"
+                              title="Edit Data Karyawan"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+
+                            {user.role === "ADMIN" && emp.id !== user.id && (
+                              <button
+                                onClick={() => handleDelete(emp.id, emp.name)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                                title="Hapus Karyawan"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-900 text-xs">{emp.name}</p>
-                            <p className="text-[11px] text-slate-500">{emp.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            emp.role === "ADMIN"
-                              ? "bg-red-50 text-red-700 border border-red-200"
-                              : emp.role === "MANAGER"
-                              ? "bg-blue-50 text-blue-800 border border-blue-200"
-                              : "bg-slate-100 text-slate-700 border border-slate-200"
-                          }`}
-                        >
-                          {emp.role === "ADMIN" ? "Admin HR" : emp.role === "MANAGER" ? "Manager" : "Karyawan"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700 whitespace-nowrap">
-                        {emp.department || "Umum"}
-                      </td>
-
-                      <td className="px-4 py-4 font-semibold text-slate-900 whitespace-nowrap">
-                        {emp.jobTitle || "Karyawan"}
-                      </td>
-
-                      <td className="px-4 py-4 font-mono text-slate-700 whitespace-nowrap">
-                        <span className="font-bold text-slate-900">{emp.bankName || "BCA"}</span> - {emp.bankAccountNumber || "-"}
-                      </td>
-
-                      <td className="px-4 py-4 font-mono text-slate-500 whitespace-nowrap">
-                        {emp.npwpNumber || "-"}
-                      </td>
-
-                      <td className="px-4 py-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                        {emp._count?.attendances || 0} presensi • {emp._count?.tasks || 0} tugas
-                      </td>
-
-                      <td className="px-4 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleOpenEdit(emp)}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition"
-                            title="Edit Data Karyawan"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-
-                          {user.role === "ADMIN" && emp.id !== user.id && (
-                            <button
-                              onClick={() => handleDelete(emp.id, emp.name)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
-                              title="Hapus Karyawan"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -421,7 +532,7 @@ export default function ManagerEmployeesPage() {
                   <h4 className="font-bold text-slate-900 text-base">
                     {isEditing ? "Edit Data Karyawan" : "Tambah Karyawan Baru"}
                   </h4>
-                  <p className="text-xs text-slate-500">PT. Difitech Group • Sistem HRIS</p>
+                  <p className="text-xs text-slate-500">PT. Difitech Group • Pengaturan Role & Divisi</p>
                 </div>
               </div>
               <button onClick={() => setModalOpen(false)} className="rounded p-1 text-slate-400 hover:text-slate-700">
@@ -436,7 +547,7 @@ export default function ManagerEmployeesPage() {
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Ashabil"
+                    placeholder="Contoh: Wijaya"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
@@ -448,7 +559,7 @@ export default function ManagerEmployeesPage() {
                   <input
                     type="email"
                     required
-                    placeholder="contoh: ashabil@hris.local"
+                    placeholder="contoh: wijaya@difitech.co.id"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
@@ -456,59 +567,76 @@ export default function ManagerEmployeesPage() {
                 </div>
               </div>
 
+              {/* Role, Divisi, dan Status Karyawan */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Peran Akses (Role)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Peran Akses (Role) *</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-red-500 focus:outline-none"
                   >
-                    <option value="EMPLOYEE">Karyawan</option>
-                    <option value="MANAGER">Manager</option>
-                    <option value="ADMIN">Admin HR</option>
+                    <option value="EMPLOYEE">⚪ Karyawan</option>
+                    <option value="MANAGER">🔵 Manager</option>
+                    <option value="ADMIN">🔴 Admin HR</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Departemen</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Status Karyawan *</label>
+                  <select
+                    value={employmentStatus}
+                    onChange={(e) => setEmploymentStatus(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-red-500 focus:outline-none"
+                  >
+                    <option value="FULL_TIME">💼 Full Time</option>
+                    <option value="PART_TIME">⏱️ Part Time</option>
+                    <option value="CONTRACT">📄 Kontrak</option>
+                    <option value="INTERNSHIP">🎓 Magang</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Divisi / Departemen *</label>
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-red-500 focus:outline-none"
                   >
-                    <option value="Engineering & Teknologi">Engineering & Teknologi</option>
-                    <option value="Human Capital & People">Human Capital & People</option>
-                    <option value="Produk & Desain">Produk & Desain</option>
-                    <option value="Quality Assurance">Quality Assurance</option>
-                    <option value="Pemasaran & Growth">Pemasaran & Growth</option>
+                    {departments.map((d) => (
+                      <option key={d.id || d.name} value={d.name}>
+                        {d.name} {d.code ? `(${d.code})` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jabatan (Job Title)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Jabatan (Job Title) *</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Senior Engineer"
+                    placeholder="Contoh: HR Administrator"
                     value={jobTitle}
                     onChange={(e) => setJobTitle(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  {isEditing ? "Ganti Password (Kosongkan jika tidak diubah)" : "Password Login"}
-                </label>
-                <input
-                  type="password"
-                  placeholder={isEditing ? "••••••••" : "Default: password123"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
-                />
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    {isEditing ? "Ganti Password (Opsional)" : "Password Akun *"}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder={isEditing ? "•••••••• (Biarkan kosong jika tidak ganti)" : "Default: password123"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               {/* Kompensasi & Rekening Bank */}
@@ -599,6 +727,127 @@ export default function ManagerEmployeesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Divisi & Departemen */}
+      {deptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-base">Kelola Divisi & Departemen</h4>
+                  <p className="text-xs text-slate-500">Tambah atau atur divisi perusahaan</p>
+                </div>
+              </div>
+              <button onClick={() => setDeptModalOpen(false)} className="rounded p-1 text-slate-400 hover:text-slate-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Form Tambah Divisi Baru */}
+            <form onSubmit={handleAddDepartment} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <h5 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                <Plus className="h-4 w-4 text-red-600" />
+                <span>Tambah Divisi Baru</span>
+              </h5>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nama Divisi *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Digital Marketing"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kode Singkat</label>
+                  <input
+                    type="text"
+                    placeholder="MKT"
+                    value={newDeptCode}
+                    onChange={(e) => setNewDeptCode(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 uppercase text-slate-900 font-mono focus:border-red-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Deskripsi Divisi</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Tim Pemasaran & Strategi Branding"
+                  value={newDeptDesc}
+                  onChange={(e) => setNewDeptDesc(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-red-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="text-right">
+                <button
+                  type="submit"
+                  disabled={isAddingDept || !newDeptName.trim()}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {isAddingDept ? "Menambahkan..." : "+ Tambah Divisi"}
+                </button>
+              </div>
+            </form>
+
+            {/* List Existing Departments */}
+            <div className="space-y-2">
+              <h5 className="font-bold text-slate-900 text-xs">Daftar Divisi Saat Ini ({departments.length})</h5>
+              <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                {departments.map((dept) => (
+                  <div key={dept.id || dept.name} className="flex items-center justify-between p-3.5 hover:bg-slate-50 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">{dept.name}</span>
+                        {dept.code && (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-600">
+                            {dept.code}
+                          </span>
+                        )}
+                      </div>
+                      {dept.description && <p className="text-[11px] text-slate-500 mt-0.5">{dept.description}</p>}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px] font-bold border border-blue-100">
+                        {dept.employeeCount || 0} Karyawan
+                      </span>
+                      {user.role === "ADMIN" && (
+                        <button
+                          onClick={() => handleDeleteDepartment(dept.id, dept.name)}
+                          className="rounded p-1 text-slate-400 hover:text-red-600 transition"
+                          title="Hapus Divisi"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 text-right">
+              <button
+                onClick={() => setDeptModalOpen(false)}
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition"
+              >
+                Selesai
+              </button>
+            </div>
           </div>
         </div>
       )}

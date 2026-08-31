@@ -16,6 +16,7 @@ model User {
   role                    String          @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
   department              String?         @default("Engineering")
   jobTitle                String?         @default("Software Engineer")
+  employmentStatus        String?         @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
   avatarUrl               String?
   bankName                String?         @default("BCA")
   bankAccountNumber       String?         @default("8012345678")
@@ -31,6 +32,16 @@ model User {
   salaryProfile           SalaryProfile?
   payslips                Payslip[]
   leaveRequests           LeaveRequest[]
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?
+  description String?
+  color       String?  @default("#dc2626")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model OfficeLocation {

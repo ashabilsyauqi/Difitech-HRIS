@@ -21,6 +21,8 @@ import {
   Info,
   Sliders,
   CalendarRange,
+  Layers,
+  Building2,
 } from "lucide-react";
 
 export default function ManagerSettingsPage() {
@@ -45,8 +47,26 @@ export default function ManagerSettingsPage() {
   const [standardWorkDurationHours, setStandardWorkDurationHours] = useState(8.0);
   const [clockInSlots, setClockInSlots] = useState<string[]>(["08:00", "09:00", "10:00"]);
   const [newSlotTime, setNewSlotTime] = useState("08:30");
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Department Management
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [newDeptName, setNewDeptName] = useState("");
+  const [newDeptCode, setNewDeptCode] = useState("");
+  const [newDeptDesc, setNewDeptDesc] = useState("");
+  const [isAddingDept, setIsAddingDept] = useState(false);
+
+  const fetchDepts = async () => {
+    try {
+      const dRes = await fetch("/api/manager/departments");
+      if (dRes.ok) {
+        const dData = await dRes.json();
+        setDepartments(dData.departments || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -62,6 +82,8 @@ export default function ManagerSettingsPage() {
           return;
         }
         setUser(authData.user);
+
+        fetchDepts();
 
         const offRes = await fetch("/api/settings/office");
         if (offRes.ok) {
@@ -159,6 +181,49 @@ export default function ManagerSettingsPage() {
     }
     setSuccessMsg(`Preset shift berhasil dimuat. Jangan lupa klik tombol 'Simpan Pengaturan'!`);
     setTimeout(() => setSuccessMsg(null), 4000);
+  };
+
+  const handleAddDept = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeptName.trim()) return;
+    setIsAddingDept(true);
+    try {
+      const res = await fetch("/api/manager/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newDeptName.trim(),
+          code: newDeptCode.trim() || undefined,
+          description: newDeptDesc.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menambah divisi");
+      setNewDeptName("");
+      setNewDeptCode("");
+      setNewDeptDesc("");
+      await fetchDepts();
+      setSuccessMsg("Divisi baru berhasil ditambahkan!");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsAddingDept(false);
+    }
+  };
+
+  const handleDeleteDept = async (id: string, name: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus divisi "${name}"? Karyawan di divisi ini akan dipindahkan ke "Umum".`)) return;
+    try {
+      const res = await fetch(`/api/manager/departments/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menghapus divisi");
+      await fetchDepts();
+      setSuccessMsg(`Divisi ${name} berhasil dihapus.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -592,6 +657,114 @@ export default function ManagerSettingsPage() {
               </button>
             </div>
           </form>
+
+          {/* SECTION 3: MANAJEMEN DIVISI & DEPARTEMEN PERUSAHAAN */}
+          <div className="max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2 text-slate-900">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">3. Struktur Divisi & Departemen Perusahaan</h3>
+                  <p className="text-xs text-slate-500">Tambah divisi baru atau kelola divisi yang tersedia untuk penempatan karyawan</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                {departments.length} Divisi Aktif
+              </span>
+            </div>
+
+            {/* Form Tambah Divisi */}
+            <form onSubmit={handleAddDept} className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4 space-y-3">
+              <h5 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                <Plus className="h-4 w-4 text-purple-600" />
+                <span>Tambah Divisi / Departemen Baru</span>
+              </h5>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Nama Divisi Lengkap *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Tim IT Support & Helpdesk"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Kode Singkat</label>
+                  <input
+                    type="text"
+                    placeholder="IT"
+                    value={newDeptCode}
+                    onChange={(e) => setNewDeptCode(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 uppercase font-mono text-slate-900 focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Deskripsi Divisi (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Bertanggung jawab atas pengelolaan infrastruktur IT dan perangkat kantor"
+                  value={newDeptDesc}
+                  onChange={(e) => setNewDeptDesc(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="text-right">
+                <button
+                  type="submit"
+                  disabled={isAddingDept || !newDeptName.trim()}
+                  className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-purple-700 transition disabled:opacity-50"
+                >
+                  {isAddingDept ? "Menambahkan..." : "+ Simpan Divisi Baru"}
+                </button>
+              </div>
+            </form>
+
+            {/* List Existing Departments */}
+            <div className="space-y-2">
+              <h5 className="font-bold text-slate-900 text-xs">Daftar Divisi Saat Ini</h5>
+              <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                {departments.map((dept) => (
+                  <div key={dept.id || dept.name} className="flex items-center justify-between p-4 hover:bg-slate-50 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">{dept.name}</span>
+                        {dept.code && (
+                          <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-700 border border-slate-200">
+                            {dept.code}
+                          </span>
+                        )}
+                      </div>
+                      {dept.description && <p className="text-xs text-slate-500 mt-1">{dept.description}</p>}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-blue-50 text-blue-800 px-3 py-1 text-xs font-bold border border-blue-200">
+                        {dept.employeeCount || 0} Anggota
+                      </span>
+                      {user.role === "ADMIN" && (
+                        <button
+                          onClick={() => handleDeleteDept(dept.id, dept.name)}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                          title="Hapus Divisi"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
