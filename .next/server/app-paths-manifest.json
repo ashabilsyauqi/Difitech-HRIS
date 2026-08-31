@@ -1,6 +1,7 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/api/admin/fix-my-attendance/route": "app/api/admin/fix-my-attendance/route.js",
+  "/api/admin/restore-attendance/route": "app/api/admin/restore-attendance/route.js",
   "/api/attendance/clock-in/route": "app/api/attendance/clock-in/route.js",
   "/api/attendance/clock-out/route": "app/api/attendance/clock-out/route.js",
   "/api/attendance/history/route": "app/api/attendance/history/route.js",
