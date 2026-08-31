@@ -1,21 +1,24 @@
-const { PrismaClient } = require("@prisma/client");
+const { execSync } = require("child_process");
 const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
-
 async function main() {
-  console.log("🚀 Memulai sinkronisasi database & penambahan admin...");
+  console.log("🚀 [1/3] Generating Prisma Client di server...");
+  try {
+    execSync("npx prisma generate", { stdio: "inherit" });
+  } catch (e) {
+    console.warn("Prisma generate warning:", e.message);
+  }
 
-  // 1. Safe SQLite ALTER TABLE & CREATE TABLE
+  const { PrismaClient } = require("@prisma/client");
+  const prisma = new PrismaClient();
+
+  console.log("\n🚀 [2/3] Sinkronisasi kolom database & tabel divisi...");
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE User ADD COLUMN employmentStatus TEXT DEFAULT 'FULL_TIME';`);
-    console.log("✅ Kolom 'employmentStatus' berhasil ditambahkan ke tabel User.");
+    console.log("✅ Kolom 'employmentStatus' siap di tabel User.");
   } catch (e) {
-    if (e.message.includes("duplicate column") || e.message.includes("already exists")) {
-      console.log("ℹ️ Kolom 'employmentStatus' sudah ada di tabel User.");
-    } else {
-      console.warn("Notice on alter table User:", e.message);
-    }
+    // Column might already exist
+    console.log("ℹ️ Kolom 'employmentStatus' sudah ada.");
   }
 
   try {
@@ -30,75 +33,57 @@ async function main() {
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log("✅ Tabel 'Department' berhasil disiapkan.");
+    console.log("✅ Tabel 'Department' siap.");
   } catch (e) {
-    console.warn("Notice on create table Department:", e.message);
+    console.warn("Notice Department table:", e.message);
   }
 
-  // 2. Default Departments
+  // Insert default departments using raw SQL
   const defaultDepts = [
-    { name: "Engineering & Teknologi", code: "ENG", description: "Tim Software Engineering & IT Infrastructure", color: "#dc2626" },
-    { name: "Kreatif & Desain", code: "DSN", description: "Tim UI/UX, Multimedia & Creative Graphic", color: "#8b5cf6" },
-    { name: "Operasional & Bisnis", code: "OPS", description: "Tim Operasional, Finance & Business Admin", color: "#0ea5e9" },
-    { name: "Manajemen & HR", code: "HRD", description: "Tim Human Capital, Legal & General Affair", color: "#10b981" },
-    { name: "Pemasaran & Sales", code: "MKT", description: "Tim Digital Marketing, Growth & Sales Strategy", color: "#f59e0b" },
+    { id: "dept_eng", name: "Engineering & Teknologi", code: "ENG", description: "Tim Software Engineering & IT Infrastructure", color: "#dc2626" },
+    { id: "dept_dsn", name: "Kreatif & Desain", code: "DSN", description: "Tim UI/UX, Multimedia & Creative Graphic", color: "#8b5cf6" },
+    { id: "dept_ops", name: "Operasional & Bisnis", code: "OPS", description: "Tim Operasional, Finance & Business Admin", color: "#0ea5e9" },
+    { id: "dept_hrd", name: "Manajemen & HR", code: "HRD", description: "Tim Human Capital, Legal & General Affair", color: "#10b981" },
+    { id: "dept_mkt", name: "Pemasaran & Sales", code: "MKT", description: "Tim Digital Marketing, Growth & Sales Strategy", color: "#f59e0b" },
   ];
 
-  for (const dept of defaultDepts) {
+  for (const d of defaultDepts) {
     try {
-      await prisma.department.upsert({
-        where: { name: dept.name },
-        update: { code: dept.code, description: dept.description, color: dept.color },
-        create: dept,
-      });
-      console.log(`✅ Divisi '${dept.name}' (${dept.code}) siap.`);
+      await prisma.$executeRawUnsafe(
+        `INSERT OR IGNORE INTO Department (id, name, code, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        d.id, d.name, d.code, d.description, d.color
+      );
+      console.log(`✅ Divisi '${d.name}' (${d.code}) siap.`);
     } catch (e) {
-      console.warn(`Notice on department ${dept.name}:`, e.message);
+      console.warn("Dept insert notice:", e.message);
     }
   }
 
-  // 3. Upsert Admin Account: wijaya@difitech.co.id
+  console.log("\n🚀 [3/3] Mendaftarkan Akun Admin: wijaya@difitech.co.id...");
   const passwordHash = await bcrypt.hash("password123", 10);
-  const adminUser = await prisma.user.upsert({
-    where: { email: "wijaya@difitech.co.id" },
-    update: {
-      name: "Wijaya",
-      role: "ADMIN",
-      department: "Manajemen & HR",
-      jobTitle: "Human Capital & Operations Administrator",
-      employmentStatus: "FULL_TIME",
-      passwordHash,
-      avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-    },
-    create: {
-      email: "wijaya@difitech.co.id",
-      name: "Wijaya",
-      passwordHash,
-      role: "ADMIN",
-      department: "Manajemen & HR",
-      jobTitle: "Human Capital & Operations Administrator",
-      employmentStatus: "FULL_TIME",
-      avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-      bankName: "BCA",
-      bankAccountNumber: "8012349988",
-      bankAccountHolder: "Wijaya",
-    },
-  });
+  const adminId = "user_admin_wijaya";
 
-  console.log(`\n🎉 AKUN ADMIN BERHASIL DIBUAT / DIPERBARUI:`);
-  console.log(`   - Email: ${adminUser.email}`);
-  console.log(`   - Nama: ${adminUser.name}`);
-  console.log(`   - Role: ${adminUser.role}`);
-  console.log(`   - Divisi: ${adminUser.department}`);
-  console.log(`   - Status Karyawan: ${adminUser.employmentStatus}`);
-  console.log(`   - Password: password123\n`);
+  // Check if exists
+  const existingUser = await prisma.user.findUnique({ where: { email: "wijaya@difitech.co.id" } });
+  if (existingUser) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE User SET name = 'Wijaya', role = 'ADMIN', department = 'Manajemen & HR', jobTitle = 'Human Capital & Operations Administrator', employmentStatus = 'FULL_TIME', passwordHash = ? WHERE email = 'wijaya@difitech.co.id'`,
+      passwordHash
+    );
+  } else {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO User (id, email, passwordHash, name, role, department, jobTitle, employmentStatus, avatarUrl, bankName, bankAccountNumber, bankAccountHolder, createdAt, updatedAt) 
+       VALUES (?, 'wijaya@difitech.co.id', ?, 'Wijaya', 'ADMIN', 'Manajemen & HR', 'Human Capital & Operations Administrator', 'FULL_TIME', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', 'BCA', '8012349988', 'Wijaya', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      adminId, passwordHash
+    );
+  }
+
+  console.log(`\n🎉 AKUN ADMIN BERHASIL DIAKTIFKAN:`);
+  console.log(`   - Email: wijaya@difitech.co.id`);
+  console.log(`   - Password: password123`);
+  console.log(`   - Role: ADMIN`);
+  console.log(`   - Divisi: Manajemen & HR`);
+  console.log(`   - Status Karyawan: Full Time\n`);
 }
 
-main()
-  .catch((e) => {
-    console.error("Migration error:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch(console.error);
