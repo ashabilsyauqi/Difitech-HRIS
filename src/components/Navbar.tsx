@@ -72,10 +72,8 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
         )}
 
         <Link href={user.role === "EMPLOYEE" ? "/dashboard" : "/manager"} className="flex items-center gap-2.5">
-          {/* Difitech Red & Blue Badge Logo */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-red-600 to-rose-600 shadow-md shadow-red-600/25">
-            <span className="font-black text-white text-lg tracking-tight">D</span>
-          </div>
+          {/* Difitech Shield Logo */}
+          <img src="/logo.png" alt="Difitech HRIS Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
           <div>
             <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
               <span className="text-red-600">Difitech</span>

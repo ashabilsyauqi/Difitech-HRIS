@@ -1,4 +1,7 @@
 {
+  "/apple-icon.png/route": "app/apple-icon.png/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/icon.png/route": "app/icon.png/route.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/admin/fix-my-attendance/route": "app/api/admin/fix-my-attendance/route.js",
   "/api/admin/init-admin/route": "app/api/admin/init-admin/route.js",

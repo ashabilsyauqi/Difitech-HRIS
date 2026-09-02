@@ -9,7 +9,15 @@ export const metadata: Metadata = {
   description: "Sistem Manajemen SDM & Presensi Verifikasi CamStamp Difitech HRIS dengan Geofencing GPS Anti-Spoofing.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
   },
 };
 

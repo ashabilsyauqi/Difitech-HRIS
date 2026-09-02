@@ -109,9 +109,7 @@ export default function LoginPage() {
         <div className="flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-b from-red-50/40 via-white to-blue-50/30 p-8 lg:col-span-5">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-red-600 to-rose-600 shadow-md shadow-red-600/25">
-                <span className="font-black text-white text-xl">D</span>
-              </div>
+              <img src="/logo.png" alt="Difitech HRIS Logo" className="h-12 w-12 object-contain drop-shadow-md" />
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                   <span className="text-red-600">Difitech</span> <span className="text-blue-600 text-lg font-bold">HRIS</span>
