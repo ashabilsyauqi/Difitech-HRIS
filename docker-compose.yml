@@ -1,0 +1,18 @@
+services:
+  hris-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: difitech-hris-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - JWT_SECRET=hris_super_secret_jwt_key_2026_camstamp_secure_token
+      - NEXT_PUBLIC_APP_URL=https://hris.difitech.id
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - ./prisma:/app/prisma
+      - ./config:/app/config
