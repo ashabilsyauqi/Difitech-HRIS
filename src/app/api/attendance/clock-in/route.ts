@@ -111,17 +111,30 @@ export async function POST(req: NextRequest) {
           office.longitude
         );
       }
-    } else if (office) {
-      distanceMeters = calculateDistanceMeters(
-        latitude,
-        longitude,
-        office.latitude,
-        office.longitude
-      );
+    } else if (attendanceType === "OFFICE") {
+      if (office) {
+        distanceMeters = calculateDistanceMeters(
+          latitude,
+          longitude,
+          office.latitude,
+          office.longitude
+        );
 
-      // Check geofence radius SCBD
-      if (distanceMeters > office.radiusMeters) {
-        clockInStatus = "OUT_OF_GEOFENCE";
+        // Strict Geofence Validation: Absen Kantor WAJIB di dalam radius kantor yang disetting
+        if (distanceMeters > office.radiusMeters) {
+          const currentDistance = Math.round(distanceMeters);
+          const maxRadius = Math.round(office.radiusMeters);
+          return NextResponse.json(
+            {
+              error: `Presensi Kantor Ditolak: Anda berada di luar radius kantor (${currentDistance}m dari ${office.name || "Kantor"}). Batas radius kantor yang diizinkan adalah ${maxRadius}m. Jika Anda bekerja dari luar/remote, silakan pilih opsi "WFA / Remote" atau "Dinas Luar".`,
+              distanceMeters: currentDistance,
+              maxRadiusMeters: maxRadius,
+            },
+            { status: 400 }
+          );
+        }
+
+        clockInStatus = isLate ? "LATE" : "ON_TIME";
       } else {
         clockInStatus = isLate ? "LATE" : "ON_TIME";
       }

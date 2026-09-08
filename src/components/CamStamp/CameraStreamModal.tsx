@@ -7,7 +7,7 @@ import {
   renderCamStampWatermark,
   renderCamStampCanvas,
 } from "@/lib/camstamp-engine";
-import { getReverseGeocodeAddress } from "@/lib/geofence";
+import { getReverseGeocodeAddress, calculateDistanceMeters } from "@/lib/geofence";
 
 interface CameraStreamModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ interface CameraStreamModalProps {
     department?: string | null;
   };
   office?: {
+    name?: string;
     latitude: number;
     longitude: number;
     radiusMeters: number;
@@ -57,6 +58,17 @@ export default function CameraStreamModal({
   const [visitPurpose, setVisitPurpose] = useState("");
   const [wfaLocation, setWfaLocation] = useState("");
   const [notes, setNotes] = useState("");
+
+  const distanceToOffice =
+    office && coords
+      ? calculateDistanceMeters(coords.lat, coords.lng, office.latitude, office.longitude)
+      : null;
+
+  const isOutsideGeofence =
+    attendanceType === "OFFICE" &&
+    office &&
+    distanceToOffice !== null &&
+    distanceToOffice > office.radiusMeters;
 
   // Start Camera Stream
   const startCamera = async () => {
@@ -143,6 +155,13 @@ export default function CameraStreamModal({
 
     if (attendanceType === "CLIENT_VISIT" && !clientName.trim()) {
       alert("Silakan masukkan Nama Klien / Perusahaan yang dikunjungi.");
+      return;
+    }
+
+    if (attendanceType === "OFFICE" && isOutsideGeofence) {
+      alert(
+        `Presensi Kantor Ditolak: Anda berada di luar radius kantor (${Math.round(distanceToOffice!)}m dari ${office?.name || "Kantor"}). Batas radius kantor adalah ${Math.round(office?.radiusMeters || 150)}m.\n\nUntuk presensi kantor, Anda wajib berada di area fisik kantor. Jika Anda bekerja dari luar/remote, silakan pilih tab "WFA / Remote" atau "Dinas Luar".`
+      );
       return;
     }
 
@@ -294,7 +313,7 @@ export default function CameraStreamModal({
               }`}
             >
               <Building className="h-3.5 w-3.5" />
-              <span>Kantor SCBD</span>
+              <span>Absen Kantor</span>
             </button>
             <button
               type="button"
@@ -363,6 +382,44 @@ export default function CameraStreamModal({
 
         {/* Info & Geolocation Data */}
         <div className="border-t border-slate-100 bg-slate-50/70 p-4 sm:p-5 space-y-3 max-h-[280px] overflow-y-auto">
+          {/* Live Geofence Validation Box for Office Attendance */}
+          {attendanceType === "OFFICE" && office && coords && (
+            <div
+              className={`rounded-2xl border p-3 text-xs space-y-1 ${
+                isOutsideGeofence
+                  ? "border-red-200 bg-red-50/80 text-red-900"
+                  : "border-emerald-200 bg-emerald-50/80 text-emerald-900"
+              }`}
+            >
+              <div className="flex items-center justify-between font-bold">
+                <div className="flex items-center gap-1.5">
+                  <Building className="h-3.5 w-3.5" />
+                  <span>Validasi Radius Kantor: {office.name || "Kantor Difitech"}</span>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                    isOutsideGeofence
+                      ? "bg-red-100 text-red-700 border-red-300"
+                      : "bg-emerald-100 text-emerald-700 border-emerald-300"
+                  }`}
+                >
+                  {isOutsideGeofence ? "DI LUAR RADIUS" : "LOKASI VALID"}
+                </span>
+              </div>
+              <p className="text-[11px] leading-snug text-slate-700">
+                {isOutsideGeofence ? (
+                  <>
+                    Jarak Anda saat ini <strong className="text-red-700">{Math.round(distanceToOffice!)} meter</strong> dari kantor (batas radius yang diizinkan: <strong>{Math.round(office.radiusMeters)}m</strong>). Presensi kantor wajib dilakukan di area kantor. Jika Anda bekerja dari luar, silakan pilih tab <strong className="text-cyan-800">"WFA / Remote"</strong> atau <strong className="text-purple-800">"Dinas Luar"</strong>.
+                  </>
+                ) : (
+                  <>
+                    Jarak Anda <strong className="text-emerald-700">{Math.round(distanceToOffice!)} meter</strong> dari kantor (dalam batas aman radius {Math.round(office.radiusMeters)}m).
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
           {/* WFA / Remote Additional Inputs */}
           {attendanceType === "WFA" && !stampedPreviewUrl && (
             <div className="rounded-2xl border border-cyan-200 bg-cyan-50/60 p-3 space-y-2 text-xs">
@@ -492,6 +549,8 @@ export default function CameraStreamModal({
                 className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-md transition disabled:opacity-50 ${
                   attendanceType === "CLIENT_VISIT"
                     ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-600/25"
+                    : attendanceType === "OFFICE" && isOutsideGeofence
+                    ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/25"
                     : "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-600/25"
                 }`}
               >
@@ -503,6 +562,8 @@ export default function CameraStreamModal({
                     ? "Menunggu Sinyal GPS..."
                     : attendanceType === "CLIENT_VISIT"
                     ? "Ambil Foto Presensi Kunjungan Klien"
+                    : attendanceType === "OFFICE" && isOutsideGeofence
+                    ? `Di Luar Radius (${Math.round(distanceToOffice || 0)}m) - Beralih ke WFA/Dinas`
                     : "Ambil Foto Presensi (CamStamp)"}
                 </span>
               </button>
