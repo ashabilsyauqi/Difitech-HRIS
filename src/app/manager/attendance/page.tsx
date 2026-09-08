@@ -590,10 +590,12 @@ export default function ManagerAttendanceLogsPage() {
         <PhotoViewerModal
           isOpen={photoViewerOpen}
           onClose={() => setPhotoViewerOpen(false)}
+          attendance={selectedAttendance}
+          viewType={photoViewType}
           photoDataUrl={
             photoViewType === "CLOCK_IN"
               ? selectedAttendance.clockInPhoto
-              : selectedAttendance.clockOutPhoto
+              : (selectedAttendance.clockOutPhoto || selectedAttendance.clockInPhoto)
           }
           userName={selectedAttendance.user?.name}
           timestamp={

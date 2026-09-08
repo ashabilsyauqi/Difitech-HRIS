@@ -31,7 +31,7 @@ interface AttendanceRecord {
 interface PhotoViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  attendance: AttendanceRecord | null;
+  attendance?: AttendanceRecord | any | null;
   viewType?: "CLOCK_IN" | "CLOCK_OUT";
   photoDataUrl?: string;
   userName?: string;
@@ -61,16 +61,17 @@ export default function PhotoViewerModal({
   if (!isOpen) return null;
 
   const isClockIn = viewType === "CLOCK_IN";
-  const photoUrl = photoDataUrl || (attendance ? (isClockIn ? attendance.clockInPhoto : attendance.clockOutPhoto) : null);
+  const photoUrl = photoDataUrl || (attendance ? (isClockIn ? attendance.clockInPhoto : (attendance.clockOutPhoto || attendance.clockInPhoto)) : null);
   const time = timestamp || (attendance ? (isClockIn ? attendance.clockInTime : attendance.clockOutTime) : null);
   const lat = directLat !== undefined ? directLat : (attendance ? (isClockIn ? attendance.clockInLat : attendance.clockOutLat) : null);
   const lng = directLng !== undefined ? directLng : (attendance ? (isClockIn ? attendance.clockInLng : attendance.clockOutLng) : null);
   const address = directAddress || (attendance ? (isClockIn ? attendance.clockInAddress : attendance.clockOutAddress) : null);
   const attType = directType || attendance?.attendanceType || "OFFICE";
   const status = attendance ? (isClockIn ? attendance.clockInStatus : "COMPLETED") : "ON_TIME";
-  const name = userName || attendance?.user?.name || "Karyawan Difitech";
+  const name = userName || attendance?.user?.name || "Karyawan PT Jaya Bersama Digital";
   const email = attendance?.user?.email || "-";
   const dept = attendance?.user?.department || "Operasional";
+  const dateStr = attendance?.date || (time ? new Date(time).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
 
   const handleDownload = () => {
     if (!photoUrl) return;
@@ -95,7 +96,7 @@ export default function PhotoViewerModal({
       case "OUT_OF_GEOFENCE":
         return { label: "Di Luar Geofence Kantor", color: "bg-red-100 text-red-800 border-red-200 font-bold" };
       default:
-        return { label: st, color: "bg-slate-100 text-slate-800 border-slate-200" };
+        return { label: st || "Terverifikasi", color: "bg-slate-100 text-slate-800 border-slate-200" };
     }
   };
 
@@ -115,7 +116,7 @@ export default function PhotoViewerModal({
                 Inspeksi Forensik Foto CamStamp Difitech HRIS
               </h3>
               <p className="text-[11px] text-slate-500">
-                Stempel Terverifikasi: {isClockIn ? "Presensi Masuk" : "Presensi Pulang"} • {attendance.date}
+                Stempel Terverifikasi: {isClockIn ? "Presensi Masuk" : "Presensi Pulang"} • {dateStr}
               </p>
             </div>
           </div>
@@ -130,16 +131,18 @@ export default function PhotoViewerModal({
         {/* Content Body */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-0 overflow-y-auto flex-1">
           {/* Photo Display */}
-          <div className="md:col-span-7 bg-slate-950 flex items-center justify-center p-2 min-h-[300px]">
+          <div className="md:col-span-7 bg-slate-950 flex items-center justify-center p-3 min-h-[320px]">
             {photoUrl ? (
-              <img
-                src={photoUrl}
-                alt="Foto Stempel CamStamp"
-                className="max-h-[460px] w-full object-contain rounded-lg shadow-md"
-              />
+              <div className="relative group max-h-[480px] w-full flex items-center justify-center">
+                <img
+                  src={photoUrl}
+                  alt="Foto Stempel CamStamp"
+                  className="max-h-[460px] w-auto max-w-full object-contain rounded-xl shadow-md border border-slate-800"
+                />
+              </div>
             ) : (
-              <div className="p-8 text-center text-xs text-slate-500">
-                Foto tidak tersedia untuk data ini.
+              <div className="p-8 text-center text-xs text-slate-400">
+                Foto bukti CamStamp belum tersedia untuk catatan ini.
               </div>
             )}
           </div>
@@ -152,10 +155,10 @@ export default function PhotoViewerModal({
                 <span>Identitas Karyawan</span>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-1 shadow-2xs">
-                <p className="font-bold text-slate-900 text-sm">{attendance.user.name}</p>
-                <p className="text-slate-500">{attendance.user.email}</p>
+                <p className="font-bold text-slate-900 text-sm">{name}</p>
+                <p className="text-slate-500">{email}</p>
                 <p className="text-[11px] font-semibold text-slate-700">
-                  Divisi: {attendance.user.department || "Teknologi"}
+                  Divisi: {dept}
                 </p>
               </div>
             </div>
@@ -175,7 +178,7 @@ export default function PhotoViewerModal({
                 <div>
                   <p className="text-[10px] text-slate-400 font-semibold uppercase">Koordinat Terbakar</p>
                   <p className="font-mono text-slate-800 font-bold">
-                    {lat ? lat.toFixed(6) : "--"}, {lng ? lng.toFixed(6) : "--"}
+                    {lat !== null && lat !== undefined ? Number(lat).toFixed(6) : "--"}, {lng !== null && lng !== undefined ? Number(lng).toFixed(6) : "--"}
                   </p>
                 </div>
 
@@ -186,11 +189,11 @@ export default function PhotoViewerModal({
                   </p>
                 </div>
 
-                {isClockIn && attendance.clockInDistance !== undefined && (
+                {isClockIn && attendance?.clockInDistance !== undefined && attendance?.clockInDistance !== null && (
                   <div className="border-t border-slate-100 pt-2 flex justify-between">
-                    <span className="text-slate-500">Jarak dari Titik HQ:</span>
+                    <span className="text-slate-500">Jarak dari Titik Kantor:</span>
                     <span className="font-mono font-bold text-slate-800">
-                      {attendance.clockInDistance ? `${attendance.clockInDistance.toFixed(0)} meter` : "--"}
+                      {typeof attendance.clockInDistance === "number" ? `${attendance.clockInDistance.toFixed(0)} meter` : "--"}
                     </span>
                   </div>
                 )}
@@ -206,10 +209,10 @@ export default function PhotoViewerModal({
                 <div className="flex justify-between">
                   <span className="text-slate-500">Waktu ISO Client:</span>
                   <span className="font-mono font-bold text-slate-900">
-                    {time ? new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + " WIB" : "--:--:--"}
+                    {time ? new Date(time).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + " WIB" : "--:--:--"}
                   </span>
                 </div>
-                {attendance.workDurationMinutes && !isClockIn && (
+                {attendance?.workDurationMinutes && !isClockIn && (
                   <div className="flex justify-between border-t border-slate-100 pt-1">
                     <span className="text-slate-500">Durasi Shift:</span>
                     <span className="font-mono font-bold text-emerald-700">
@@ -220,13 +223,15 @@ export default function PhotoViewerModal({
               </div>
             </div>
 
-            <button
-              onClick={handleDownload}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow-md shadow-red-600/25 hover:bg-red-700 transition"
-            >
-              <Download className="h-4 w-4" />
-              <span>Unduh Foto Bukti</span>
-            </button>
+            {photoUrl && (
+              <button
+                onClick={handleDownload}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow-md shadow-red-600/25 hover:bg-red-700 transition"
+              >
+                <Download className="h-4 w-4" />
+                <span>Unduh Foto Bukti</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
