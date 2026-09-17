@@ -11,6 +11,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Admin or Manager only" }, { status: 403 });
     }
 
+    // Ensure requested divisions exist (Ads, Creative, Operational, Website)
+    const requiredDepts = [
+      { id: "dept_ads", name: "Ads", code: "ADS", description: "Divisi Advertising & Media Buying", color: "#f59e0b" },
+      { id: "dept_creative", name: "Creative", code: "CRTV", description: "Divisi Creative & Content Design", color: "#8b5cf6" },
+      { id: "dept_operational", name: "Operational", code: "OPS", description: "Divisi Operasional & Administrasi", color: "#0ea5e9" },
+      { id: "dept_website", name: "Website", code: "WEB", description: "Divisi Website & Software Engineering", color: "#dc2626" },
+    ];
+
+    for (const rd of requiredDepts) {
+      try {
+        await prisma.department.upsert({
+          where: { name: rd.name },
+          update: {},
+          create: rd,
+        });
+      } catch (e) {}
+    }
+
     const departments = await prisma.department.findMany({
       orderBy: { name: "asc" },
     });

@@ -319,7 +319,7 @@ export default function ManagerTeamTasksPage() {
               <p className="text-2xl font-black text-amber-900 mt-1">
                 {totalAct.toFixed(1)} <span className="text-sm font-semibold">Jam</span>
               </p>
-              <p className="text-[10px] text-amber-600 mt-0.5">Rencana: {totalEst.toFixed(1)} jam</p>
+              <p className="text-[10px] text-amber-600 mt-0.5">Total durasi pengerjaan</p>
             </div>
           </div>
 
@@ -484,14 +484,13 @@ export default function ManagerTeamTasksPage() {
                       <th className="px-5 py-4">Judul & Deskripsi Tugas</th>
                       <th className="px-4 py-4">Status Pengerjaan</th>
                       <th className="px-4 py-4">Ketepatan Waktu</th>
-                      <th className="px-4 py-4">Rencana vs Realisasi</th>
                       <th className="px-4 py-4">Deliverables & Bukti</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredTasks.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-xs text-slate-400">
+                        <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400">
                           <CheckCircle2 className="mx-auto h-8 w-8 text-slate-300 mb-2" />
                           Tidak ada tugas pada filter atau rentang waktu yang dipilih.
                         </td>
@@ -567,16 +566,6 @@ export default function ManagerTeamTasksPage() {
                                 <timeliness.icon className="h-3 w-3 flex-shrink-0" />
                                 <span>{timeliness.label}</span>
                               </span>
-                            </td>
-
-                            {/* Rencana vs Realisasi */}
-                            <td className="px-4 py-4 font-mono text-xs">
-                              <div className="text-slate-500 text-[11px]">
-                                Rencana: <span className="font-bold text-slate-800">{task.estimatedHours || 1}j</span>
-                              </div>
-                              <div className="text-[11px] font-bold text-blue-700 mt-0.5">
-                                Nyata: {actualHours.toFixed(1)}j {task.isTracking ? "⚡ Live" : ""}
-                              </div>
                             </td>
 
                             {/* Deliverables & Bukti */}
@@ -666,7 +655,7 @@ export default function ManagerTeamTasksPage() {
                                   {timeliness.label}
                                 </span>
                                 <span className="font-mono font-bold text-slate-700">
-                                  {(task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0)).toFixed(1)}j / {task.estimatedHours}j
+                                  ⏱️ {(task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0)).toFixed(1)} Jam
                                 </span>
                               </div>
                             </div>
