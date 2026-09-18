@@ -225,9 +225,8 @@ export default function EmployeeTaskHistoryPage() {
 
                           <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 flex-shrink-0">
                             <div className="text-right font-mono text-[11px] text-slate-500">
-                              <span>Est: {task.estimatedHours}j</span> •{" "}
                               <span className="font-bold text-slate-800">
-                                Real: {task.actualHours || (task.trackedSeconds ? (task.trackedSeconds / 3600).toFixed(1) : 0)}j
+                                ⏱️ {task.actualHours || (task.trackedSeconds ? (task.trackedSeconds / 3600).toFixed(1) : 0)} Jam
                               </span>
                             </div>
 
