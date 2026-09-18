@@ -26,19 +26,18 @@ export async function GET(req: NextRequest) {
       `);
     } catch (e) {}
 
-    // 3. Upsert Default Departments
+    // 3. Upsert Default Departments (Ads, Creative, Operational, Website)
     const depts = [
-      { id: "dept_eng", name: "Engineering & Teknologi", code: "ENG", description: "Tim Software Engineering & IT Infrastructure", color: "#dc2626" },
-      { id: "dept_dsn", name: "Kreatif & Desain", code: "DSN", description: "Tim UI/UX, Multimedia & Creative Graphic", color: "#8b5cf6" },
-      { id: "dept_ops", name: "Operasional & Bisnis", code: "OPS", description: "Tim Operasional, Finance & Business Admin", color: "#0ea5e9" },
-      { id: "dept_hrd", name: "Manajemen & HR", code: "HRD", description: "Tim Human Capital, Legal & General Affair", color: "#10b981" },
-      { id: "dept_mkt", name: "Pemasaran & Sales", code: "MKT", description: "Tim Digital Marketing, Growth & Sales Strategy", color: "#f59e0b" },
+      { id: "dept_ads", name: "Ads", code: "ADS", description: "Divisi Advertising & Media Buying", color: "#f59e0b" },
+      { id: "dept_creative", name: "Creative", code: "CRTV", description: "Divisi Creative & Content Design", color: "#8b5cf6" },
+      { id: "dept_operational", name: "Operational", code: "OPS", description: "Divisi Operasional & Administrasi", color: "#0ea5e9" },
+      { id: "dept_website", name: "Website", code: "WEB", description: "Divisi Website & Software Engineering", color: "#dc2626" },
     ];
 
     for (const d of depts) {
       try {
         await prisma.$executeRawUnsafe(
-          `INSERT OR IGNORE INTO Department (id, name, code, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          `INSERT OR REPLACE INTO Department (id, name, code, description, color, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           d.id, d.name, d.code, d.description, d.color
         );
       } catch (e) {}

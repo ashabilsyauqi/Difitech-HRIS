@@ -51,7 +51,7 @@ export default function ManagerEmployeesPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("password123");
   const [role, setRole] = useState("EMPLOYEE");
-  const [department, setDepartment] = useState("Engineering & Teknologi");
+  const [department, setDepartment] = useState("Website");
   const [jobTitle, setJobTitle] = useState("Software Engineer");
   const [employmentStatus, setEmploymentStatus] = useState("FULL_TIME");
   const [bankName, setBankName] = useState("BCA");
@@ -115,7 +115,7 @@ export default function ManagerEmployeesPage() {
     setEmail("");
     setPassword("password123");
     setRole("EMPLOYEE");
-    setDepartment(departments[0]?.name || "Engineering & Teknologi");
+    setDepartment(departments[0]?.name || "Website");
     setJobTitle("Software Engineer");
     setEmploymentStatus("FULL_TIME");
     setBankName("BCA");
@@ -603,7 +603,15 @@ export default function ManagerEmployeesPage() {
                     onChange={(e) => setDepartment(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 font-semibold focus:bg-white focus:border-red-500 focus:outline-none"
                   >
-                    {departments.map((d) => (
+                    {(departments.length > 0
+                      ? departments
+                      : [
+                          { id: "dept_ads", name: "Ads", code: "ADS" },
+                          { id: "dept_creative", name: "Creative", code: "CRTV" },
+                          { id: "dept_operational", name: "Operational", code: "OPS" },
+                          { id: "dept_website", name: "Website", code: "WEB" },
+                        ]
+                    ).map((d) => (
                       <option key={d.id || d.name} value={d.name}>
                         {d.name} {d.code ? `(${d.code})` : ""}
                       </option>
