@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { reverseGeocode } from "@/lib/geofence";
+import { reverseGeocode, getWIBDateString } from "@/lib/geofence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action, photo, latitude, longitude, notes } = body;
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getWIBDateString();
 
     const attendance = await prisma.attendance.findUnique({
       where: {

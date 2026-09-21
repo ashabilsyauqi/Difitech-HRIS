@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateDistanceMeters, reverseGeocode, validateTimestampDrift } from "@/lib/geofence";
+import { calculateDistanceMeters, reverseGeocode, validateTimestampDrift, getWIBDateString, isOfficeClockInLate } from "@/lib/geofence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,9 +59,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const todayStr = getWIBDateString(now);
 
-    // 3. Check if already clocked in today
+    // 3. Check if already clocked in today (WIB date)
     const existing = await prisma.attendance.findUnique({
       where: {
         userId_date: {
@@ -87,22 +88,15 @@ export async function POST(req: NextRequest) {
     let distanceMeters: number | null = null;
 
     // Check flexible Clock In Window dynamically configured by Admin (e.g. 08:00 - 10:00 WIB with grace period)
-    const now = new Date();
     const windowEndStr = office?.flexibleStartWindowEnd || "10:00";
-    const [endHours, endMinutes] = windowEndStr.split(":").map((v) => parseInt(v, 10) || 0);
     const graceMinutes = office?.lateGraceMinutes !== undefined ? office.lateGraceMinutes : 5;
-
-    const shiftDeadline = new Date(now);
-    shiftDeadline.setHours(endHours, endMinutes + graceMinutes, 0, 0);
-
-    const isLate = now.getTime() > shiftDeadline.getTime();
+    const isLate = isOfficeClockInLate(now, windowEndStr, graceMinutes);
     const standardWorkMinutes = Math.round((office?.standardWorkDurationHours || 8.0) * 60);
 
-    if (attendanceType === "CLIENT_VISIT") {
-      clockInStatus = isLate ? "LATE" : "CLIENT_VISIT";
-    } else if (attendanceType === "WFA") {
-      // WFA: Bekerja fleksibel/remote dari mana saja. Bebas dari penalti geofence.
-      clockInStatus = isLate ? "LATE" : "ON_TIME";
+    if (attendanceType === "WFA") {
+      // WFA: Bekerja fleksibel/remote dari mana saja.
+      // Sesuai aturan perusahaan, WFA tidak memiliki jam masuk/pulang kaku dan bisa presensi kapan saja tanpa dihitung telat (selalu ON_TIME).
+      clockInStatus = "ON_TIME";
       if (office) {
         distanceMeters = calculateDistanceMeters(
           latitude,
@@ -111,6 +105,8 @@ export async function POST(req: NextRequest) {
           office.longitude
         );
       }
+    } else if (attendanceType === "CLIENT_VISIT") {
+      clockInStatus = "CLIENT_VISIT";
     } else if (attendanceType === "OFFICE") {
       if (office) {
         distanceMeters = calculateDistanceMeters(

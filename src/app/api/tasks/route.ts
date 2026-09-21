@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getWIBDateString } from "@/lib/date-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Judul tugas wajib diisi" }, { status: 400 });
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getWIBDateString();
 
     // Find today's attendance session to link if available
     const todayAttendance = await prisma.attendance.findUnique({

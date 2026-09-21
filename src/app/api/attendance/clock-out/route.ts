@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateDistanceMeters, reverseGeocode } from "@/lib/geofence";
+import { calculateDistanceMeters, reverseGeocode, getWIBDateString, getWIBTime } from "@/lib/geofence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const todayStr = getWIBDateString(now);
 
     const attendance = await prisma.attendance.findUnique({
       where: {
@@ -55,7 +56,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const now = new Date();
     const durationMinutes = Math.max(
       1,
       Math.round((now.getTime() - new Date(attendance.clockInTime).getTime()) / (1000 * 60))
@@ -86,10 +86,11 @@ export async function POST(req: NextRequest) {
         clockOutStatus = "OUT_OF_GEOFENCE";
       } else {
         const [endHours, endMinutes] = (attendance.office.workEndTime || "17:00").split(":").map(Number);
-        const shiftEnd = new Date(now);
-        shiftEnd.setHours(endHours, endMinutes, 0, 0);
+        const { hours: nowH, minutes: nowM } = getWIBTime(now);
+        const currentMins = nowH * 60 + nowM;
+        const shiftEndMins = endHours * 60 + endMinutes;
 
-        if (now.getTime() < shiftEnd.getTime() - 15 * 60 * 1000) {
+        if (currentMins < shiftEndMins - 15) {
           clockOutStatus = "EARLY_DEPARTURE";
         }
       }

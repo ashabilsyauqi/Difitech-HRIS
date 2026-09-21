@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getWIBDateString } from "@/lib/date-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +16,8 @@ export async function GET(req: NextRequest) {
       where: { id: authUser.userId },
       select: {
         id: true,
-        email: true,
         name: true,
+        email: true,
         role: true,
         department: true,
         jobTitle: true,
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check today's attendance
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getWIBDateString();
     const todayAttendance = await prisma.attendance.findUnique({
       where: {
         userId_date: {

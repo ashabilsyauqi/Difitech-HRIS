@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getFeatureFlags } from "@/lib/feature-flags";
+import { getWIBDateString } from "@/lib/geofence";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Foto tidak boleh kosong" }, { status: 400 });
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getWIBDateString();
 
     const attendance = await prisma.attendance.findUnique({
       where: {
