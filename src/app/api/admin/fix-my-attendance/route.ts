@@ -95,10 +95,10 @@ export async function GET(req: NextRequest) {
         needsUpdate = true;
       }
 
-      // Fix: Specifically for today and yesterday records if marked LATE
+      // Fix: Specifically for today / target record if marked LATE
       const isTargetDate = targetDateParam
         ? att.date === targetDateParam
-        : att.date === "2026-09-21" || att.date === "2026-09-22" || att.id === recentAttendances[0]?.id;
+        : att.id === recentAttendances[0]?.id;
 
       if (isTargetDate && att.clockInStatus === "LATE") {
         updateData.clockInStatus = "ON_TIME";
