@@ -130,8 +130,9 @@ model Task {
   
   estimatedHours    Float        @default(1.0)
   actualHours       Float?
-  deliverableUrl    String?
-  completionNote    String?
+  deliverableUrl        String?
+  deliverableAttachment String?      // Base64 screenshot image or attachment
+  completionNote        String?
   
   // Live Time Tracker
   isTracking        Boolean      @default(false)

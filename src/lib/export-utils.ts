@@ -16,6 +16,40 @@ export interface AttendanceExportRow {
   CompletedTasks: number;
 }
 
+export interface TaskExportRow {
+  "Tanggal": string;
+  "Nama Karyawan": string;
+  "Email": string;
+  "Departemen": string;
+  "Kategori / Brand": string;
+  "Judul Tugas": string;
+  "Deskripsi": string;
+  "Status": string;
+  "Prioritas": string;
+  "Estimasi (Jam)": number;
+  "Waktu Aktual (Jam)": string;
+  "Link Deliverables (Drive)": string;
+  "Bukti Screenshot": string;
+  "Catatan Selesai": string;
+}
+
+/**
+ * Generates and triggers download of Excel (.xlsx) file from tasks dataset
+ */
+export function exportTasksToExcel(data: TaskExportRow[], filename = "Laporan_Tugas_Difitech.xlsx") {
+  if (!data || data.length === 0) return;
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Tugas Tim");
+
+  const colWidths = Object.keys(data[0] || {}).map((key) => ({
+    wch: Math.max(key.length + 4, 18),
+  }));
+  worksheet["!cols"] = colWidths;
+
+  XLSX.writeFile(workbook, filename);
+}
+
 /**
  * Generates and triggers download of Excel (.xlsx) file from attendance dataset
  */

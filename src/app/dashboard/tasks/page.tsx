@@ -11,6 +11,7 @@ import TaskKanbanBoard from "@/components/Tasks/TaskKanbanBoard";
 import TaskFormModal, { TaskItem } from "@/components/Tasks/TaskFormModal";
 import { Plus, CheckSquare, Search, Calendar, History, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getWIBDateString } from "@/lib/date-utils";
 
 export default function EmployeeTasksPage() {
   const router = useRouter();
@@ -18,8 +19,8 @@ export default function EmployeeTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Daily Fresh Sheet Date
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Daily Fresh Sheet Date (WIB)
+  const todayStr = getWIBDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   // Modals
@@ -88,6 +89,10 @@ export default function EmployeeTasksPage() {
             prev.map((t) => (t.id === taskId ? { ...t, ...data.task } : t))
           );
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Gagal mengubah status tugas");
+        await fetchSessionAndTasks();
       }
     } catch (err) {
       console.error("Failed to update status:", err);

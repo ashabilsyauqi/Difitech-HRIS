@@ -240,7 +240,7 @@ export default function ManagerAttendanceLogsPage() {
                 Riwayat & Logbook Presensi Karyawan
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Filter rentang tanggal riwayat kehadiran, inspeksi foto CamStamp GPS, dan audit ketepatan waktu shift tim.
+                Filter rentang tanggal riwayat kehadiran, inspeksi foto CamStamp GPS, dan logbook jam kerja tim.
               </p>
             </div>
 

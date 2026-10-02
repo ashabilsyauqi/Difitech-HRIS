@@ -24,7 +24,12 @@ import {
   FileCheck,
   Building,
   Check,
+  FileSpreadsheet,
+  ImageIcon,
+  X,
 } from "lucide-react";
+import { exportTasksToExcel, TaskExportRow } from "@/lib/export-utils";
+import { getWIBDateString } from "@/lib/date-utils";
 
 export default function ManagerTeamTasksPage() {
   const router = useRouter();
@@ -37,7 +42,7 @@ export default function ManagerTeamTasksPage() {
   const [viewMode, setViewMode] = useState<"TABLE" | "KANBAN">("TABLE");
 
   // Date Range Filters
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getWIBDateString();
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
   const [activePreset, setActivePreset] = useState<"TODAY" | "WEEK" | "MONTH" | "ALL">("TODAY");
@@ -48,6 +53,7 @@ export default function ManagerTeamTasksPage() {
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const applyPreset = (preset: "TODAY" | "WEEK" | "MONTH" | "ALL") => {
     setActivePreset(preset);
@@ -185,53 +191,32 @@ export default function ManagerTeamTasksPage() {
     BLOCKED: { label: "Terkendala (Blocked)", bg: "bg-red-100", text: "text-red-800", icon: AlertCircle },
   };
 
-  const getTimelinessStatus = (task: any) => {
-    const act = task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0);
-    const est = task.estimatedHours || 1;
-
-    if (task.status === "COMPLETED") {
-      if (act <= est) {
-        return {
-          label: "Tepat Waktu",
-          badge: "bg-emerald-50 text-emerald-800 border-emerald-200 font-bold",
-          icon: CheckCircle2,
-        };
-      }
-      return {
-        label: "Melebihi Estimasi (Overdue)",
-        badge: "bg-amber-50 text-amber-800 border-amber-200 font-bold",
-        icon: AlertCircle,
-      };
+  const handleExportExcel = () => {
+    if (filteredTasks.length === 0) {
+      alert("Tidak ada tugas pada filter yang dipilih untuk diekspor.");
+      return;
     }
-
-    if (task.status === "IN_PROGRESS") {
-      if (act > est) {
-        return {
-          label: "Sedang Berjalan (Overdue)",
-          badge: "bg-amber-100 text-amber-900 border-amber-300 font-extrabold animate-pulse",
-          icon: Timer,
-        };
-      }
+    const rows: TaskExportRow[] = filteredTasks.map((t) => {
+      const taskDate = t.attendance?.date || t.targetDate || t.createdAt?.split("T")[0] || "-";
+      const actualHours = t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : 0);
       return {
-        label: "Sedang Berjalan",
-        badge: "bg-blue-50 text-blue-800 border-blue-200 font-bold animate-pulse",
-        icon: PlayCircle,
+        "Tanggal": taskDate,
+        "Nama Karyawan": t.user?.name || "Karyawan",
+        "Email": t.user?.email || "-",
+        "Departemen": t.user?.department || "Umum",
+        "Kategori / Brand": t.category || "Difitech",
+        "Judul Tugas": t.title,
+        "Deskripsi": t.description || "-",
+        "Status": t.status === "COMPLETED" ? "Selesai" : t.status === "IN_PROGRESS" ? "Sedang Berjalan" : t.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
+        "Prioritas": t.priority || "MEDIUM",
+        "Estimasi (Jam)": t.estimatedHours || 1,
+        "Waktu Aktual (Jam)": `${actualHours.toFixed(1)} Jam`,
+        "Link Deliverables (Drive)": t.deliverableUrl || "-",
+        "Bukti Screenshot": t.deliverableAttachment ? "Ada (Screenshot Terlampir)" : "-",
+        "Catatan Selesai": t.completionNote || "-",
       };
-    }
-
-    if (task.status === "BLOCKED") {
-      return {
-        label: "Terkendala",
-        badge: "bg-red-50 text-red-700 border-red-200 font-bold",
-        icon: AlertCircle,
-      };
-    }
-
-    return {
-      label: "Belum Selesai (Backlog)",
-      badge: "bg-slate-100 text-slate-600 border-slate-200",
-      icon: Clock,
-    };
+    });
+    exportTasksToExcel(rows, `Laporan_Tugas_Tim_Difitech_${todayStr}.xlsx`);
   };
 
   const formatSeconds = (totalSec: number) => {
@@ -259,36 +244,48 @@ export default function ManagerTeamTasksPage() {
                 Daftar & Riwayat Tugas Harian Tim
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Pantau riwayat pengerjaan tugas per karyawan, status ketepatan waktu (*on time* / melebihi estimasi), dan link deliverable.
+                Pantau riwayat pengerjaan tugas per karyawan, progres status pengerjaan, dan bukti deliverables hasil kerja tim.
               </p>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 rounded-2xl bg-white border border-slate-200 p-1.5 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Ekspor Excel */}
               <button
                 type="button"
-                onClick={() => setViewMode("TABLE")}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                  viewMode === "TABLE"
-                    ? "bg-red-600 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
+                onClick={handleExportExcel}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99]"
               >
-                <TableIcon className="h-3.5 w-3.5" />
-                <span>Tabel Riwayat</span>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Ekspor Excel (.xlsx)</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("KANBAN")}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                  viewMode === "KANBAN"
-                    ? "bg-red-600 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-                <span>Papan Kanban</span>
-              </button>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 rounded-2xl bg-white border border-slate-200 p-1.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("TABLE")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                    viewMode === "TABLE"
+                      ? "bg-red-600 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <TableIcon className="h-3.5 w-3.5" />
+                  <span>Tabel Riwayat</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("KANBAN")}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                    viewMode === "KANBAN"
+                      ? "bg-red-600 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>Papan Kanban</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -482,9 +479,9 @@ export default function ManagerTeamTasksPage() {
                       <th className="px-5 py-4">Karyawan & Tanggal</th>
                       <th className="px-4 py-4">Brand / Klien</th>
                       <th className="px-5 py-4">Judul & Deskripsi Tugas</th>
+                      <th className="px-4 py-4">Prioritas & Durasi</th>
                       <th className="px-4 py-4">Status Pengerjaan</th>
-                      <th className="px-4 py-4">Ketepatan Waktu</th>
-                      <th className="px-4 py-4">Deliverables & Bukti</th>
+                      <th className="px-4 py-4">Bukti Deliverables</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -497,9 +494,8 @@ export default function ManagerTeamTasksPage() {
                       </tr>
                     ) : (
                       filteredTasks.map((task) => {
-                        const timeliness = getTimelinessStatus(task);
                         const actualHours = task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0);
-                        const taskDate = task.attendance?.date || task.createdAt?.split("T")[0] || "-";
+                        const taskDate = task.attendance?.date || task.targetDate || task.createdAt?.split("T")[0] || "-";
 
                         return (
                           <tr key={task.id} className="hover:bg-slate-50/80 transition">
@@ -537,6 +533,22 @@ export default function ManagerTeamTasksPage() {
                               )}
                             </td>
 
+                            {/* Prioritas & Durasi */}
+                            <td className="px-4 py-4">
+                              <div className="flex flex-col gap-1">
+                                <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold w-fit ${
+                                  task.priority === "URGENT" || task.priority === "HIGH"
+                                    ? "bg-red-50 text-red-700 border border-red-200"
+                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                                }`}>
+                                  {task.priority || "MEDIUM"}
+                                </span>
+                                <span className="font-mono text-[10px] font-bold text-slate-600">
+                                  ⏱️ {actualHours.toFixed(1)} Jam
+                                </span>
+                              </div>
+                            </td>
+
                             {/* Status Pengerjaan */}
                             <td className="px-4 py-4">
                               <span
@@ -560,34 +572,39 @@ export default function ManagerTeamTasksPage() {
                               </span>
                             </td>
 
-                            {/* Ketepatan Waktu */}
-                            <td className="px-4 py-4">
-                              <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] ${timeliness.badge}`}>
-                                <timeliness.icon className="h-3 w-3 flex-shrink-0" />
-                                <span>{timeliness.label}</span>
-                              </span>
-                            </td>
-
                             {/* Deliverables & Bukti */}
                             <td className="px-4 py-4">
-                              {task.deliverableUrl ? (
-                                <a
-                                  href={task.deliverableUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                  <span>Lihat Bukti Kerja</span>
-                                </a>
-                              ) : (
-                                <span className="text-[10px] text-slate-400 italic">Belum ada link</span>
-                              )}
-                              {task.completionNote && (
-                                <div className="text-[10px] text-emerald-800 bg-emerald-50 rounded px-2 py-0.5 border border-emerald-200 mt-1 line-clamp-1">
-                                  {task.completionNote}
-                                </div>
-                              )}
+                              <div className="flex flex-col gap-1.5">
+                                {task.deliverableAttachment && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewImage(task.deliverableAttachment)}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg px-2.5 py-1 transition w-fit cursor-pointer"
+                                  >
+                                    <ImageIcon className="h-3.5 w-3.5 text-blue-600" />
+                                    <span>Lihat Screenshot</span>
+                                  </button>
+                                )}
+                                {task.deliverableUrl && (
+                                  <a
+                                    href={task.deliverableUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline w-fit"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    <span>Link Drive / Dokumen</span>
+                                  </a>
+                                )}
+                                {!task.deliverableAttachment && !task.deliverableUrl && (
+                                  <span className="text-[10px] text-slate-400 italic">Belum ada deliverable</span>
+                                )}
+                                {task.completionNote && (
+                                  <div className="text-[10px] text-emerald-800 bg-emerald-50 rounded px-2 py-0.5 border border-emerald-200 mt-0.5 line-clamp-1">
+                                    {task.completionNote}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -629,7 +646,7 @@ export default function ManagerTeamTasksPage() {
                         </div>
                       ) : (
                         columnTasks.map((task) => {
-                          const timeliness = getTimelinessStatus(task);
+                          const actualHours = task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0);
                           return (
                             <div
                               key={task.id}
@@ -650,12 +667,45 @@ export default function ManagerTeamTasksPage() {
                                 </p>
                               )}
 
-                              <div className="pt-1 flex items-center justify-between text-[10px]">
-                                <span className={`rounded-full border px-2 py-0.5 ${timeliness.badge}`}>
-                                  {timeliness.label}
+                              {/* Deliverables / Proof if any */}
+                              {(task.deliverableAttachment || task.deliverableUrl) && (
+                                <div className="pt-1 flex flex-wrap gap-1.5 items-center">
+                                  {task.deliverableAttachment && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewImage(task.deliverableAttachment)}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded px-2 py-0.5 border border-slate-200 cursor-pointer"
+                                    >
+                                      <ImageIcon className="h-3 w-3 text-blue-600" />
+                                      SS Bukti
+                                    </button>
+                                  )}
+                                  {task.deliverableUrl && (
+                                    <a
+                                      href={task.deliverableUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-0.5 border border-blue-200"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Drive Link
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="pt-1 flex items-center justify-between text-[10px] border-t border-slate-100">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 font-bold ${
+                                    task.priority === "URGENT" || task.priority === "HIGH"
+                                      ? "bg-red-50 text-red-700 border border-red-200"
+                                      : "bg-slate-100 text-slate-700 border border-slate-200"
+                                  }`}
+                                >
+                                  {task.priority || "MEDIUM"}
                                 </span>
                                 <span className="font-mono font-bold text-slate-700">
-                                  ⏱️ {(task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0)).toFixed(1)} Jam
+                                  ⏱️ {actualHours.toFixed(1)} Jam
                                 </span>
                               </div>
                             </div>
@@ -670,6 +720,41 @@ export default function ManagerTeamTasksPage() {
           )}
         </main>
       </div>
+
+      {/* Screenshot Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl p-2 shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-blue-600" />
+                Bukti Deliverable Task
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-2 overflow-auto max-h-[calc(90vh-60px)] flex items-center justify-center bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage}
+                alt="Deliverable Screenshot"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

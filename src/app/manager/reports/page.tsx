@@ -12,13 +12,14 @@ import {
   FileText,
   Download,
 } from "lucide-react";
-import { exportAttendanceToExcel, exportAttendanceToPdf } from "@/lib/export-utils";
+import { exportAttendanceToExcel, exportAttendanceToPdf, exportTasksToExcel, TaskExportRow } from "@/lib/export-utils";
 
 export default function ManagerReportsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [attendances, setAttendances] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExportingTasks, setIsExportingTasks] = useState(false);
 
   // Filters
   const [selectedDept, setSelectedDept] = useState("ALL");
@@ -102,6 +103,56 @@ export default function ManagerReportsPage() {
     });
   };
 
+  const handleDownloadTasksExcel = async () => {
+    try {
+      setIsExportingTasks(true);
+      let url = "/api/tasks?";
+      if (selectedDate) {
+        url += `date=${selectedDate}&`;
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Gagal mengambil data tugas");
+      const data = await res.json();
+      let tasksList = data.tasks || [];
+
+      if (selectedDept !== "ALL") {
+        tasksList = tasksList.filter((t: any) => t.user?.department === selectedDept);
+      }
+
+      if (tasksList.length === 0) {
+        alert("Tidak ada data tugas yang sesuai dengan filter.");
+        return;
+      }
+
+      const rows: TaskExportRow[] = tasksList.map((task: any) => {
+        const actualHours = (task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0)).toFixed(1);
+        return {
+          "Tanggal": task.targetDate || task.createdAt?.split("T")[0] || "-",
+          "Nama Karyawan": task.user?.name || "Karyawan",
+          "Email": task.user?.email || "-",
+          "Departemen": task.user?.department || "Umum",
+          "Kategori / Brand": task.category || "Difitech",
+          "Judul Tugas": task.title || "-",
+          "Deskripsi": task.description || "-",
+          "Status": task.status === "COMPLETED" ? "Selesai" : task.status === "IN_PROGRESS" ? "Sedang Berjalan" : task.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
+          "Prioritas": task.priority || "MEDIUM",
+          "Estimasi (Jam)": task.estimatedHours || 0,
+          "Waktu Aktual (Jam)": actualHours,
+          "Link Deliverables (Drive)": task.deliverableUrl || "-",
+          "Bukti Screenshot": task.deliverableAttachment ? "Terlampir (Screenshot)" : "-",
+          "Catatan Selesai": task.completionNote || "-",
+        };
+      });
+
+      exportTasksToExcel(rows, `Laporan_Tugas_Tim_Difitech_${selectedDate || "Semua"}.xlsx`);
+    } catch (err) {
+      console.error("Export tasks error:", err);
+      alert("Terjadi kesalahan saat mengunduh laporan tugas tim.");
+    } finally {
+      setIsExportingTasks(false);
+    }
+  };
+
   const departments = ["ALL", "Engineering & Teknologi", "Produk & Desain", "Quality Assurance", "Pemasaran & Growth", "Human Capital & People"];
 
   return (
@@ -120,17 +171,17 @@ export default function ManagerReportsPage() {
                 <span>Pusat Unduh & Rekapitulasi Difitech HRIS</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                Ekspor Laporan Presensi & Payroll
+                Ekspor Laporan Presensi & Tugas Karyawan
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Unduh rekap data absensi terverifikasi CamStamp dan rasio tugas tim ke format Excel atau dokumen PDF resmi.
+                Unduh rekap presensi terverifikasi, jam kerja riil, deliverables link/screenshot, dan status tugas tim ke Excel & PDF.
               </p>
             </div>
           </div>
 
           {/* Export Action Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Excel Card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Excel Attendance Card */}
             <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/50 via-white to-emerald-50/20 p-6 shadow-xs flex flex-col justify-between space-y-4">
               <div>
                 <div className="flex items-center justify-between">
@@ -138,21 +189,48 @@ export default function ManagerReportsPage() {
                     <FileSpreadsheet className="h-6 w-6" />
                   </div>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                    Format .XLSX
+                    Presensi .XLSX
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mt-4">Ekspor Excel Presensi & Payroll</h3>
+                <h3 className="text-base font-bold text-slate-900 mt-4">Ekspor Excel Presensi & Jam Kerja</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Menghasilkan buku kerja Microsoft Excel yang memuat jam masuk, stempel kepatuhan geofence kantor, dan total jam kerja.
+                  Buku kerja Microsoft Excel dengan stempel jam masuk, GPS kantor, dan total durasi kerja.
                 </p>
               </div>
 
               <button
                 onClick={handleDownloadExcel}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition"
+                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition cursor-pointer"
               >
                 <Download className="h-4 w-4" />
-                <span>Unduh Excel ({exportRows.length} Baris Data)</span>
+                <span>Unduh Presensi ({exportRows.length})</span>
+              </button>
+            </div>
+
+            {/* Excel Tasks Card */}
+            <div className="rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50/50 via-white to-purple-50/20 p-6 shadow-xs flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-700 border border-purple-200">
+                    <FileSpreadsheet className="h-6 w-6" />
+                  </div>
+                  <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-800">
+                    Tugas .XLSX
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mt-4">Ekspor Excel Laporan Tugas Tim</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Laporan rekap pengerjaan tugas, waktu aktual pengerjaan, link Google Drive, dan bukti deliverable.
+                </p>
+              </div>
+
+              <button
+                onClick={handleDownloadTasksExcel}
+                disabled={isExportingTasks}
+                className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-xs font-bold text-white shadow-md shadow-purple-600/25 hover:bg-purple-700 transition cursor-pointer disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                <span>{isExportingTasks ? "Mengunduh..." : "Unduh Rekap Tugas (.xlsx)"}</span>
               </button>
             </div>
 
@@ -167,15 +245,15 @@ export default function ManagerReportsPage() {
                     Dokumen .PDF
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mt-4">Ringkasan Resmi Dokumen PDF</h3>
+                <h3 className="text-base font-bold text-slate-900 mt-4">Ringkasan Resmi Dokumen PDF</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Membuat laporan PDF lanskap rapi untuk kebutuhan arsip kepatuhan HR dan laporan manajerial bulanan Difitech HRIS.
+                  Laporan PDF lanskap rapi untuk arsip kepatuhan HR dan laporan manajerial bulanan Difitech.
                 </p>
               </div>
 
               <button
                 onClick={handleDownloadPdf}
-                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-600/25 hover:bg-blue-700 transition"
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-600/25 hover:bg-blue-700 transition cursor-pointer"
               >
                 <Download className="h-4 w-4" />
                 <span>Unduh Ringkasan PDF</span>

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getWIBDateString } from "@/lib/date-utils";
 
 export async function PATCH(
   req: NextRequest,
@@ -43,7 +44,9 @@ export async function PATCH(
       "estimatedHours",
       "actualHours",
       "deliverableUrl",
+      "deliverableAttachment",
       "completionNote",
+      "targetDate",
       "orderIndex",
       "isTracking",
       "trackedSeconds",
@@ -58,6 +61,30 @@ export async function PATCH(
     }
 
     const now = new Date();
+
+    // Validasi Wajib Deliverables jika status diubah menjadi COMPLETED
+    if (updateData.status === "COMPLETED") {
+      const finalDeliverableUrl = (updateData.deliverableUrl !== undefined ? updateData.deliverableUrl : existingTask.deliverableUrl) as string | null;
+      const finalDeliverableAttachment = (updateData.deliverableAttachment !== undefined ? updateData.deliverableAttachment : (existingTask as any).deliverableAttachment) as string | null;
+
+      const hasDeliverable = Boolean(
+        (finalDeliverableUrl && String(finalDeliverableUrl).trim()) ||
+        (finalDeliverableAttachment && String(finalDeliverableAttachment).trim())
+      );
+
+      if (!hasDeliverable) {
+        return NextResponse.json(
+          { error: "Bukti deliverable (Screenshot hasil kerja atau Link Google Drive) wajib diisi untuk menyelesaikan tugas." },
+          { status: 400 }
+        );
+      }
+
+      // Jika tugas berasal dari rollover hari sebelumnya, tetapkan targetDate ke hari ini saat diselesaikan
+      const todayStr = getWIBDateString(now);
+      if (!updateData.targetDate && existingTask.targetDate && existingTask.targetDate < todayStr) {
+        updateData.targetDate = todayStr;
+      }
+    }
 
     // Auto-stop time tracking if task status changed to COMPLETED or any status other than IN_PROGRESS
     if (updateData.status === "COMPLETED" || (updateData.status && updateData.status !== "IN_PROGRESS")) {

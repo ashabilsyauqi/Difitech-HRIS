@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, PlusCircle, CheckCircle2, Clock, Link as LinkIcon, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, PlusCircle, CheckCircle2, Clock, Link as LinkIcon, AlertCircle, Image as ImageIcon, Trash2, Upload } from "lucide-react";
 
 export interface TaskItem {
   id?: string;
@@ -13,6 +13,7 @@ export interface TaskItem {
   estimatedHours: number;
   actualHours?: number | null;
   deliverableUrl?: string | null;
+  deliverableAttachment?: string | null;
   completionNote?: string | null;
 }
 
@@ -37,9 +38,11 @@ export default function TaskFormModal({
   const [estimatedHours, setEstimatedHours] = useState(2.0);
   const [actualHours, setActualHours] = useState<number | undefined>(undefined);
   const [deliverableUrl, setDeliverableUrl] = useState("");
+  const [deliverableAttachment, setDeliverableAttachment] = useState<string>("");
   const [completionNote, setCompletionNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -51,6 +54,7 @@ export default function TaskFormModal({
       setEstimatedHours(initialData.estimatedHours || 1.0);
       setActualHours(initialData.actualHours || undefined);
       setDeliverableUrl(initialData.deliverableUrl || "");
+      setDeliverableAttachment(initialData.deliverableAttachment || "");
       setCompletionNote(initialData.completionNote || "");
     } else {
       setTitle("");
@@ -61,10 +65,55 @@ export default function TaskFormModal({
       setEstimatedHours(2.0);
       setActualHours(undefined);
       setDeliverableUrl("");
+      setDeliverableAttachment("");
       setCompletionNote("");
     }
     setErrorMsg(null);
   }, [initialData, isOpen]);
+
+  // Handle clipboard paste for screenshots anywhere in the modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (event.target?.result) {
+                setDeliverableAttachment(event.target.result as string);
+              }
+            };
+            reader.readAsDataURL(blob);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [isOpen]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("File harus berupa format gambar (PNG, JPG, WEBP)");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setDeliverableAttachment(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen) return null;
 
@@ -73,6 +122,13 @@ export default function TaskFormModal({
     if (!title.trim()) {
       setErrorMsg("Judul tugas wajib diisi");
       return;
+    }
+
+    if (status === "COMPLETED") {
+      if (!deliverableUrl.trim() && !deliverableAttachment) {
+        setErrorMsg("Deliverables wajib diisi saat status selesai! Lampirkan Link Google Drive ATAU Unggah/Paste Screenshot bukti.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -88,6 +144,7 @@ export default function TaskFormModal({
         estimatedHours: Number(estimatedHours) || 1.0,
         actualHours: actualHours ? Number(actualHours) : null,
         deliverableUrl: deliverableUrl.trim() || null,
+        deliverableAttachment: deliverableAttachment || null,
         completionNote: completionNote.trim() || null,
       });
       onClose();
@@ -205,16 +262,28 @@ export default function TaskFormModal({
 
           {/* Bukti Deliverable */}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
-            <div className="text-xs font-bold text-slate-800">Bukti Hasil Kerja (Deliverables)</div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                Bukti Hasil Kerja (Deliverables)
+                {status === "COMPLETED" && <span className="text-red-500 font-bold">*</span>}
+              </span>
+              {status === "COMPLETED" && (
+                <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">
+                  Wajib Diisi (Link Drive / SS)
+                </span>
+              )}
+            </div>
+
+            {/* Option A: Link Drive / Dokumen */}
             <div>
               <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                Link PR / Dokumen / Figma / Jira:
+                1. Link Google Drive / Figma / GitHub / Dokumen:
               </label>
               <div className="relative">
                 <LinkIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="url"
-                  placeholder="https://github.com/... atau https://figma.com/..."
+                  placeholder="https://drive.google.com/... atau https://github.com/..."
                   value={deliverableUrl}
                   onChange={(e) => setDeliverableUrl(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 focus:border-red-500 focus:outline-none"
@@ -222,7 +291,60 @@ export default function TaskFormModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Option B: Screenshot / Image File */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                2. Screenshot Bukti Kerja (Unggah atau Tekan Ctrl+V / Cmd+V untuk Paste Langsung):
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {deliverableAttachment ? (
+                <div className="relative rounded-lg border border-slate-200 bg-white p-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={deliverableAttachment}
+                      alt="Deliverable"
+                      className="h-12 w-12 rounded object-cover border border-slate-200 flex-shrink-0"
+                    />
+                    <div className="text-[11px] text-slate-700 truncate">
+                      <span className="font-bold text-emerald-600">✓ Screenshot terlampir</span>
+                      <p className="text-[10px] text-slate-400">Siap disimpan sebagai bukti hasil</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliverableAttachment("");
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded px-2 py-1 transition cursor-pointer flex-shrink-0"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Hapus</span>
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-pointer border-2 border-dashed border-slate-300 hover:border-red-400 bg-white rounded-lg p-3 text-center transition flex flex-col items-center justify-center gap-1 group"
+                >
+                  <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-red-600">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-xs font-semibold">Klik untuk pilih gambar, atau Paste (Ctrl+V)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Mendukung PNG, JPG, JPEG, WEBP langsung dari clipboard</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">
                   Waktu Aktual Terpakai (Jam):

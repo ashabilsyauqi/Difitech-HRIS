@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
         },
       ];
     } else if (date) {
+      // Tugas pada tanggal terpilih ATAU tugas yang belum selesai dari hari-hari sebelumnya (Rollover / Carryover)
       whereClause.OR = [
         {
           targetDate: date,
@@ -70,6 +71,23 @@ export async function GET(req: NextRequest) {
                 gte: new Date(date + "T00:00:00.000Z"),
                 lte: new Date(date + "T23:59:59.999Z"),
               },
+            },
+          ],
+        },
+        // Task belum selesai (nyangkut) otomatis terbawa ke hari ini
+        {
+          AND: [
+            { status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
+            {
+              OR: [
+                { targetDate: { lt: date } },
+                {
+                  AND: [
+                    { targetDate: null },
+                    { createdAt: { lt: new Date(date + "T00:00:00.000Z") } },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -161,6 +179,9 @@ export async function POST(req: NextRequest) {
         priority: priority || "MEDIUM",
         status: "PENDING",
         estimatedHours: typeof estimatedHours === "number" ? estimatedHours : 1.0,
+        deliverableUrl: body.deliverableUrl || null,
+        deliverableAttachment: body.deliverableAttachment || null,
+        completionNote: body.completionNote || null,
         orderIndex: count,
       },
       include: {

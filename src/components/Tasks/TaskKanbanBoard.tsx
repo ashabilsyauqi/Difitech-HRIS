@@ -13,8 +13,11 @@ import {
   PauseCircle,
   Sparkles,
   Timer,
+  ImageIcon,
+  X,
 } from "lucide-react";
 import { TaskItem } from "./TaskFormModal";
+import { getWIBDateString } from "@/lib/date-utils";
 
 interface TaskKanbanBoardProps {
   tasks: TaskItem[];
@@ -74,6 +77,8 @@ export default function TaskKanbanBoard({
 }: TaskKanbanBoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const todayStr = getWIBDateString();
 
   // Sync initial tracked seconds based on database state & elapsed time if actively tracking
   useEffect(() => {
@@ -188,6 +193,17 @@ export default function TaskKanbanBoard({
 
   const handleStatusChangeInternal = async (taskId: string, targetStatus: TaskItem["status"]) => {
     const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Check deliverable validation when completing task
+    if (targetStatus === "COMPLETED") {
+      if (!task.deliverableUrl && !task.deliverableAttachment) {
+        alert("⚠️ Deliverables wajib diisi sebelum tugas ditandai Selesai! Silakan isi link Google Drive atau lampirkan Screenshot hasil kerja.");
+        onEditTask(task);
+        return;
+      }
+    }
+
     const currentSeconds = activeTimers[taskId] || (task as any)?.trackedSeconds || 0;
 
     // If moving away from IN_PROGRESS or into COMPLETED, stop tracking immediately
@@ -316,9 +332,17 @@ export default function TaskKanbanBoard({
                       >
                         {/* Top Badges */}
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            {task.category}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                              {task.category}
+                            </span>
+                            {/* Rolled over task indicator */}
+                            {(task as any).targetDate && (task as any).targetDate < todayStr && !isCompleted && (
+                              <span className="rounded bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 text-[9px] font-bold">
+                                📌 Lanjutan
+                              </span>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-1.5">
                             <span
@@ -417,18 +441,30 @@ export default function TaskKanbanBoard({
                           )}
                         </div>
 
-                        {/* Deliverable Proof of work link */}
-                        {task.deliverableUrl && (
-                          <div className="mt-2 flex items-center gap-1.5">
-                            <a
-                              href={task.deliverableUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded bg-blue-50 border border-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-100 transition truncate max-w-full"
-                            >
-                              <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
-                              <span className="truncate">Bukti Hasil Kerja</span>
-                            </a>
+                        {/* Deliverable Proof of work link & screenshot */}
+                        {(task.deliverableUrl || task.deliverableAttachment) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {task.deliverableAttachment && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage(task.deliverableAttachment!)}
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                              >
+                                <ImageIcon className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                <span>Lihat SS</span>
+                              </button>
+                            )}
+                            {task.deliverableUrl && (
+                              <a
+                                href={task.deliverableUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-600 hover:bg-blue-100 transition truncate max-w-[140px]"
+                              >
+                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">Link Drive</span>
+                              </a>
+                            )}
                           </div>
                         )}
 
@@ -475,6 +511,41 @@ export default function TaskKanbanBoard({
           );
         })}
       </div>
+
+      {/* Screenshot Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl p-2 shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-blue-600" />
+                Bukti Deliverable Task
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-2 overflow-auto max-h-[calc(90vh-60px)] flex items-center justify-center bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage}
+                alt="Deliverable Screenshot"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
