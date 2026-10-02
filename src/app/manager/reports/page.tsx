@@ -18,11 +18,13 @@ export default function ManagerReportsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [attendances, setAttendances] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExportingTasks, setIsExportingTasks] = useState(false);
 
   // Filters
   const [selectedDept, setSelectedDept] = useState("ALL");
+  const [selectedEmployee, setSelectedEmployee] = useState("ALL");
   const [selectedDate, setSelectedDate] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -39,6 +41,13 @@ export default function ManagerReportsPage() {
         return;
       }
       setUser(authData.user);
+
+      // Fetch employees for employee filter
+      const empRes = await fetch("/api/manager/employees");
+      if (empRes.ok) {
+        const empData = await empRes.json();
+        setUsersList(empData.employees || []);
+      }
 
       let queryUrl = "/api/manager/attendance?";
       if (selectedDate) queryUrl += `date=${selectedDate}&`;
@@ -119,6 +128,12 @@ export default function ManagerReportsPage() {
         tasksList = tasksList.filter((t: any) => t.user?.department === selectedDept);
       }
 
+      if (selectedEmployee !== "ALL") {
+        tasksList = tasksList.filter(
+          (t: any) => t.userId === selectedEmployee || t.user?.id === selectedEmployee
+        );
+      }
+
       if (tasksList.length === 0) {
         alert("Tidak ada data tugas yang sesuai dengan filter.");
         return;
@@ -144,7 +159,16 @@ export default function ManagerReportsPage() {
         };
       });
 
-      exportTasksToExcel(rows, `Laporan_Tugas_Tim_Difitech_${selectedDate || "Semua"}.xlsx`);
+      let filename = `Laporan_Tugas_SEMUA_KARYAWAN_Difitech_${selectedDate || "Semua"}.xlsx`;
+      let isSingleEmployee = false;
+      if (selectedEmployee !== "ALL") {
+        const empObj = usersList.find((u) => u.id === selectedEmployee);
+        const empName = (empObj?.name || "Karyawan").replace(/\s+/g, "_");
+        filename = `Laporan_Tugas_${empName}_${selectedDate || "Semua"}.xlsx`;
+        isSingleEmployee = true;
+      }
+
+      exportTasksToExcel(rows, filename, !isSingleEmployee);
     } catch (err) {
       console.error("Export tasks error:", err);
       alert("Terjadi kesalahan saat mengunduh laporan tugas tim.");
@@ -230,7 +254,13 @@ export default function ManagerReportsPage() {
                 className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-xs font-bold text-white shadow-md shadow-purple-600/25 hover:bg-purple-700 transition cursor-pointer disabled:opacity-60"
               >
                 <Download className="h-4 w-4" />
-                <span>{isExportingTasks ? "Mengunduh..." : "Unduh Rekap Tugas (.xlsx)"}</span>
+                <span>
+                  {isExportingTasks
+                    ? "Mengunduh..."
+                    : selectedEmployee !== "ALL"
+                    ? `Unduh: ${usersList.find((u) => u.id === selectedEmployee)?.name || "Karyawan"}`
+                    : "Unduh Semua Karyawan (ALL)"}
+                </span>
               </button>
             </div>
 
@@ -282,6 +312,19 @@ export default function ManagerReportsPage() {
                   {departments.map((d) => (
                     <option key={d} value={d}>
                       {d === "ALL" ? "Semua Departemen" : d}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedEmployee}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none"
+                >
+                  <option value="ALL">Semua Karyawan ({usersList.length})</option>
+                  {usersList.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
                     </option>
                   ))}
                 </select>

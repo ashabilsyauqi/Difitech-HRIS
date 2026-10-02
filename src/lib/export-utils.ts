@@ -34,18 +34,48 @@ export interface TaskExportRow {
 }
 
 /**
- * Generates and triggers download of Excel (.xlsx) file from tasks dataset
+ * Generates and triggers download of Excel (.xlsx) file from tasks dataset.
+ * Supports exporting single employee (single sheet) or all employees (master sheet + separate sheet per employee).
  */
-export function exportTasksToExcel(data: TaskExportRow[], filename = "Laporan_Tugas_Difitech.xlsx") {
+export function exportTasksToExcel(
+  data: TaskExportRow[],
+  filename = "Laporan_Tugas_Difitech.xlsx",
+  groupedByEmployee: boolean = true
+) {
   if (!data || data.length === 0) return;
-  const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Tugas Tim");
 
   const colWidths = Object.keys(data[0] || {}).map((key) => ({
     wch: Math.max(key.length + 4, 18),
   }));
-  worksheet["!cols"] = colWidths;
+
+  // Identify unique employees
+  const employeeNames = Array.from(new Set(data.map((r) => r["Nama Karyawan"] || "Karyawan")));
+
+  if (employeeNames.length === 1) {
+    // Single employee export: 1 sheet named with employee's name
+    const empName = (employeeNames[0] || "Karyawan").replace(/[:\\/?*\[\]]/g, "").slice(0, 31);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet["!cols"] = colWidths;
+    XLSX.utils.book_append_sheet(workbook, worksheet, `Tugas ${empName}`);
+  } else {
+    // Multiple employees (ALL) export:
+    // 1. Master sheet with all tasks
+    const masterWorksheet = XLSX.utils.json_to_sheet(data);
+    masterWorksheet["!cols"] = colWidths;
+    XLSX.utils.book_append_sheet(workbook, masterWorksheet, "Semua Karyawan (ALL)");
+
+    // 2. Individual sheet per employee
+    if (groupedByEmployee) {
+      for (const empName of employeeNames) {
+        const empRows = data.filter((r) => r["Nama Karyawan"] === empName);
+        const sanitizedName = (empName || "Lainnya").replace(/[:\\/?*\[\]]/g, "").slice(0, 31);
+        const empWorksheet = XLSX.utils.json_to_sheet(empRows);
+        empWorksheet["!cols"] = colWidths;
+        XLSX.utils.book_append_sheet(workbook, empWorksheet, sanitizedName);
+      }
+    }
+  }
 
   XLSX.writeFile(workbook, filename);
 }

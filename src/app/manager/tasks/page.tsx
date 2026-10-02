@@ -25,6 +25,7 @@ import {
   Building,
   Check,
   FileSpreadsheet,
+  Download,
   ImageIcon,
   X,
 } from "lucide-react";
@@ -191,12 +192,11 @@ export default function ManagerTeamTasksPage() {
     BLOCKED: { label: "Terkendala (Blocked)", bg: "bg-red-100", text: "text-red-800", icon: AlertCircle },
   };
 
-  const handleExportExcel = () => {
-    if (filteredTasks.length === 0) {
-      alert("Tidak ada tugas pada filter yang dipilih untuk diekspor.");
-      return;
-    }
-    const rows: TaskExportRow[] = filteredTasks.map((t) => {
+  const selectedUserObj = usersList.find((u) => u.id === selectedUser);
+  const selectedUserName = selectedUserObj?.name || "";
+
+  const mapTasksToExportRows = (taskList: any[]): TaskExportRow[] => {
+    return taskList.map((t) => {
       const taskDate = t.attendance?.date || t.targetDate || t.createdAt?.split("T")[0] || "-";
       const actualHours = t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : 0);
       return {
@@ -216,7 +216,69 @@ export default function ManagerTeamTasksPage() {
         "Catatan Selesai": t.completionNote || "-",
       };
     });
-    exportTasksToExcel(rows, `Laporan_Tugas_Tim_Difitech_${todayStr}.xlsx`);
+  };
+
+  // Export ALL employees (1 Excel file with Master Sheet + separate sheets per employee)
+  const handleExportAllEmployees = () => {
+    let allEmployeeTasks = tasks.filter((t) => {
+      let matchesDate = true;
+      const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+      if (startDate && endDate) {
+        matchesDate = taskDate >= startDate && taskDate <= endDate;
+      } else if (startDate) {
+        matchesDate = taskDate >= startDate;
+      } else if (endDate) {
+        matchesDate = taskDate <= endDate;
+      }
+      return matchesDate;
+    });
+
+    if (allEmployeeTasks.length === 0) {
+      alert("Tidak ada tugas pada rentang waktu ini untuk diekspor.");
+      return;
+    }
+
+    const rows = mapTasksToExportRows(allEmployeeTasks);
+    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
+    exportTasksToExcel(rows, `Laporan_Tugas_SEMUA_KARYAWAN_Difitech_${dateLabel}.xlsx`, true);
+  };
+
+  // Export specific employee
+  const handleExportSingleEmployee = (empId?: string, empName?: string) => {
+    const targetUserId = empId || selectedUser;
+    if (!targetUserId || targetUserId === "ALL") {
+      alert("Silakan pilih salah satu karyawan di filter 'Pilih Karyawan' terlebih dahulu, atau klik tombol 'Ekspor Semua Karyawan (ALL)'.");
+      return;
+    }
+
+    const empObj = usersList.find((u) => u.id === targetUserId);
+    const targetName = empName || empObj?.name || selectedUserName || "Karyawan";
+
+    const employeeTasks = tasks.filter((t) => {
+      const isTargetUser = t.userId === targetUserId || t.user?.id === targetUserId || t.user?.email === targetUserId;
+      if (!isTargetUser) return false;
+
+      let matchesDate = true;
+      const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+      if (startDate && endDate) {
+        matchesDate = taskDate >= startDate && taskDate <= endDate;
+      } else if (startDate) {
+        matchesDate = taskDate >= startDate;
+      } else if (endDate) {
+        matchesDate = taskDate <= endDate;
+      }
+      return matchesDate;
+    });
+
+    if (employeeTasks.length === 0) {
+      alert(`Tidak ada tugas untuk ${targetName} pada rentang waktu ini.`);
+      return;
+    }
+
+    const rows = mapTasksToExportRows(employeeTasks);
+    const cleanName = targetName.replace(/\s+/g, "_");
+    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
+    exportTasksToExcel(rows, `Laporan_Tugas_${cleanName}_${dateLabel}.xlsx`, false);
   };
 
   const formatSeconds = (totalSec: number) => {
@@ -249,14 +311,32 @@ export default function ManagerTeamTasksPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Ekspor Excel */}
+              {/* Ekspor Semua Karyawan (ALL) */}
               <button
                 type="button"
-                onClick={handleExportExcel}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99]"
+                onClick={handleExportAllEmployees}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99] cursor-pointer"
+                title="Ekspor seluruh karyawan ke 1 file Excel (Master Sheet + Sheet per Karyawan)"
               >
                 <FileSpreadsheet className="h-4 w-4" />
-                <span>Ekspor Excel (.xlsx)</span>
+                <span>Ekspor Semua Karyawan (ALL)</span>
+              </button>
+
+              {/* Ekspor Per Karyawan */}
+              <button
+                type="button"
+                onClick={() => handleExportSingleEmployee()}
+                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition active:scale-[0.99] cursor-pointer ${
+                  selectedUser !== "ALL"
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/20 hover:bg-blue-700"
+                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
+                }`}
+                title={selectedUser !== "ALL" ? `Ekspor khusus tugas ${selectedUserName}` : "Pilih karyawan di filter untuk ekspor individu"}
+              >
+                <Download className="h-4 w-4" />
+                <span>
+                  {selectedUser !== "ALL" ? `Ekspor: ${selectedUserName}` : "Ekspor Per Karyawan"}
+                </span>
               </button>
 
               {/* View Mode Toggle */}
@@ -508,8 +588,18 @@ export default function ManagerTeamTasksPage() {
                                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex-shrink-0">
                                   {task.user?.name?.charAt(0) || "U"}
                                 </div>
-                                <div>
-                                  <div className="font-bold text-slate-900 text-xs">{task.user?.name || "Karyawan"}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                    <span className="truncate">{task.user?.name || "Karyawan"}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExportSingleEmployee(task.userId || task.user?.id, task.user?.name)}
+                                      className="text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 p-1 rounded-md transition cursor-pointer"
+                                      title={`Ekspor Laporan Tugas Khusus ${task.user?.name || "Karyawan"} (.xlsx)`}
+                                    >
+                                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                                    </button>
+                                  </div>
                                   <div className="text-[10px] text-slate-400">{task.user?.department || "Umum"}</div>
                                 </div>
                               </div>
