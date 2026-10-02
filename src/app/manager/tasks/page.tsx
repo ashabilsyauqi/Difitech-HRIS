@@ -179,10 +179,7 @@ export default function ManagerTeamTasksPage() {
   const totalTasksCount = filteredTasks.length;
   const inProgressCount = filteredTasks.filter((t) => t.status === "IN_PROGRESS").length;
   const completedCount = filteredTasks.filter((t) => t.status === "COMPLETED").length;
-  const totalAct = filteredTasks.reduce(
-    (acc, t) => acc + (t.actualHours || (t.trackedSeconds ? t.trackedSeconds / 3600 : 0)),
-    0
-  );
+  const pendingCount = filteredTasks.filter((t) => t.status === "PENDING" || !t.status).length;
 
   const columnConfig: Record<string, { label: string; bg: string; text: string; icon: any }> = {
     PENDING: { label: "Belum Dikerjakan", bg: "bg-slate-100", text: "text-slate-700", icon: Clock },
@@ -197,7 +194,6 @@ export default function ManagerTeamTasksPage() {
   const mapTasksToExportRows = (taskList: any[]): TaskExportRow[] => {
     return taskList.map((t) => {
       const taskDate = t.attendance?.date || t.targetDate || t.createdAt?.split("T")[0] || "-";
-      const actualHours = t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : 0);
       return {
         "Tanggal": taskDate,
         "Nama Karyawan": t.user?.name || "Karyawan",
@@ -208,12 +204,30 @@ export default function ManagerTeamTasksPage() {
         "Deskripsi": t.description || "-",
         "Status": t.status === "COMPLETED" ? "Selesai" : t.status === "IN_PROGRESS" ? "Sedang Berjalan" : t.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
         "Prioritas": t.priority || "MEDIUM",
-        "Waktu Aktual (Jam)": `${actualHours.toFixed(1)} Jam`,
         "Link Deliverables (Drive)": t.deliverableUrl || "-",
         "Bukti Screenshot": t.deliverableAttachment ? "Ada (Screenshot Terlampir)" : "-",
         "Catatan Selesai": t.completionNote || "-",
       };
     });
+  };
+
+  // Export tasks based strictly on currently active filters (Date range, Employee, Brand, Search)
+  const handleExportFiltered = () => {
+    if (filteredTasks.length === 0) {
+      alert("Tidak ada tugas pada filter yang dipilih saat ini untuk diekspor.");
+      return;
+    }
+
+    const rows = mapTasksToExportRows(filteredTasks);
+    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
+    const targetLabel =
+      selectedUser !== "ALL"
+        ? (selectedUserName ? selectedUserName.replace(/\s+/g, "_") : "Karyawan")
+        : "Semua_Karyawan";
+    const filename = `Laporan_Tugas_${targetLabel}_${dateLabel}.xlsx`;
+
+    const uniqueEmps = Array.from(new Set(rows.map((r) => r["Nama Karyawan"])));
+    exportTasksToExcel(rows, filename, uniqueEmps.length > 1);
   };
 
   // Export ALL employees (1 Excel file with Master Sheet + separate sheets per employee)
@@ -309,32 +323,26 @@ export default function ManagerTeamTasksPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              {/* Ekspor Sesuai Filter (.xlsx) */}
+              <button
+                type="button"
+                onClick={handleExportFiltered}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99] cursor-pointer"
+                title="Ekspor data tugas sesuai filter yang sedang aktif ke format Excel (.xlsx)"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Ekspor Excel (.xlsx)</span>
+              </button>
+
               {/* Ekspor Semua Karyawan (ALL) */}
               <button
                 type="button"
                 onClick={handleExportAllEmployees}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99] cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-[0.99] cursor-pointer"
                 title="Ekspor seluruh karyawan ke 1 file Excel (Master Sheet + Sheet per Karyawan)"
               >
-                <FileSpreadsheet className="h-4 w-4" />
-                <span>Ekspor Semua Karyawan (ALL)</span>
-              </button>
-
-              {/* Ekspor Per Karyawan */}
-              <button
-                type="button"
-                onClick={() => handleExportSingleEmployee()}
-                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition active:scale-[0.99] cursor-pointer ${
-                  selectedUser !== "ALL"
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/20 hover:bg-blue-700"
-                    : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                }`}
-                title={selectedUser !== "ALL" ? `Ekspor khusus tugas ${selectedUserName}` : "Pilih karyawan di filter untuk ekspor individu"}
-              >
-                <Download className="h-4 w-4" />
-                <span>
-                  {selectedUser !== "ALL" ? `Ekspor: ${selectedUserName}` : "Ekspor Per Karyawan"}
-                </span>
+                <Download className="h-4 w-4 text-emerald-600" />
+                <span>Semua Karyawan (ALL)</span>
               </button>
 
               {/* View Mode Toggle */}
@@ -390,11 +398,9 @@ export default function ManagerTeamTasksPage() {
             </div>
 
             <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4 shadow-xs">
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Total Jam Nyata</p>
-              <p className="text-2xl font-black text-amber-900 mt-1">
-                {totalAct.toFixed(1)} <span className="text-sm font-semibold">Jam</span>
-              </p>
-              <p className="text-[10px] text-amber-600 mt-0.5">Total durasi pengerjaan</p>
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Belum Dikerjakan</p>
+              <p className="text-2xl font-black text-amber-900 mt-1">{pendingCount}</p>
+              <p className="text-[10px] text-amber-600 mt-0.5">Antrean / Backlog tugas</p>
             </div>
           </div>
 
@@ -406,7 +412,7 @@ export default function ManagerTeamTasksPage() {
                 <span className="text-xs font-bold text-slate-800">Filter Riwayat & Rentang Waktu Tugas:</span>
               </div>
 
-              {/* Quick Presets */}
+              {/* Quick Presets & Export Button */}
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -451,6 +457,15 @@ export default function ManagerTeamTasksPage() {
                   }`}
                 >
                   🌐 Semua Waktu
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportFiltered}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer ml-1"
+                  title="Unduh data sesuai filter ke format Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <span>Ekspor Excel ({filteredTasks.length})</span>
                 </button>
               </div>
             </div>
@@ -557,7 +572,7 @@ export default function ManagerTeamTasksPage() {
                       <th className="px-5 py-4">Karyawan & Tanggal</th>
                       <th className="px-4 py-4">Brand / Klien</th>
                       <th className="px-5 py-4">Judul & Deskripsi Tugas</th>
-                      <th className="px-4 py-4">Prioritas & Durasi</th>
+                      <th className="px-4 py-4">Prioritas</th>
                       <th className="px-4 py-4">Status Pengerjaan</th>
                       <th className="px-4 py-4">Bukti Deliverables</th>
                     </tr>
@@ -572,7 +587,6 @@ export default function ManagerTeamTasksPage() {
                       </tr>
                     ) : (
                       filteredTasks.map((task) => {
-                        const actualHours = task.actualHours || (task.trackedSeconds ? task.trackedSeconds / 3600 : 0);
                         const taskDate = task.attendance?.date || task.targetDate || task.createdAt?.split("T")[0] || "-";
 
                         return (
@@ -621,20 +635,15 @@ export default function ManagerTeamTasksPage() {
                               )}
                             </td>
 
-                            {/* Prioritas & Durasi */}
+                            {/* Prioritas */}
                             <td className="px-4 py-4">
-                              <div className="flex flex-col gap-1">
-                                <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold w-fit ${
-                                  task.priority === "URGENT" || task.priority === "HIGH"
-                                    ? "bg-red-50 text-red-700 border border-red-200"
-                                    : "bg-slate-100 text-slate-700 border border-slate-200"
-                                }`}>
-                                  {task.priority || "MEDIUM"}
-                                </span>
-                                <span className="font-mono text-[10px] font-bold text-slate-600">
-                                  ⏱️ {actualHours.toFixed(1)} Jam
-                                </span>
-                              </div>
+                              <span className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-bold w-fit ${
+                                task.priority === "URGENT" || task.priority === "HIGH"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                              }`}>
+                                {task.priority || "MEDIUM"}
+                              </span>
                             </td>
 
                             {/* Status Pengerjaan */}

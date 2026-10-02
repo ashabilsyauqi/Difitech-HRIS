@@ -26,7 +26,7 @@ export interface TaskExportRow {
   "Deskripsi": string;
   "Status": string;
   "Prioritas": string;
-  "Waktu Aktual (Jam)": string;
+  "Waktu Aktual (Jam)"?: string;
   "Link Deliverables (Drive)": string;
   "Bukti Screenshot": string;
   "Catatan Selesai": string;

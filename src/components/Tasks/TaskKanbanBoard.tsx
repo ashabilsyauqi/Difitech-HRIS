@@ -15,6 +15,7 @@ import {
   Timer,
   ImageIcon,
   X,
+  Calendar,
 } from "lucide-react";
 import { TaskItem } from "./TaskFormModal";
 import { getWIBDateString } from "@/lib/date-utils";
@@ -477,8 +478,8 @@ export default function TaskKanbanBoard({
                         {/* Card Footer */}
                         <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
                           <div className="flex items-center gap-1 font-medium text-slate-500">
-                            <Clock className="h-3 w-3 text-slate-400" />
-                            <span>{task.actualHours ? `${task.actualHours} jam kerja` : "Aktif"}</span>
+                            <Calendar className="h-3 w-3 text-slate-400" />
+                            <span>{task.targetDate || "Hari Ini"}</span>
                           </div>
 
                           {!readOnly && task.id && (

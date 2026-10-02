@@ -123,8 +123,10 @@ export default function EmployeeTaskHistoryPage() {
               </div>
               <div className="h-6 w-px bg-slate-200" />
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Jam Kerja Nyata</p>
-                <p className="font-mono font-black text-blue-700">{totalActualHours.toFixed(1)} Jam</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Progres Tuntas</p>
+                <p className="font-mono font-black text-blue-700">
+                  {totalOverallTasks > 0 ? `${Math.round((totalCompletedTasks / totalOverallTasks) * 100)}%` : "0%"}
+                </p>
               </div>
             </div>
           </div>
@@ -174,11 +176,8 @@ export default function EmployeeTaskHistoryPage() {
                       </div>
 
                       <div className="flex items-center gap-3 font-mono text-[11px]">
-                        <span className="text-slate-600">
+                        <span className="text-slate-600 font-bold">
                           {group.completedCount}/{group.tasks.length} Selesai
-                        </span>
-                        <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                          Real: {group.totalActualHours.toFixed(1)} Jam
                         </span>
                       </div>
                     </div>
@@ -224,9 +223,13 @@ export default function EmployeeTaskHistoryPage() {
                           </div>
 
                           <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 flex-shrink-0">
-                            <div className="text-right font-mono text-[11px] text-slate-500">
-                              <span className="font-bold text-slate-800">
-                                ⏱️ {task.actualHours || (task.trackedSeconds ? (task.trackedSeconds / 3600).toFixed(1) : 0)} Jam
+                            <div className="text-right text-[11px]">
+                              <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold ${
+                                task.priority === "URGENT" || task.priority === "HIGH"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                              }`}>
+                                {task.priority || "MEDIUM"}
                               </span>
                             </div>
 

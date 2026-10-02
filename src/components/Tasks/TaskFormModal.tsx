@@ -35,7 +35,6 @@ export default function TaskFormModal({
   const [category, setCategory] = useState("Difitech");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
   const [status, setStatus] = useState<"PENDING" | "IN_PROGRESS" | "COMPLETED" | "BLOCKED">("PENDING");
-  const [actualHours, setActualHours] = useState<number | undefined>(undefined);
   const [deliverableUrl, setDeliverableUrl] = useState("");
   const [deliverableAttachment, setDeliverableAttachment] = useState<string>("");
   const [completionNote, setCompletionNote] = useState("");
@@ -50,7 +49,6 @@ export default function TaskFormModal({
       setCategory(initialData.category || "Difitech");
       setPriority(initialData.priority || "MEDIUM");
       setStatus(initialData.status || "PENDING");
-      setActualHours(initialData.actualHours || undefined);
       setDeliverableUrl(initialData.deliverableUrl || "");
       setDeliverableAttachment(initialData.deliverableAttachment || "");
       setCompletionNote(initialData.completionNote || "");
@@ -60,7 +58,6 @@ export default function TaskFormModal({
       setCategory("Difitech");
       setPriority("MEDIUM");
       setStatus("PENDING");
-      setActualHours(undefined);
       setDeliverableUrl("");
       setDeliverableAttachment("");
       setCompletionNote("");
@@ -138,7 +135,6 @@ export default function TaskFormModal({
         category,
         priority,
         status,
-        actualHours: actualHours ? Number(actualHours) : null,
         deliverableUrl: deliverableUrl.trim() || null,
         deliverableAttachment: deliverableAttachment || null,
         completionNote: completionNote.trim() || null,
@@ -340,33 +336,17 @@ export default function TaskFormModal({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                  Waktu Aktual Terpakai (Jam):
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  placeholder="Contoh: 2.5"
-                  value={actualHours || ""}
-                  onChange={(e) => setActualHours(parseFloat(e.target.value) || undefined)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-red-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                  Catatan Selesai:
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Telah diuji di staging"
-                  value={completionNote}
-                  onChange={(e) => setCompletionNote(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-red-500 focus:outline-none"
-                />
-              </div>
+            <div className="pt-1">
+              <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                Catatan Selesai (Opsional):
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Telah diuji di staging atau selesai direview"
+                value={completionNote}
+                onChange={(e) => setCompletionNote(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-red-500 focus:outline-none"
+              />
             </div>
           </div>
 
