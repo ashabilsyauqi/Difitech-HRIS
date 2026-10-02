@@ -35,7 +35,6 @@ export default function TaskFormModal({
   const [category, setCategory] = useState("Difitech");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
   const [status, setStatus] = useState<"PENDING" | "IN_PROGRESS" | "COMPLETED" | "BLOCKED">("PENDING");
-  const [estimatedHours, setEstimatedHours] = useState(2.0);
   const [actualHours, setActualHours] = useState<number | undefined>(undefined);
   const [deliverableUrl, setDeliverableUrl] = useState("");
   const [deliverableAttachment, setDeliverableAttachment] = useState<string>("");
@@ -51,7 +50,6 @@ export default function TaskFormModal({
       setCategory(initialData.category || "Difitech");
       setPriority(initialData.priority || "MEDIUM");
       setStatus(initialData.status || "PENDING");
-      setEstimatedHours(initialData.estimatedHours || 1.0);
       setActualHours(initialData.actualHours || undefined);
       setDeliverableUrl(initialData.deliverableUrl || "");
       setDeliverableAttachment(initialData.deliverableAttachment || "");
@@ -62,7 +60,6 @@ export default function TaskFormModal({
       setCategory("Difitech");
       setPriority("MEDIUM");
       setStatus("PENDING");
-      setEstimatedHours(2.0);
       setActualHours(undefined);
       setDeliverableUrl("");
       setDeliverableAttachment("");
@@ -141,7 +138,6 @@ export default function TaskFormModal({
         category,
         priority,
         status,
-        estimatedHours: Number(estimatedHours) || 1.0,
         actualHours: actualHours ? Number(actualHours) : null,
         deliverableUrl: deliverableUrl.trim() || null,
         deliverableAttachment: deliverableAttachment || null,

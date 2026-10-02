@@ -272,7 +272,6 @@ export default function TaskKanbanBoard({
         {COLUMNS.map((col) => {
           const ColIcon = col.icon;
           const colTasks = (tasks || []).filter((t) => t && t.status === col.id);
-          const totalEstimated = colTasks.reduce((acc, t) => acc + (t.estimatedHours || 0), 0);
 
           return (
             <div

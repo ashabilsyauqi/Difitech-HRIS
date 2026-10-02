@@ -179,7 +179,6 @@ export default function ManagerTeamTasksPage() {
   const totalTasksCount = filteredTasks.length;
   const inProgressCount = filteredTasks.filter((t) => t.status === "IN_PROGRESS").length;
   const completedCount = filteredTasks.filter((t) => t.status === "COMPLETED").length;
-  const totalEst = filteredTasks.reduce((acc, t) => acc + (t.estimatedHours || 0), 0);
   const totalAct = filteredTasks.reduce(
     (acc, t) => acc + (t.actualHours || (t.trackedSeconds ? t.trackedSeconds / 3600 : 0)),
     0
@@ -209,7 +208,6 @@ export default function ManagerTeamTasksPage() {
         "Deskripsi": t.description || "-",
         "Status": t.status === "COMPLETED" ? "Selesai" : t.status === "IN_PROGRESS" ? "Sedang Berjalan" : t.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
         "Prioritas": t.priority || "MEDIUM",
-        "Estimasi (Jam)": t.estimatedHours || 1,
         "Waktu Aktual (Jam)": `${actualHours.toFixed(1)} Jam`,
         "Link Deliverables (Drive)": t.deliverableUrl || "-",
         "Bukti Screenshot": t.deliverableAttachment ? "Ada (Screenshot Terlampir)" : "-",

@@ -151,7 +151,6 @@ export default function ManagerReportsPage() {
           "Deskripsi": task.description || "-",
           "Status": task.status === "COMPLETED" ? "Selesai" : task.status === "IN_PROGRESS" ? "Sedang Berjalan" : task.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
           "Prioritas": task.priority || "MEDIUM",
-          "Estimasi (Jam)": task.estimatedHours || 0,
           "Waktu Aktual (Jam)": actualHours,
           "Link Deliverables (Drive)": task.deliverableUrl || "-",
           "Bukti Screenshot": task.deliverableAttachment ? "Terlampir (Screenshot)" : "-",

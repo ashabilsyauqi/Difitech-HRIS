@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
           ...t,
           isTracking: false,
           trackingStartedAt: null,
-          actualHours: t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : t.estimatedHours),
+          actualHours: t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : 0),
         };
       }
       return t;
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         category: category || "General",
         priority: priority || "MEDIUM",
         status: "PENDING",
-        estimatedHours: typeof estimatedHours === "number" ? estimatedHours : 1.0,
+        estimatedHours: typeof estimatedHours === "number" ? estimatedHours : 0,
         deliverableUrl: body.deliverableUrl || null,
         deliverableAttachment: body.deliverableAttachment || null,
         completionNote: body.completionNote || null,

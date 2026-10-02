@@ -78,7 +78,7 @@
       "static/chunks/main-app-95443a477c202e5f.js",
       "static/chunks/231-ca68b71770371699.js",
       "static/chunks/420-2a25150166e2e5fb.js",
-      "static/chunks/app/dashboard/tasks/page-c36eef28de93255e.js"
+      "static/chunks/app/dashboard/tasks/page-5e911b2906e7422e.js"
     ],
     "/login/page": [
       "static/chunks/webpack-d94b34b6e1e28445.js",
@@ -169,7 +169,7 @@
       "static/chunks/2170a4aa-db9a97f1097497cd.js",
       "static/chunks/231-ca68b71770371699.js",
       "static/chunks/511-2920f074ef8d4936.js",
-      "static/chunks/app/manager/reports/page-bb87566dd4f187a1.js"
+      "static/chunks/app/manager/reports/page-771129b8cdb9dca1.js"
     ],
     "/manager/settings/page": [
       "static/chunks/webpack-d94b34b6e1e28445.js",
@@ -189,7 +189,7 @@
       "static/chunks/2170a4aa-db9a97f1097497cd.js",
       "static/chunks/231-ca68b71770371699.js",
       "static/chunks/511-2920f074ef8d4936.js",
-      "static/chunks/app/manager/tasks/page-0959817c1c30106b.js"
+      "static/chunks/app/manager/tasks/page-15cd782ca3d9ca6b.js"
     ],
     "/page": [
       "static/chunks/webpack-d94b34b6e1e28445.js",
