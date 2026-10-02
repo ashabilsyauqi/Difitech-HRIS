@@ -22,6 +22,7 @@ import {
   Briefcase,
   AlertTriangle,
   Zap,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -41,9 +42,11 @@ export default function EmployeeDashboardPage() {
   const [photoViewType, setPhotoViewType] = useState<"CLOCK_IN" | "CLOCK_OUT">("CLOCK_IN");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Overtime Confirmation Modal
+  // Overtime Confirmation Modal & Settings
   const [overtimeModalOpen, setOvertimeModalOpen] = useState(false);
   const [isSubmittingOvertime, setIsSubmittingOvertime] = useState(false);
+  const [startTimeChoice, setStartTimeChoice] = useState<"NOW" | "FROM_SHIFT_END">("FROM_SHIFT_END");
+  const [overtimeNotes, setOvertimeNotes] = useState("");
 
   // Timers
   const [shiftDurationStr, setShiftDurationStr] = useState<string>("00:00:00");
@@ -166,20 +169,41 @@ export default function EmployeeDashboardPage() {
     fetchSessionData();
   };
 
+  const getShiftEndWIB = () => {
+    if (!todayAttendance?.clockInTime) return "-";
+    const cin = new Date(todayAttendance.clockInTime);
+    const regularMinutes = todayAttendance.regularWorkMinutes || (office?.standardWorkDurationHours ? office.standardWorkDurationHours * 60 : 480);
+    const shiftEnd = new Date(cin.getTime() + regularMinutes * 60 * 1000);
+    return shiftEnd.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
+  };
+
   // Overtime Actions
-  const handleStartOvertime = async () => {
+  const handleStartOvertime = async (choice?: "NOW" | "FROM_SHIFT_END", note?: string) => {
     setIsSubmittingOvertime(true);
+    const finalChoice = choice || startTimeChoice;
+    const finalNote = note !== undefined ? note : overtimeNotes;
+
     try {
       const res = await fetch("/api/attendance/overtime", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "START_OVERTIME" }),
+        body: JSON.stringify({
+          action: "START_OVERTIME",
+          startTimeChoice: finalChoice,
+          notes: finalNote,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setTodayAttendance(data.attendance);
       setOvertimeModalOpen(false);
-      alert("Sesi lembur resmi telah dimulai. Selamat bertugas!");
+      setOvertimeNotes("");
+      alert(
+        finalChoice === "FROM_SHIFT_END"
+          ? "Sesi lembur aktif terhitung sejak selesai shift 8 jam. Selamat bertugas!"
+          : "Sesi lembur resmi dimulai sekarang. Selamat bertugas!"
+      );
+      fetchSessionData();
     } catch (err: any) {
       alert("Gagal memulai lembur: " + err.message);
     } finally {
@@ -188,6 +212,7 @@ export default function EmployeeDashboardPage() {
   };
 
   const handleDeclineOvertime = async () => {
+    if (!confirm("Apakah Anda yakin ingin menyelesaikan shift reguler 8 jam dan presensi pulang?")) return;
     setIsSubmittingOvertime(true);
     try {
       const res = await fetch("/api/attendance/overtime", {
@@ -200,6 +225,7 @@ export default function EmployeeDashboardPage() {
       setTodayAttendance(data.attendance);
       setOvertimeModalOpen(false);
       alert("Shift reguler 8 jam Anda telah selesai dan berhasil dicatat. Terima kasih!");
+      fetchSessionData();
     } catch (err: any) {
       alert("Gagal memproses selesai shift: " + err.message);
     } finally {
@@ -219,7 +245,8 @@ export default function EmployeeDashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setTodayAttendance(data.attendance);
-      alert(data.message);
+      alert(data.message || "Sesi lembur selesai dan tercatat resmi!");
+      fetchSessionData();
     } catch (err: any) {
       alert("Gagal menyelesaikan lembur: " + err.message);
     } finally {
@@ -292,8 +319,11 @@ export default function EmployeeDashboardPage() {
               ) : !isClockedOut ? (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setOvertimeModalOpen(true)}
-                    className="flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-xs"
+                    onClick={() => {
+                      setStartTimeChoice("NOW");
+                      setOvertimeModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-xs cursor-pointer"
                   >
                     <Zap className="h-4 w-4 text-amber-600" />
                     <span>Ajukan Lembur</span>
@@ -301,16 +331,36 @@ export default function EmployeeDashboardPage() {
 
                   <button
                     onClick={handleOpenClockOut}
-                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-700 hover:to-indigo-700"
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-700 hover:to-indigo-700 cursor-pointer"
                   >
                     <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
                     <span>Presensi Pulang (CamStamp)</span>
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-xs font-bold text-emerald-800">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  <span>Shift Hari Ini Selesai {todayAttendance.overtimeMinutes > 0 ? `(Lembur: ${Math.round(todayAttendance.overtimeMinutes / 60)}j)` : ""}</span>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>
+                      Shift Hari Ini Selesai{" "}
+                      {todayAttendance?.overtimeMinutes > 0
+                        ? `(Lembur: ${Math.round(todayAttendance.overtimeMinutes / 60)}j)`
+                        : ""}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartTimeChoice("FROM_SHIFT_END");
+                      setOvertimeModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-xs font-bold text-white shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-amber-700 transition cursor-pointer active:scale-95"
+                    title="Mulai atau ajukan sesi lembur malam ini"
+                  >
+                    <Zap className="h-4 w-4 text-amber-100" />
+                    <span>Ajukan Lembur Malam</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -385,6 +435,22 @@ export default function EmployeeDashboardPage() {
                     : "--:--"}
                 </span>
               </div>
+
+              {isClockedOut && !isOvertime && (
+                <div className="mt-2.5 pt-2 border-t border-dashed border-slate-200 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500">Ingin lanjut lembur malam ini?</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartTimeChoice("FROM_SHIFT_END");
+                      setOvertimeModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 transition cursor-pointer"
+                  >
+                    ⚡ Ajukan Lembur
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Geofence / Lokasi Penugasan / WFA */}
@@ -580,47 +646,156 @@ export default function EmployeeDashboardPage() {
         </main>
       </div>
 
-      {/* Overtime Confirmation Modal */}
+      {/* Overtime Confirmation & Application Modal */}
       {overtimeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                <AlertTriangle className="h-6 w-6" />
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                  <Zap className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    {isClockedOut ? "Ajukan Sesi Lembur (Overtime)" : "Konfirmasi Lembur (Overtime)"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {isClockedOut
+                      ? "Shift reguler 8 jam telah selesai, Anda dapat mengaktifkan lembur"
+                      : "Shift reguler 8 jam kerja Anda telah selesai"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">Konfirmasi Lembur (Overtime)</h3>
-                <p className="text-xs text-slate-500">Shift reguler 8 jam kerja Anda telah selesai</p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-xs text-slate-600 space-y-2">
-              <p className="leading-relaxed">
-                Anda telah menyelesaikan shift standar <strong>8 jam kerja (480 menit)</strong>. Apakah Anda ingin melanjutkan dengan <strong>Sesi Kerja Lembur</strong> hari ini?
-              </p>
-              <ul className="list-disc pl-4 text-[11px] text-slate-500 space-y-1">
-                <li>Jika <strong>Tidak</strong>, shift kerja 8 jam akan dikunci dan presensi pulang disimpan otomatis.</li>
-                <li>Jika <strong>Ya</strong>, timer lembur baru akan berjalan dan tercatat resmi pada slip gaji.</li>
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleDeclineOvertime}
-                disabled={isSubmittingOvertime}
-                className="rounded-xl border border-slate-300 bg-white py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                onClick={() => setOvertimeModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                title="Tutup (Nanti Saja)"
               >
-                Tidak, Selesai 8 Jam
+                <X className="h-5 w-5" />
               </button>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 text-xs text-slate-600 space-y-2">
+              <div className="flex items-center justify-between text-[11px] border-b border-slate-200/60 pb-2">
+                <span className="text-slate-500">Presensi Masuk Hari Ini:</span>
+                <span className="font-mono font-bold text-slate-800">
+                  {todayAttendance?.clockInTime
+                    ? new Date(todayAttendance.clockInTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB"
+                    : "-"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500">Batas Selesai Shift 8 Jam:</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  {getShiftEndWIB()}
+                </span>
+              </div>
+            </div>
+
+            {/* Pilihan Waktu Mulai Lembur */}
+            <div className="space-y-2">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Pilih Waktu Mulai Lembur:
+              </label>
+
+              <label
+                className={`flex items-start gap-3 rounded-2xl border p-3 cursor-pointer transition ${
+                  startTimeChoice === "FROM_SHIFT_END"
+                    ? "border-amber-500 bg-amber-50/50"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="startTimeChoice"
+                  value="FROM_SHIFT_END"
+                  checked={startTimeChoice === "FROM_SHIFT_END"}
+                  onChange={() => setStartTimeChoice("FROM_SHIFT_END")}
+                  className="mt-0.5 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <div className="flex-1 text-xs">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>🕒 Hitung Sejak Selesai 8 Jam ({getShiftEndWIB()})</span>
+                    <span className="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-800">
+                      Rekomendasi
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    Sangat cocok jika tadi sore Anda tidak sempat klik lembur dan sudah lanjut bekerja hingga malam ini.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 rounded-2xl border p-3 cursor-pointer transition ${
+                  startTimeChoice === "NOW"
+                    ? "border-amber-500 bg-amber-50/50"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="startTimeChoice"
+                  value="NOW"
+                  checked={startTimeChoice === "NOW"}
+                  onChange={() => setStartTimeChoice("NOW")}
+                  className="mt-0.5 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <div className="flex-1 text-xs">
+                  <div className="font-bold text-slate-900">
+                    ⚡ Mulai dari Sekarang (Live Tracker)
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    Timer stopwatch lembur baru akan mulai berjalan aktif dari detik ini.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Catatan Keperluan Lembur */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Keterangan / Keperluan Lembur (Opsional):
+              </label>
+              <input
+                type="text"
+                value={overtimeNotes}
+                onChange={(e) => setOvertimeNotes(e.target.value)}
+                placeholder="Contoh: Menyelesaikan tugas website & testing"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Modal Buttons */}
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
-                onClick={handleStartOvertime}
+                onClick={() => setOvertimeModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Nanti Saja
+              </button>
+
+              {!isClockedOut && (
+                <button
+                  type="button"
+                  onClick={handleDeclineOvertime}
+                  disabled={isSubmittingOvertime}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Selesai 8 Jam & Pulang
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleStartOvertime(startTimeChoice, overtimeNotes)}
                 disabled={isSubmittingOvertime}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 py-3 text-xs font-bold text-white shadow-md shadow-amber-600/25 hover:bg-amber-700 transition"
+                className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow-md shadow-amber-600/25 hover:bg-amber-700 transition cursor-pointer"
               >
                 <Zap className="h-4 w-4" />
-                <span>Mulai Lembur</span>
+                <span>{isSubmittingOvertime ? "Memproses..." : "Aktifkan Lembur"}</span>
               </button>
             </div>
           </div>

@@ -42,14 +42,37 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     if (action === "START_OVERTIME") {
-      // 1. Kunci jam kerja 8 jam reguler dan mulai sesi lembur
+      let startTimestamp = now;
+
+      // Check startTimeChoice: "FROM_SHIFT_END" vs "NOW" or custom
+      if (body.startTimeChoice === "FROM_SHIFT_END") {
+        if (attendance.clockInTime) {
+          const shiftDurationMs = (attendance.regularWorkMinutes || 480) * 60 * 1000;
+          const shiftEnd = new Date(new Date(attendance.clockInTime).getTime() + shiftDurationMs);
+          if (shiftEnd.getTime() < now.getTime()) {
+            startTimestamp = shiftEnd;
+          }
+        }
+      } else if (body.customStartTime) {
+        const customDate = new Date(body.customStartTime);
+        if (!isNaN(customDate.getTime()) && customDate.getTime() <= now.getTime()) {
+          startTimestamp = customDate;
+        }
+      }
+
+      // Kunci jam kerja 8 jam reguler dan mulai sesi lembur
+      // Jika sebelumnya sudah ada status clockOutTime (shift selesai), buka kembali untuk sesi lembur
       const updated = await prisma.attendance.update({
         where: { id: attendance.id },
         data: {
           isOvertime: true,
-          regularWorkMinutes: 480, // 8 jam reguler dikunci
-          overtimeStartTime: now,
-          notes: notes ? `${attendance.notes ? attendance.notes + "\n" : ""}Mulai Sesi Lembur: ${notes}` : attendance.notes,
+          regularWorkMinutes: 480, // 8 jam reguler tetap terkunci
+          overtimeStartTime: startTimestamp,
+          clockOutTime: null, // Buka kembali status clock out agar sesi lembur aktif
+          clockOutStatus: null,
+          notes: notes
+            ? `${attendance.notes ? attendance.notes + "\n" : ""}Mulai Sesi Lembur: ${notes}`
+            : attendance.notes,
         },
       });
 
@@ -130,6 +153,80 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `Sesi lembur selesai. Durasi lembur: ${Math.floor(overtimeDurationMinutes / 60)}j ${overtimeDurationMinutes % 60}m.`,
+        attendance: updated,
+      });
+    }
+
+    if (action === "DIRECT_RECORD_OVERTIME") {
+      // 2b. Catat lembur secara langsung dengan input jam (misal lembur tadi malam yang sudah selesai dikerjakan)
+      const hours = parseFloat(body.overtimeHours) || 0;
+      const minutes = hours > 0 ? Math.round(hours * 60) : (parseInt(body.overtimeMinutes) || 60);
+      const totalOvertimeHours = Number((minutes / 60).toFixed(2));
+      const totalDuration = (attendance.regularWorkMinutes || 480) + minutes;
+
+      const address =
+        latitude && longitude
+          ? await reverseGeocode(Number(latitude), Number(longitude))
+          : attendance.clockInAddress;
+
+      const updated = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: {
+          clockOutTime: now,
+          clockOutPhoto: photo || attendance.clockInPhoto,
+          clockOutLat: latitude ? Number(latitude) : attendance.clockInLat,
+          clockOutLng: longitude ? Number(longitude) : attendance.clockInLng,
+          clockOutAddress: address,
+          clockOutStatus: "OVERTIME_COMPLETED",
+          isOvertime: true,
+          workDurationMinutes: totalDuration,
+          overtimeMinutes: minutes,
+          overtimeEndTime: now,
+          notes: notes
+            ? `${attendance.notes ? attendance.notes + "\n" : ""}Lembur Dicatat (${totalOvertimeHours} jam): ${notes}`
+            : attendance.notes,
+        },
+      });
+
+      // Update Payslip
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      const currentPeriod = await prisma.payrollPeriod.findUnique({
+        where: { month_year: { month: currentMonth, year: currentYear } },
+      });
+
+      if (currentPeriod) {
+        const hourlyRate = attendance.user.salaryProfile?.overtimeRatePerHour || 75000;
+        const overtimePayInc = Math.round(totalOvertimeHours * hourlyRate);
+
+        await prisma.payslip.upsert({
+          where: {
+            payrollPeriodId_userId: {
+              payrollPeriodId: currentPeriod.id,
+              userId: authUser.userId,
+            },
+          },
+          update: {
+            overtimeHours: { increment: totalOvertimeHours },
+            overtimePay: { increment: overtimePayInc },
+            grossSalary: { increment: overtimePayInc },
+            netSalary: { increment: overtimePayInc },
+          },
+          create: {
+            payrollPeriodId: currentPeriod.id,
+            userId: authUser.userId,
+            basicSalary: attendance.user.salaryProfile?.basicSalary || 8000000,
+            overtimeHours: totalOvertimeHours,
+            overtimePay: overtimePayInc,
+            grossSalary: (attendance.user.salaryProfile?.basicSalary || 8000000) + overtimePayInc,
+            netSalary: (attendance.user.salaryProfile?.basicSalary || 8000000) + overtimePayInc,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Lembur berhasil dicatat (${totalOvertimeHours} jam).`,
         attendance: updated,
       });
     }
