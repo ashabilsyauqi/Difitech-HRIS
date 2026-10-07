@@ -91,6 +91,29 @@ export async function GET(req: NextRequest) {
             },
           ],
         },
+        // Task dari hari sebelumnya yang baru saja diselesaikan pada tanggal ini
+        {
+          AND: [
+            { status: "COMPLETED" },
+            {
+              OR: [
+                { targetDate: { lt: date } },
+                {
+                  AND: [
+                    { targetDate: null },
+                    { createdAt: { lt: new Date(date + "T00:00:00.000Z") } },
+                  ],
+                },
+              ],
+            },
+            {
+              updatedAt: {
+                gte: new Date(date + "T00:00:00.000Z"),
+                lte: new Date(date + "T23:59:59.999Z"),
+              },
+            },
+          ],
+        },
       ];
     }
 

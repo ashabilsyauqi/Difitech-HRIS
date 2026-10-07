@@ -78,12 +78,6 @@ export async function PATCH(
           { status: 400 }
         );
       }
-
-      // Jika tugas berasal dari rollover hari sebelumnya, tetapkan targetDate ke hari ini saat diselesaikan
-      const todayStr = getWIBDateString(now);
-      if (!updateData.targetDate && existingTask.targetDate && existingTask.targetDate < todayStr) {
-        updateData.targetDate = todayStr;
-      }
     }
 
     // Auto-stop time tracking if task status changed to COMPLETED or any status other than IN_PROGRESS
