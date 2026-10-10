@@ -90,6 +90,7 @@ export default function ManagerReportsPage() {
     ClockInDistance: att.clockInDistance ? `${att.clockInDistance.toFixed(0)}m` : "--",
     ClockOutTime: att.clockOutTime ? new Date(att.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + " WIB" : "Aktif",
     WorkDuration: att.workDurationMinutes ? `${Math.floor(att.workDurationMinutes / 60)}j ${att.workDurationMinutes % 60}m` : "Aktif",
+    OvertimeDuration: att.overtimeMinutes ? `${Math.floor(att.overtimeMinutes / 60)}j ${att.overtimeMinutes % 60}m` : att.isOvertime && !att.clockOutTime ? "Aktif Berjalan" : "0j",
     TotalTasks: att.tasks?.length || 0,
     CompletedTasks: att.tasks?.filter((t: any) => t.status === "COMPLETED").length || 0,
   }));

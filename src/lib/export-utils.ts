@@ -12,8 +12,10 @@ export interface AttendanceExportRow {
   ClockInDistance: string;
   ClockOutTime: string;
   WorkDuration: string;
+  OvertimeDuration?: string;
   TotalTasks: number;
   CompletedTasks: number;
+  [key: string]: any;
 }
 
 export interface TaskExportRow {
@@ -129,6 +131,7 @@ export function exportAttendanceToPdf(
       "Office Dist",
       "Clock Out",
       "Work Time",
+      "Overtime",
       "Tasks (Done/Total)",
     ],
   ];
@@ -142,6 +145,7 @@ export function exportAttendanceToPdf(
     row.ClockInDistance,
     row.ClockOutTime,
     row.WorkDuration,
+    row.OvertimeDuration || (row as any).Lembur || "-",
     `${row.CompletedTasks} / ${row.TotalTasks}`,
   ]);
 

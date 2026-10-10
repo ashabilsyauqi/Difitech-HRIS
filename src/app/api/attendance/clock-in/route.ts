@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateDistanceMeters, reverseGeocode, validateTimestampDrift, getWIBDateString, isOfficeClockInLate } from "@/lib/geofence";
+import { autoFinalizeUnclosedOvertime } from "@/lib/overtime-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
     const todayStr = getWIBDateString(now);
+
+    // Auto-reconcile previous unclosed overtime sessions before starting new day
+    await autoFinalizeUnclosedOvertime(authUser.userId);
 
     // 3. Check if already clocked in today (WIB date)
     const existing = await prisma.attendance.findUnique({

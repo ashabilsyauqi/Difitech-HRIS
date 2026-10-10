@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { reverseGeocode, getWIBDateString } from "@/lib/geofence";
+import { autoFinalizeUnclosedOvertime } from "@/lib/overtime-service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,13 +15,26 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action, photo, latitude, longitude, notes } = body;
+
+    if (action === "RECONCILE_UNCLOSED") {
+      const targetUser = (authUser.role === "MANAGER" || authUser.role === "ADMIN") && body.userId ? body.userId : authUser.userId;
+      const result = await autoFinalizeUnclosedOvertime(targetUser);
+      return NextResponse.json({
+        success: true,
+        message: `Rekonsiliasi lembur selesai (${result.count} sesi tuntas).`,
+        result,
+      });
+    }
+
     const todayStr = getWIBDateString();
+    const targetDate = body.targetDate || todayStr;
+    const targetUserId = ((authUser.role === "MANAGER" || authUser.role === "ADMIN") && body.userId) ? body.userId : authUser.userId;
 
     const attendance = await prisma.attendance.findUnique({
       where: {
         userId_date: {
-          userId: authUser.userId,
-          date: todayStr,
+          userId: targetUserId,
+          date: targetDate,
         },
       },
       include: {
@@ -34,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     if (!attendance) {
       return NextResponse.json(
-        { error: "Belum ada sesi presensi masuk aktif untuk hari ini." },
+        { error: `Belum ada sesi presensi masuk untuk tanggal ${targetDate}.` },
         { status: 404 }
       );
     }
@@ -129,7 +143,7 @@ export async function POST(req: NextRequest) {
           where: {
             payrollPeriodId_userId: {
               payrollPeriodId: currentPeriod.id,
-              userId: authUser.userId,
+              userId: attendance.userId,
             },
           },
           update: {
@@ -140,7 +154,7 @@ export async function POST(req: NextRequest) {
           },
           create: {
             payrollPeriodId: currentPeriod.id,
-            userId: authUser.userId,
+            userId: attendance.userId,
             basicSalary: attendance.user.salaryProfile?.basicSalary || 8000000,
             overtimeHours: totalOvertimeHours,
             overtimePay: overtimePayInc,
@@ -203,7 +217,7 @@ export async function POST(req: NextRequest) {
           where: {
             payrollPeriodId_userId: {
               payrollPeriodId: currentPeriod.id,
-              userId: authUser.userId,
+              userId: attendance.userId,
             },
           },
           update: {
@@ -214,7 +228,7 @@ export async function POST(req: NextRequest) {
           },
           create: {
             payrollPeriodId: currentPeriod.id,
-            userId: authUser.userId,
+            userId: attendance.userId,
             basicSalary: attendance.user.salaryProfile?.basicSalary || 8000000,
             overtimeHours: totalOvertimeHours,
             overtimePay: overtimePayInc,

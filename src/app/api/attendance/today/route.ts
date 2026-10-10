@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { getWIBDateString } from "@/lib/geofence";
+import { autoFinalizeUnclosedOvertime } from "@/lib/overtime-service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,9 @@ export async function GET(req: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Auto-reconcile previous unclosed overtime sessions
+    await autoFinalizeUnclosedOvertime(authUser.userId);
 
     const flags = getFeatureFlags();
     const todayStr = getWIBDateString();

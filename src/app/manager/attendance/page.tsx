@@ -22,6 +22,7 @@ import {
   Camera,
   RefreshCw,
   Building2,
+  Zap,
 } from "lucide-react";
 import { exportAttendanceToExcel } from "@/lib/export-utils";
 
@@ -145,6 +146,7 @@ export default function ManagerAttendanceLogsPage() {
 
     const statusMatch =
       selectedStatus === "ALL" ||
+      (selectedStatus === "OVERTIME" && (att.isOvertime || (att.overtimeMinutes && att.overtimeMinutes > 0))) ||
       (selectedStatus === "WFA" && att.attendanceType === "WFA") ||
       (selectedStatus === "CLIENT_VISIT" && att.attendanceType === "CLIENT_VISIT") ||
       att.clockInStatus === selectedStatus;
@@ -172,6 +174,8 @@ export default function ManagerAttendanceLogsPage() {
   const wfaCount = filteredAttendances.filter((a) => a.attendanceType === "WFA").length;
   const clientVisitCount = filteredAttendances.filter((a) => a.attendanceType === "CLIENT_VISIT").length;
   const totalWorkHours = filteredAttendances.reduce((acc, a) => acc + ((a.workDurationMinutes || 0) / 60), 0);
+  const totalOvertimeMinutes = filteredAttendances.reduce((acc, a) => acc + (a.overtimeMinutes || 0), 0);
+  const overtimeCount = filteredAttendances.filter((a) => a.isOvertime || (a.overtimeMinutes && a.overtimeMinutes > 0)).length;
 
   const handleExportExcel = () => {
     const exportRows = filteredAttendances.map((att) => ({
@@ -186,7 +190,7 @@ export default function ManagerAttendanceLogsPage() {
       JarakKantor: att.clockInDistance ? `${att.clockInDistance.toFixed(0)}m` : "-",
       JamPulang: att.clockOutTime ? new Date(att.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Aktif",
       DurasiKerja: att.workDurationMinutes ? `${Math.floor(att.workDurationMinutes / 60)}j ${att.workDurationMinutes % 60}m` : "Aktif",
-      Lembur: att.overtimeMinutes ? `${Math.floor(att.overtimeMinutes / 60)}j ${att.overtimeMinutes % 60}m` : "0j",
+      Lembur: att.overtimeMinutes ? `${Math.floor(att.overtimeMinutes / 60)}j ${att.overtimeMinutes % 60}m` : att.isOvertime && !att.clockOutTime ? "Aktif Berjalan" : "0j",
       TotalTugas: att.tasks?.length || 0,
       TugasSelesai: att.tasks?.filter((t: any) => t.status === "COMPLETED").length || 0,
     }));
@@ -215,7 +219,7 @@ export default function ManagerAttendanceLogsPage() {
       case "OUT_OF_GEOFENCE":
         return { label: "Luar Geofence", badge: "bg-red-100 text-red-800 border-red-200 font-bold" };
       case "OVERTIME_COMPLETED":
-        return { label: "Lembur Selesai", badge: "bg-blue-100 text-blue-900 border-blue-300 font-extrabold" };
+        return { label: "⚡ Lembur Tuntas", badge: "bg-amber-100 text-amber-900 border-amber-300 font-extrabold" };
       default:
         return { label: st || "Hadir", badge: "bg-slate-100 text-slate-700 border-slate-200" };
     }
@@ -256,7 +260,7 @@ export default function ManagerAttendanceLogsPage() {
           </div>
 
           {/* Quick Metrics Banner */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Presensi</p>
               <p className="text-2xl font-black text-slate-900 mt-1">{totalRecords}</p>
@@ -275,6 +279,14 @@ export default function ManagerAttendanceLogsPage() {
               <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Terlambat</p>
               <p className="text-2xl font-black text-amber-800 mt-1">{lateCount}</p>
               <p className="text-[10px] text-amber-600 mt-0.5">Melewati batas jam masuk</p>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-xs">
+              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Total Jam Lembur</p>
+              <p className="text-2xl font-black text-amber-950 mt-1">
+                {(totalOvertimeMinutes / 60).toFixed(1)} <span className="text-sm font-semibold">Jam</span>
+              </p>
+              <p className="text-[10px] text-amber-700 mt-0.5 font-medium">{overtimeCount} sesi lembur</p>
             </div>
 
             <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 shadow-xs">
@@ -405,6 +417,7 @@ export default function ManagerAttendanceLogsPage() {
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-red-500 focus:outline-none"
                 >
                   <option value="ALL">Semua Status</option>
+                  <option value="OVERTIME">⚡ Hanya Yang Lembur</option>
                   <option value="ON_TIME">Tepat Waktu (On Time)</option>
                   <option value="LATE">Terlambat (Late)</option>
                   <option value="WFA">🏠 WFA / Remote</option>
@@ -508,6 +521,11 @@ export default function ManagerAttendanceLogsPage() {
                                 </div>
                                 <span className="inline-block text-[10px] text-slate-400">Selesai</span>
                               </>
+                            ) : att.isOvertime ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-300">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                ⚡ Sedang Lembur
+                              </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -523,11 +541,20 @@ export default function ManagerAttendanceLogsPage() {
                                 ? `${Math.floor(att.workDurationMinutes / 60)}j ${att.workDurationMinutes % 60}m`
                                 : "Berjalan"}
                             </div>
-                            {att.overtimeMinutes > 0 && (
+                            {att.overtimeMinutes > 0 ? (
                               <div className="text-[10px] font-bold text-amber-700 mt-0.5">
                                 ⚡ Lembur: {Math.floor(att.overtimeMinutes / 60)}j {att.overtimeMinutes % 60}m
                               </div>
-                            )}
+                            ) : att.isOvertime && !att.clockOutTime ? (
+                              <div className="text-[10px] font-bold text-amber-600 mt-0.5 flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping" />
+                                <span>⚡ Lembur Berjalan</span>
+                              </div>
+                            ) : att.isOvertime ? (
+                              <div className="text-[10px] font-medium text-amber-700 mt-0.5">
+                                ⚡ Selesai Lembur
+                              </div>
+                            ) : null}
                           </td>
 
                           {/* Tugas Harian */}

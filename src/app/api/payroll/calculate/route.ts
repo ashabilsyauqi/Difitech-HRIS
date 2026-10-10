@@ -72,13 +72,19 @@ export async function POST(req: Request) {
       const lateCount = emp.attendances.filter((a) => a.clockInStatus === "LATE").length;
       const latePenaltyTotal = lateCount * salary.latePenaltyRate;
 
-      // Hitung lembur (jika ada task aktual > estimasi)
-      const overtimeHours = emp.tasks.reduce((acc, t) => {
-        if (t.actualHours && t.actualHours > t.estimatedHours) {
+      // Hitung lembur resmi dari presensi CamStamp (overtimeMinutes) serta task overtime
+      const attendanceOvertimeHours = emp.attendances.reduce((acc, a) => {
+        return acc + ((a.overtimeMinutes || 0) / 60);
+      }, 0);
+
+      const taskOvertimeHours = emp.tasks.reduce((acc, t) => {
+        if (t.actualHours && t.estimatedHours && t.actualHours > t.estimatedHours) {
           return acc + (t.actualHours - t.estimatedHours);
         }
         return acc;
       }, 0);
+
+      const overtimeHours = Number(Math.max(attendanceOvertimeHours, taskOvertimeHours).toFixed(2));
       const overtimePay = Math.round(overtimeHours * salary.overtimeRatePerHour);
 
       // Total Penerimaan
