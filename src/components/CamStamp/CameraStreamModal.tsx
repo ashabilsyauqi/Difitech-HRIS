@@ -104,6 +104,7 @@ export default function CameraStreamModal({
       async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
         setCoords({ lat: latitude, lng: longitude, accuracy });
+        setGpsError(null);
 
         // Reverse geocoding for clean location display
         try {
@@ -115,7 +116,33 @@ export default function CameraStreamModal({
       },
       (err) => {
         console.error("Geolocation error:", err);
-        setGpsError(`Gagal mengambil GPS (${err.message}). Pastikan izin lokasi aktif.`);
+        // Fallback for timeout: try with lower accuracy / cached location
+        if (err.code === 3) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const { latitude, longitude, accuracy } = pos.coords;
+              setCoords({ lat: latitude, lng: longitude, accuracy });
+              setGpsError(null);
+              try {
+                const addr = await getReverseGeocodeAddress(latitude, longitude);
+                setLocationAddress(addr);
+              } catch (e) {
+                setLocationAddress("Jakarta, Indonesia");
+              }
+            },
+            (fallbackErr) => {
+              setGpsError(`Sinyal GPS lemah atau waktu habis (${fallbackErr.message}). Silakan tekan tombol Coba Lagi.`);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          );
+          return;
+        }
+
+        if (err.code === 1 || err.message.toLowerCase().includes("denied")) {
+          setGpsError("Izin lokasi ditolak / diblokir oleh browser atau sistem HP. Silakan aktifkan izin lokasi di Pengaturan.");
+        } else {
+          setGpsError(`Gagal mengambil GPS (${err.message}). Pastikan izin lokasi aktif.`);
+        }
       },
       {
         enableHighAccuracy: true,
@@ -499,8 +526,35 @@ export default function CameraStreamModal({
           </div>
 
           {gpsError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 font-medium">
-              {gpsError}
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 font-bold text-red-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                  <span>Kendala Sinyal / Izin GPS</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Coba Lagi GPS</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-red-800 leading-relaxed font-medium">
+                {gpsError}
+              </p>
+
+              <div className="rounded-xl border border-red-200/70 bg-white/90 p-2.5 text-[11px] text-slate-700 space-y-1">
+                <p className="font-bold text-slate-900">💡 Panduan Mengaktifkan Izin Lokasi:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[10px]">
+                  <li><strong>iPhone (Safari):</strong> Buka <em>Pengaturan iPhone &gt; Privasi &amp; Keamanan &gt; Layanan Lokasi (Aktifkan) &gt; Safari &gt; pilih "Saat Menggunakan App"</em>.</li>
+                  <li><strong>iPhone (Chrome):</strong> Buka <em>Pengaturan iPhone &gt; Chrome &gt; Lokasi &gt; pilih "Saat Menggunakan App"</em>. <u>Sangat disarankan buka lewat Safari bawaan iPhone</u>.</li>
+                  <li><strong>Android:</strong> Ketuk ikon gembok/setelan di samping alamat web <code>hris.difitech.id</code> &gt; <em>Izin Situs &gt; Lokasi &gt; Izinkan</em>.</li>
+                  <li><strong>Penting:</strong> Jangan buka lewat browser bawaan WhatsApp. Buka langsung di aplikasi browser (Safari/Chrome).</li>
+                </ul>
+              </div>
             </div>
           )}
 
