@@ -67,7 +67,7 @@ export default function MyTasksPage() {
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
-  const [counts, setCounts] = useState({ inbox: 0, inProgress: 0, completed: 0 });
+  const [counts, setCounts] = useState({ inbox: 0, inProgress: 0, completed: 0, pendingReview: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   // Drag and Drop state
@@ -276,6 +276,32 @@ export default function MyTasksPage() {
             </div>
           </div>
 
+          {/* Pending Review Alert Banner for Pemberi Tugas */}
+          {counts.pendingReview > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50/90 p-4 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow-2xs shrink-0">
+                  <AlertCircle className="h-5 w-5 animate-bounce" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-amber-950">
+                    Ada {counts.pendingReview} Tugas Delegasi Menunggu Review Anda!
+                  </h4>
+                  <p className="text-[11px] text-amber-800">
+                    Sebagai pemberi tugas, Anda menentukan apakah tugas tersebut tuntas (Done !) atau perlu revisi.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/dashboard/workspace"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs shrink-0"
+              >
+                <span>Buka Divisi Kolaborasi & Review</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          )}
+
           {/* Quick KPI Stats Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs flex items-center justify-between">
@@ -458,7 +484,22 @@ export default function MyTasksPage() {
                                 <span className={`rounded-md border text-[9px] px-1.5 py-0.5 uppercase ${getPriorityBadge(task.priority)}`}>
                                   {task.priority || "MEDIUM"}
                                 </span>
-                                {task.revisionTag && (
+                                {task.reviewStatus === "TO_BE_REVIEWED" && (
+                                  <span className="rounded-md bg-amber-500 text-white font-black text-[9px] px-2 py-0.5 flex items-center gap-1 shadow-2xs animate-pulse">
+                                    ⏳ TO BE REVIEWED
+                                  </span>
+                                )}
+                                {task.reviewStatus === "REVISION_REQUESTED" && (
+                                  <span className="rounded-md bg-rose-600 text-white font-black text-[9px] px-2 py-0.5 flex items-center gap-1 shadow-2xs">
+                                    ⚠️ PERLU REVISI
+                                  </span>
+                                )}
+                                {task.status === "COMPLETED" && (
+                                  <span className="rounded-md bg-emerald-600 text-white font-black text-[9px] px-2 py-0.5 flex items-center gap-1 shadow-2xs">
+                                    ✓ DONE !
+                                  </span>
+                                )}
+                                {task.revisionTag && task.reviewStatus !== "REVISION_REQUESTED" && (
                                   <span className="rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
                                     <RefreshCw className="h-2.5 w-2.5" /> {task.revisionTag}
                                   </span>
@@ -551,6 +592,28 @@ export default function MyTasksPage() {
                               </div>
                             )}
 
+                            {/* Catatan Revisi jika REVISION_REQUESTED */}
+                            {task.reviewStatus === "REVISION_REQUESTED" && task.revisionNote && (
+                              <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-2.5 text-[10px] text-rose-900 space-y-0.5">
+                                <span className="font-bold flex items-center gap-1 text-rose-700">
+                                  <AlertTriangle className="h-3 w-3" /> Catatan Revisi Pemberi Tugas:
+                                </span>
+                                <p className="italic font-medium text-rose-950">"{task.revisionNote}"</p>
+                              </div>
+                            )}
+
+                            {/* Info Review jika TO_BE_REVIEWED */}
+                            {task.reviewStatus === "TO_BE_REVIEWED" && (
+                              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 text-[10px] text-amber-900 space-y-0.5">
+                                <span className="font-bold flex items-center gap-1 text-amber-800">
+                                  ⏳ Menunggu Review {task.creator?.name ? `(${task.creator.name})` : "Pemberi Tugas"}
+                                </span>
+                                {task.completionNote && (
+                                  <p className="italic text-amber-800 line-clamp-1">Catatan Anda: "{task.completionNote}"</p>
+                                )}
+                              </div>
+                            )}
+
                             {/* Deliverable Proof of Work link if present */}
                             {task.deliverableUrl && (
                               <div
@@ -598,35 +661,71 @@ export default function MyTasksPage() {
 
                               {column.id === "IN_PROGRESS" && (
                                 <>
-                                  <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                                    Aktif
-                                  </span>
+                                  {task.reviewStatus === "TO_BE_REVIEWED" ? (
+                                    <>
+                                      <span className="text-[10px] font-black text-amber-700 flex items-center gap-1">
+                                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                                        Menunggu Review
+                                      </span>
 
-                                  <button
-                                    onClick={() => setDeliverableModalTask(task)}
-                                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
-                                  >
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    <span>Submit & Selesai</span>
-                                  </button>
+                                      <button
+                                        onClick={() => setDeliverableModalTask(task)}
+                                        className="inline-flex items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
+                                      >
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                        <span>Ubah Link</span>
+                                      </button>
+                                    </>
+                                  ) : task.reviewStatus === "REVISION_REQUESTED" ? (
+                                    <>
+                                      <span className="text-[10px] font-bold text-rose-700 flex items-center gap-1">
+                                        <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                                        Perlu Revisi
+                                      </span>
+
+                                      <button
+                                        onClick={() => setDeliverableModalTask(task)}
+                                        className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-rose-700 shadow-2xs transition cursor-pointer"
+                                      >
+                                        <Play className="h-2.5 w-2.5" />
+                                        <span>Submit Revisi</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
+                                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                                        Aktif
+                                      </span>
+
+                                      <button
+                                        onClick={() => setDeliverableModalTask(task)}
+                                        className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 shadow-2xs transition cursor-pointer"
+                                      >
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        <span>Submit Hasil</span>
+                                      </button>
+                                    </>
+                                  )}
                                 </>
                               )}
 
                               {column.id === "COMPLETED" && (
                                 <>
-                                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                                  <span className="text-[10px] font-black text-emerald-700 flex items-center gap-1">
                                     <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                    Tuntas
+                                    Done !
                                   </span>
 
-                                  <button
-                                    onClick={() => setRevisionModalTask(task)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                                  >
-                                    <RefreshCw className="h-2.5 w-2.5" />
-                                    <span>Minta Revisi</span>
-                                  </button>
+                                  {user?.id === task.creatorId && (
+                                    <button
+                                      onClick={() => setRevisionModalTask(task)}
+                                      className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                                    >
+                                      <RefreshCw className="h-2.5 w-2.5" />
+                                      <span>Minta Revisi</span>
+                                    </button>
+                                  )}
                                 </>
                               )}
                             </div>

@@ -47,6 +47,8 @@ interface TaskItem {
   kanbanStage?: string | null;
   revisionTag?: string | null;
   deliverableUrl?: string | null;
+  reviewStatus?: string;
+  reviewedAt?: string | null;
   createdAt: string;
   user: {
     id: string;
@@ -212,10 +214,37 @@ export default function WorkspaceCardsPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const handleApproveTask = async (taskId: string) => {
+    try {
+      await fetch(`/api/workspace/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewAction: { action: "APPROVE" } }),
+      });
+      fetchTasks();
+    } catch (err) {
+      console.error("Failed to approve task:", err);
+    }
+  };
+
+  const getStatusBadge = (status: string, reviewStatus?: string) => {
+    if (reviewStatus === "TO_BE_REVIEWED") {
+      return (
+        <span className="rounded-md bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 shadow-2xs animate-pulse">
+          ⏳ TO BE REVIEWED
+        </span>
+      );
+    }
+    if (reviewStatus === "REVISION_REQUESTED") {
+      return (
+        <span className="rounded-md bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 shadow-2xs">
+          ⚠️ PERLU REVISI
+        </span>
+      );
+    }
     switch (status) {
       case "COMPLETED":
-        return <span className="rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">Selesai</span>;
+        return <span className="rounded-md bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5">✓ DONE !</span>;
       case "IN_PROGRESS":
         return <span className="rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5">Dikerjakan</span>;
       case "BLOCKED":
@@ -476,7 +505,7 @@ export default function WorkspaceCardsPage() {
                                   <Tag className="h-2.5 w-2.5" /> {task.brandName}
                                 </span>
                               )}
-                              {getStatusBadge(task.status)}
+                              {getStatusBadge(task.status, task.reviewStatus)}
                               {task.isContentProduction && (
                                 <span className="rounded-md bg-pink-100 text-pink-700 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1">
                                   <Clapperboard className="h-2.5 w-2.5" /> {task.kanbanStage || "BRIEF"}
@@ -569,7 +598,10 @@ export default function WorkspaceCardsPage() {
 
                           {/* Deliverable Url if done */}
                           {task.deliverableUrl && (
-                            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[11px] flex items-center justify-between">
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className="rounded-xl bg-emerald-50 border border-emerald-200 p-2 text-[11px] flex items-center justify-between"
+                            >
                               <span className="text-emerald-800 font-bold flex items-center gap-1 text-[10px]">
                                 <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Hasil Akhir
                               </span>
@@ -589,7 +621,10 @@ export default function WorkspaceCardsPage() {
                             {/* Khusus Card Sosmed: Oper ke Kanban Content */}
                             {cardDef.key === "SOSMED" && !task.isContentProduction && task.status !== "COMPLETED" && (
                               <button
-                                onClick={() => handleSendToContentProduction(task.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSendToContentProduction(task.id);
+                                }}
                                 className="inline-flex items-center gap-1 rounded-lg border border-pink-200 bg-pink-50 px-2.5 py-1 text-[10px] font-bold text-pink-700 hover:bg-pink-100 transition"
                               >
                                 <Clapperboard className="h-3 w-3" />
@@ -600,32 +635,108 @@ export default function WorkspaceCardsPage() {
                             {/* Tombol Saran Deadline untuk Assignee */}
                             {task.user?.id === user?.id && task.status !== "COMPLETED" && (
                               <button
-                                onClick={() => setDeadlineModalTask(task)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeadlineModalTask(task);
+                                }}
                                 className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline transition"
                               >
                                 Nego Deadline
                               </button>
                             )}
 
-                            {/* Tombol Minta Revisi jika sudah COMPLETED (Pemberi Tugas/Tim Ads bisa minta revisi) */}
-                            {task.status === "COMPLETED" && (
-                              <button
-                                onClick={() => setRevisionModalTask(task)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition"
+                            {/* Review Gate Handling */}
+                            {task.reviewStatus === "TO_BE_REVIEWED" ? (
+                              task.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER" ? (
+                                <div 
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full flex items-center justify-between gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl mt-1"
+                                >
+                                  <span className="text-[10px] font-black text-amber-900 flex items-center gap-1">
+                                    <Clock className="h-3 w-3 text-amber-600" /> Perlu Review:
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => setRevisionModalTask(task)}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-50 transition shadow-2xs cursor-pointer"
+                                    >
+                                      <RefreshCw className="h-2.5 w-2.5" />
+                                      <span>Revision</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleApproveTask(task.id)}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-black text-white hover:bg-emerald-700 transition shadow-2xs cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="h-2.5 w-2.5" />
+                                      <span>Done !</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div 
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full flex items-center justify-between p-2 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-800 text-[10px] font-bold mt-1"
+                                >
+                                  <span className="flex items-center gap-1">
+                                    ⏳ Menunggu Review Pemberi Tugas
+                                  </span>
+                                  {task.user?.id === user?.id && (
+                                    <button
+                                      onClick={() => setDeliverableModalTask(task)}
+                                      className="text-amber-700 hover:underline text-[10px] font-bold cursor-pointer"
+                                    >
+                                      Ubah Bukti
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            ) : task.reviewStatus === "REVISION_REQUESTED" ? (
+                              <div 
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full flex items-center justify-between gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl mt-1"
                               >
-                                <RefreshCw className="h-2.5 w-2.5" />
-                                <span>Minta Revisi</span>
-                              </button>
-                            )}
+                                <span className="text-[10px] font-bold text-rose-800 flex items-center gap-1 truncate max-w-[180px]">
+                                  ⚠️ Perlu Revisi: {task.revisionTag || "Ada catatan"}
+                                </span>
+                                {task.user?.id === user?.id && (
+                                  <button
+                                    onClick={() => setDeliverableModalTask(task)}
+                                    className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[10px] font-black text-white hover:bg-rose-700 transition shadow-2xs shrink-0 cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                    <span>Submit Revisi</span>
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                {/* Tombol Minta Revisi jika sudah COMPLETED (Pemberi Tugas bisa minta revisi lanjutan) */}
+                                {task.status === "COMPLETED" && (task.creator?.id === user?.id || user?.role === "ADMIN") && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRevisionModalTask(task);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                                  >
+                                    <RefreshCw className="h-2.5 w-2.5" />
+                                    <span>Minta Revisi</span>
+                                  </button>
+                                )}
 
-                            {/* Submit Selesai cepat */}
-                            {task.status !== "COMPLETED" && (
-                              <button
-                                onClick={() => setDeliverableModalTask(task)}
-                                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 transition"
-                              >
-                                Tandai Selesai &rarr;
-                              </button>
+                                {/* Submit Selesai cepat */}
+                                {task.status !== "COMPLETED" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeliverableModalTask(task);
+                                    }}
+                                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 transition ml-auto cursor-pointer"
+                                  >
+                                    Tandai Selesai &rarr;
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

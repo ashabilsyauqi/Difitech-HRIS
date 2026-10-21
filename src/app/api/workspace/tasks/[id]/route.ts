@@ -178,7 +178,130 @@ export async function PATCH(
       return NextResponse.json({ success: true, task: updated });
     }
 
-    // 5. Permintaan Revisi (Revision Loop) oleh Pemohon Tugas (misal Tim Ads)
+    // 5. Submit Hasil Tugas (Deliverable) oleh Pengerja -> Masuk tahap Review jika ada Pemberi Tugas
+    if (body.submitDeliverable) {
+      const { deliverableUrl, completionNote } = body.submitDeliverable;
+      const isSelfAssigned = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
+
+      if (isSelfAssigned) {
+        // Tugas inisiatif pribadi yang dibuat untuk diri sendiri -> langsung COMPLETED (Done !)
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            status: "COMPLETED",
+            reviewStatus: "APPROVED",
+            deliverableUrl: deliverableUrl || null,
+            completionNote: completionNote || null,
+            revisionTag: null,
+            reviewedAt: new Date(),
+          },
+        });
+        return NextResponse.json({ success: true, task: updated });
+      } else {
+        // Ditugaskan oleh rekan/pemberi tugas -> masuk status TO_BE_REVIEWED!
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            status: "IN_PROGRESS", // tetap aktif dalam proses review
+            reviewStatus: "TO_BE_REVIEWED",
+            deliverableUrl: deliverableUrl || null,
+            completionNote: completionNote || null,
+            revisionTag: null,
+          },
+        });
+
+        // Kirim notifikasi ke Pemberi Tugas (Creator)
+        if (existingTask.creatorId) {
+          await prisma.notification.create({
+            data: {
+              userId: existingTask.creatorId,
+              title: `Hasil Tugas Siap Direview: ${existingTask.title}`,
+              message: `${authUser.name} telah menyerahkan hasil kerja untuk [${existingTask.departmentCard || "Tugas"} - ${existingTask.brandName || "General"}]. Harap review hasil kerja (Pilih Revision atau Done !).`,
+              type: "TO_BE_REVIEWED",
+              link: "/dashboard/workspace",
+              taskId: existingTask.id,
+            },
+          });
+        }
+
+        return NextResponse.json({ success: true, task: updated });
+      }
+    }
+
+    // 6. Review Action oleh Pemberi Tugas (APPROVE = "Done !" atau REVISION = "Minta Revisi")
+    if (body.reviewAction) {
+      const { action, revisionNote } = body.reviewAction; // 'APPROVE' | 'REVISION'
+      const isCreator = existingTask.creatorId === authUser.userId;
+      const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
+
+      if (!isCreator && !isManagerOrAdmin) {
+        return NextResponse.json(
+          { error: "Hanya pemberi tugas atau manager yang berhak mereview dan menyetujui tugas ini" },
+          { status: 403 }
+        );
+      }
+
+      if (action === "APPROVE") {
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            status: "COMPLETED",
+            reviewStatus: "APPROVED",
+            revisionTag: null,
+            reviewedAt: new Date(),
+          },
+        });
+
+        // Kirim notifikasi ke Pengerja (Assignee) bahwa tugas resmi Done !
+        if (existingTask.userId !== authUser.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: existingTask.userId,
+              title: `Tugas Disetujui (Done !): ${existingTask.title}`,
+              message: `Selamat! ${authUser.name} (Pemberi Tugas) telah menyetujui hasil kerja Anda. Tugas resmi ditandai selesai (Done !) di lembar kerja Anda.`,
+              type: "TASK_APPROVED",
+              link: "/dashboard/my-tasks",
+              taskId: existingTask.id,
+            },
+          });
+        }
+
+        return NextResponse.json({ success: true, task: updated });
+      } else if (action === "REVISION") {
+        if (!revisionNote || !revisionNote.trim()) {
+          return NextResponse.json({ error: "Catatan revisi wajib diisi" }, { status: 400 });
+        }
+
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            status: "IN_PROGRESS",
+            reviewStatus: "REVISION_REQUESTED",
+            revisionTag: "Perlu Revisi",
+            revisionNote: revisionNote.trim(),
+            reviewedAt: new Date(),
+          },
+        });
+
+        // Kirim notifikasi ke Pengerja (Assignee) tentang catatan revisi
+        if (existingTask.userId !== authUser.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: existingTask.userId,
+              title: `Catatan Revisi dari ${authUser.name}: ${existingTask.title}`,
+              message: `Pemberi tugas meminta revisi: "${revisionNote.trim()}". Harap perbaiki dan submit kembali hasil tugas Anda.`,
+              type: "TASK_REVISION",
+              link: "/dashboard/my-tasks",
+              taskId: existingTask.id,
+            },
+          });
+        }
+
+        return NextResponse.json({ success: true, task: updated });
+      }
+    }
+
+    // 7. Permintaan Revisi (Revision Loop lama untuk Tim Ads/Sosmed jika dipakai)
     if (body.requestRevision) {
       const { note } = body.requestRevision;
 
@@ -188,6 +311,7 @@ export async function PATCH(
         data: {
           revisionTag: `Request Revision by ${authUser.department || authUser.name}`,
           revisionNote: note || null,
+          reviewStatus: "REVISION_REQUESTED",
         },
       });
 
@@ -224,7 +348,7 @@ export async function PATCH(
       return NextResponse.json({ success: true, task: revisionTask, originalTaskId: existingTask.id });
     }
 
-    // 6. Update Standar (Status, Title, Description, Deliverable URL, dll.)
+    // 8. Update Standar (Status, Title, Description, Deliverable URL, dll.)
     const {
       status,
       title,
@@ -238,7 +362,24 @@ export async function PATCH(
     } = body;
 
     const updatedData: any = {};
-    if (status !== undefined) updatedData.status = status;
+    if (status !== undefined) {
+      // Jika mencoba set COMPLETED padahal ditugaskan oleh orang lain dan belum di-approve
+      if (status === "COMPLETED" && existingTask.creatorId && existingTask.creatorId !== authUser.userId && existingTask.reviewStatus !== "APPROVED") {
+        const isCreator = existingTask.creatorId === authUser.userId;
+        const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
+        if (isCreator || isManagerOrAdmin) {
+          updatedData.status = "COMPLETED";
+          updatedData.reviewStatus = "APPROVED";
+          updatedData.reviewedAt = new Date();
+        } else {
+          // Assignee trying to complete -> masuk TO_BE_REVIEWED
+          updatedData.status = "IN_PROGRESS";
+          updatedData.reviewStatus = "TO_BE_REVIEWED";
+        }
+      } else {
+        updatedData.status = status;
+      }
+    }
     if (title !== undefined) updatedData.title = title.trim();
     if (description !== undefined) updatedData.description = description;
     if (brandName !== undefined) updatedData.brandName = brandName.trim();

@@ -44,9 +44,10 @@ export default function SubmitDeliverableModal({
         };
       } else {
         payload = {
-          status: "COMPLETED",
-          deliverableUrl: deliverableUrl.trim() || undefined,
-          completionNote: completionNote.trim() || undefined,
+          submitDeliverable: {
+            deliverableUrl: deliverableUrl.trim() || undefined,
+            completionNote: completionNote.trim() || undefined,
+          },
         };
       }
 
@@ -80,7 +81,7 @@ export default function SubmitDeliverableModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">
-                {isApprovalAction ? "Approve & Submit Hasil Akhir" : "Selesaikan Tugas (Submit Deliverable)"}
+                {isApprovalAction ? "Approve & Submit Hasil Akhir" : "Submit Hasil Kerja (Untuk Direview)"}
               </h3>
               <p className="text-[11px] text-slate-500 truncate max-w-[240px]">{taskTitle}</p>
             </div>
@@ -100,6 +101,10 @@ export default function SubmitDeliverableModal({
               <span>{errorMsg}</span>
             </div>
           )}
+
+          <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-[11px] text-blue-800 leading-relaxed">
+            <span className="font-bold">Info Review Pemberi Tugas:</span> Hasil kerja Anda akan diteruskan ke pemberi tugas untuk direview (status <em>To Be Reviewed</em>). Begitu disetujui, tugas Anda otomatis berstatus <strong>Done !</strong> dan tercatat tuntas di lembar kerja Anda.
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -145,7 +150,7 @@ export default function SubmitDeliverableModal({
               className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>{isApprovalAction ? "Setujui & Selesaikan" : "Tandai Selesai"}</span>
+              <span>{isApprovalAction ? "Setujui & Selesaikan" : "Kirim Hasil & Ajukan Review"}</span>
             </button>
           </div>
         </form>

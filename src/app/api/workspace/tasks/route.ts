@@ -131,10 +131,11 @@ export async function GET(req: NextRequest) {
     });
 
     // Ringkasan Counter Tugas Pribadi untuk badge
-    const [inboxCount, inProgressCount, completedCount] = await Promise.all([
+    const [inboxCount, inProgressCount, completedCount, pendingReviewCount] = await Promise.all([
       prisma.task.count({ where: { userId: authUser.userId, status: "PENDING" } }),
       prisma.task.count({ where: { userId: authUser.userId, status: "IN_PROGRESS" } }),
       prisma.task.count({ where: { userId: authUser.userId, status: "COMPLETED" } }),
+      prisma.task.count({ where: { creatorId: authUser.userId, reviewStatus: "TO_BE_REVIEWED" } }),
     ]);
 
     return NextResponse.json({
@@ -143,6 +144,7 @@ export async function GET(req: NextRequest) {
         inbox: inboxCount,
         inProgress: inProgressCount,
         completed: completedCount,
+        pendingReview: pendingReviewCount,
       },
     });
   } catch (error) {

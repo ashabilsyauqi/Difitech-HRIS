@@ -40,7 +40,10 @@ export default function RequestRevisionModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestRevision: { note: note.trim() },
+          reviewAction: {
+            action: "REVISION",
+            revisionNote: note.trim(),
+          },
         }),
       });
 
@@ -67,7 +70,7 @@ export default function RequestRevisionModal({
               <RefreshCw className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Ajukan Permintaan Revisi</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Instruksi Catatan Revisi</h3>
               <p className="text-[11px] text-slate-500 truncate max-w-[240px]">
                 [{brandName}] {taskTitle}
               </p>
@@ -90,7 +93,7 @@ export default function RequestRevisionModal({
           )}
 
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-800 leading-relaxed">
-            <span className="font-bold">Informasi Log Revisi:</span> Pekerjaan sebelumnya tetap tersimpan sebagai catatan histori kerja tim. Task baru khusus revisi akan otomatis diterbitkan di pipeline Kanban Content Production.
+            <span className="font-bold">Info Revisi:</span> Catatan revisi ini akan langsung muncul di kartu tugas pengerja dan mengubah statusnya menjadi <strong>Perlu Revisi</strong> agar pengerja dapat memperbaiki dan mengirimkan ulang hasilnya.
           </div>
 
           <div>

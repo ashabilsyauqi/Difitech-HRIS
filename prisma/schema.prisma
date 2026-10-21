@@ -147,6 +147,10 @@ model Task {
   revisionTag           String?         // e.g. "Request Revision by Tim Ads"
   revisionNote          String?         // Catatan revisi dari pemberi tugas
 
+  // Alur Approval & Review oleh Pemberi Tugas (Review Gate)
+  reviewStatus          String          @default("NONE") // NONE, TO_BE_REVIEWED, REVISION_REQUESTED, APPROVED
+  reviewedAt            DateTime?
+
   // Sifat Tugas Harian / Standard Task
   targetDate            String?         // YYYY-MM-DD (Lembar tugas harian)
   title                 String
