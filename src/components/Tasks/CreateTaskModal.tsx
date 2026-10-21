@@ -33,6 +33,7 @@ interface CreateTaskModalProps {
   initialDepartment?: string;
   initialBrand?: string;
   defaultToSelf?: boolean;
+  initialIsContentProduction?: boolean;
 }
 
 const DEPARTMENTS = [
@@ -66,16 +67,19 @@ export default function CreateTaskModal({
   initialDepartment,
   initialBrand,
   defaultToSelf = false,
+  initialIsContentProduction = false,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [departmentCard, setDepartmentCard] = useState(initialDepartment || "SOSMED");
+  const [departmentCard, setDepartmentCard] = useState(
+    initialIsContentProduction ? "SOSMED" : initialDepartment || "SOSMED"
+  );
   const [brandName, setBrandName] = useState(initialBrand || "");
   const [assigneeId, setAssigneeId] = useState("");
   const [expectedDeadline, setExpectedDeadline] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [estimatedHours, setEstimatedHours] = useState(2.0);
-  const [isContentProduction, setIsContentProduction] = useState(false);
+  const [isContentProduction, setIsContentProduction] = useState(initialIsContentProduction);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
@@ -84,9 +88,15 @@ export default function CreateTaskModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (initialDepartment) setDepartmentCard(initialDepartment);
+    if (initialIsContentProduction) {
+      setIsContentProduction(true);
+      setDepartmentCard("SOSMED");
+    } else {
+      setIsContentProduction(false);
+      if (initialDepartment) setDepartmentCard(initialDepartment);
+    }
     if (initialBrand) setBrandName(initialBrand);
-  }, [initialDepartment, initialBrand]);
+  }, [initialDepartment, initialBrand, initialIsContentProduction, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -174,7 +184,7 @@ export default function CreateTaskModal({
       setTitle("");
       setDescription("");
       setExpectedDeadline("");
-      setIsContentProduction(false);
+      setIsContentProduction(Boolean(initialIsContentProduction));
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -196,18 +206,26 @@ export default function CreateTaskModal({
         {/* Header Lembar Kerja */}
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-red-100 p-2 text-red-600">
-              <Layers className="h-5 w-5" />
+            <div className={`rounded-xl p-2 ${isContentProduction ? "bg-pink-100 text-pink-600" : "bg-red-100 text-red-600"}`}>
+              {isContentProduction ? <Clapperboard className="h-5 w-5" /> : <Layers className="h-5 w-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 text-base">Lembar Kerja Tugas Baru</h3>
-                <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${currentDeptConfig.color}`}>
-                  Card {currentDeptConfig.label}
+                <h3 className="font-bold text-slate-900 text-base">
+                  {isContentProduction ? "Lembar Kerja: Request Konten Baru" : "Lembar Kerja Tugas Baru"}
+                </h3>
+                <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                  isContentProduction
+                    ? "bg-pink-100 text-pink-700 border-pink-200"
+                    : currentDeptConfig.color
+                }`}>
+                  {isContentProduction ? "🎬 Kanban Konten (Sosmed)" : `Card ${currentDeptConfig.label}`}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Workspace Task Management • Terintegrasi Otomatis dengan HRIS
+                {isContentProduction
+                  ? "Pipeline Produksi Konten Tim Sosmed & Kreatif • Terintegrasi Otomatis dengan HRIS"
+                  : "Workspace Task Management • Terintegrasi Otomatis dengan HRIS"}
               </p>
             </div>
           </div>
@@ -228,7 +246,7 @@ export default function CreateTaskModal({
                 Tahapan Pipeline:
               </span>
               <div className="flex items-center gap-1.5">
-                {(departmentCard === "SOSMED" && isContentProduction
+                {(isContentProduction
                   ? CONTENT_PRODUCTION_STAGES
                   : STANDARD_STAGES
                 ).map((stage, idx, arr) => (
@@ -236,7 +254,9 @@ export default function CreateTaskModal({
                     <span
                       className={`text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition ${
                         idx === 0
-                          ? "bg-red-600 text-white shadow-xs font-bold"
+                          ? isContentProduction
+                            ? "bg-pink-600 text-white shadow-xs font-bold"
+                            : "bg-red-600 text-white shadow-xs font-bold"
                           : "bg-slate-800 text-slate-400"
                       }`}
                     >
@@ -267,8 +287,8 @@ export default function CreateTaskModal({
               </div>
             )}
 
-            {/* Pilihan Card Divisi: Hanya muncul jika TIDAK ADA initialDepartment (global modal) */}
-            {!initialDepartment && (
+            {/* Pilihan Card Divisi: Hanya muncul jika TIDAK ADA initialDepartment dan bukan request konten */}
+            {!initialDepartment && !isContentProduction && (
               <div className="mb-4 p-3 rounded-2xl bg-slate-50 border border-slate-200">
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Pilih Card Divisi Tujuan <span className="text-red-500">*</span>
@@ -295,63 +315,6 @@ export default function CreateTaskModal({
               </div>
             )}
 
-            {/* Khusus Divisi Sosmed: Pilihan Alur Kerja Modern & Elegan */}
-            {departmentCard === "SOSMED" && (
-              <div className="mb-5 rounded-2xl border border-pink-200/80 bg-gradient-to-r from-pink-50/90 via-rose-50/50 to-white p-4 shadow-2xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-pink-600 text-white shadow-xs shrink-0">
-                      <Clapperboard className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                        <span>Pilihan Alur Kerja Tim Sosmed</span>
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border transition ${
-                          isContentProduction
-                            ? "bg-pink-100 text-pink-700 border-pink-300"
-                            : "bg-slate-100 text-slate-700 border-slate-200"
-                        }`}>
-                          {isContentProduction ? "🎬 Kanban Konten (6 Tahap)" : "📋 Tugas Reguler Sosmed"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {isContentProduction
-                          ? "Tugas akan diproses bertahap di Kanban: Brief → Shooting → Design → Editing → Revisi → Approval."
-                          : "Tugas harian standar: Tugas Masuk → Sedang Dikerjakan → Selesai."}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Segmented Switch Buttons */}
-                  <div className="flex items-center bg-white p-1 rounded-xl border border-pink-200 shadow-2xs shrink-0 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setIsContentProduction(false)}
-                      className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        !isContentProduction
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      📋 Tugas Reguler
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsContentProduction(true)}
-                      className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
-                        isContentProduction
-                          ? "bg-pink-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-pink-600"
-                      }`}
-                    >
-                      <Clapperboard className="h-3.5 w-3.5" />
-                      <span>🎬 Produksi Konten (Kanban)</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* 2-Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Kolom Kiri: Canvas Lembar Kerja (Judul & WYSIWYG Editor) */}
@@ -359,12 +322,16 @@ export default function CreateTaskModal({
                 {/* Judul Tugas */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Judul Pekerjaan / Tugas <span className="text-red-500">*</span>
+                    {isContentProduction ? "Judul Konten / Proyek Kreatif" : "Judul Pekerjaan / Tugas"} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Optimasi Konten SEO Pilar X / Produksi Video Review Produk..."
+                    placeholder={
+                      isContentProduction
+                        ? "Contoh: Video Reels Edukasi Fitur HRIS / Banner Promo Gajian..."
+                        : "Contoh: Optimasi Konten SEO Pilar X / Maintenance Server..."
+                    }
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full text-sm sm:text-base font-bold text-slate-900 placeholder:text-slate-300 border-0 border-b-2 border-slate-200 focus:border-red-500 focus:ring-0 outline-none pb-2 transition"
@@ -375,7 +342,7 @@ export default function CreateTaskModal({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <span>Lembar Kerja Brief & Catatan Pengerjaan</span>
+                      <span>{isContentProduction ? "Lembar Kerja Brief Konten & Arahan Kreatif" : "Lembar Kerja Brief & Catatan Pengerjaan"}</span>
                       <span className="text-[10px] text-slate-400 font-normal">
                         (WYSIWYG: Dukungan format tebal, list, checklist & link)
                       </span>
@@ -384,7 +351,11 @@ export default function CreateTaskModal({
                   <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    placeholder="Tuliskan spesifikasi detail, instruksi pengerjaan, checklist target, atau tempel link Figma/Drive di sini..."
+                    placeholder={
+                      isContentProduction
+                        ? "Tuliskan konsep video/desain, hook pembuka, referensi visual, draft copy teks, durasi target, atau tempel link Figma/Drive di sini..."
+                        : "Tuliskan spesifikasi detail, instruksi pengerjaan, checklist target, atau tempel link Figma/Drive di sini..."
+                    }
                     minHeight="380px"
                   />
                 </div>
@@ -393,16 +364,24 @@ export default function CreateTaskModal({
               {/* Kolom Kanan: Properti Tugas (Sidebar) */}
               <div className="lg:col-span-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 p-4 space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <span className="text-xs font-bold text-slate-800">Properti Tugas</span>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${currentDeptConfig.color}`}>
-                    {currentDeptConfig.label}
+                  <span className="text-xs font-bold text-slate-800">
+                    {isContentProduction ? "Properti Konten" : "Properti Tugas"}
+                  </span>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${
+                    isContentProduction ? "bg-pink-100 text-pink-700 border-pink-200" : currentDeptConfig.color
+                  }`}>
+                    {isContentProduction ? "Kanban Sosmed" : currentDeptConfig.label}
                   </span>
                 </div>
 
                 {/* 1. Penerima Tugas: Dropdown Otomatis 1-Klik */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                    <span>Penerima Tugas (Assignee) <span className="text-red-500">*</span></span>
+                    <span>
+                      {isContentProduction
+                        ? "Penerima Tugas / PIC Konten (Editor/Desainer/Sosmed)"
+                        : "Penerima Tugas (Assignee)"} <span className="text-red-500">*</span>
+                    </span>
                   </label>
                   <div className="relative">
                     <select
@@ -434,7 +413,7 @@ export default function CreateTaskModal({
                   <div className="mt-1.5 text-[10px]">
                     {isSelfAssigned ? (
                       <p className="text-blue-700 bg-blue-50/80 border border-blue-200/80 p-2 rounded-lg leading-relaxed">
-                        ✨ <strong>Tugas Pribadi:</strong> Otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan terpajang di Card <strong>{departmentCard}</strong>.
+                        ✨ <strong>Tugas Pribadi:</strong> Otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan terpajang di {isContentProduction ? "Kanban Konten" : `Card ${departmentCard}`}.
                       </p>
                     ) : (
                       <p className="text-purple-700 bg-purple-50/80 border border-purple-200/80 p-2 rounded-lg leading-relaxed">
@@ -517,10 +496,16 @@ export default function CreateTaskModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 disabled:opacity-50 transition cursor-pointer"
+              className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-50 transition cursor-pointer ${
+                isContentProduction ? "bg-pink-600 hover:bg-pink-700" : "bg-red-600 hover:bg-red-700"
+              }`}
             >
-              <Send className="h-3.5 w-3.5" />
-              <span>{isLoading ? "Menyimpan Lembar Kerja..." : "Posting Lembar Kerja Tugas"}</span>
+              {isContentProduction ? <Clapperboard className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              <span>
+                {isLoading
+                  ? isContentProduction ? "Menyimpan Request Konten..." : "Menyimpan Lembar Kerja..."
+                  : isContentProduction ? "🎬 Submit Request Konten ke Kanban" : "Posting Lembar Kerja Tugas"}
+              </span>
             </button>
           </div>
         </form>

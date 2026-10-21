@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
+import TaskDetailModal from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
@@ -58,6 +59,7 @@ export default function ContentProductionKanbanPage() {
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null);
   const [approvalModalTask, setApprovalModalTask] = useState<any | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<any | null>(null);
 
@@ -110,6 +112,14 @@ export default function ContentProductionKanbanPage() {
   useEffect(() => {
     fetchSession();
     fetchBrands();
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("new") === "true") {
+        setCreateModalOpen(true);
+        window.history.replaceState({}, "", "/dashboard/content-production");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -191,7 +201,7 @@ export default function ContentProductionKanbanPage() {
                 className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-pink-700 transition cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                <span>+ Konten Baru</span>
+                <span>+ Request Konten Baru</span>
               </button>
             </div>
           </div>
@@ -261,12 +271,13 @@ export default function ContentProductionKanbanPage() {
                         stageTasks.map((task) => (
                           <div
                             key={task.id}
-                            className={`rounded-xl border bg-white p-3 shadow-2xs transition hover:shadow-xs space-y-2 ${
+                            onClick={() => setSelectedTaskForDetail(task)}
+                            className={`rounded-xl border bg-white p-3 shadow-2xs transition hover:shadow-xs hover:border-slate-300 space-y-2 cursor-pointer group ${
                               stage.key === "APPROVAL" ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200"
                             }`}
                           >
                             {/* Badges & Follow Up */}
-                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                            <div className="flex items-center justify-between gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                               <span className="rounded-md bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.5 flex items-center gap-0.5">
                                 <Tag className="h-2 w-2" /> {task.brandName || "Brand"}
                               </span>
@@ -280,7 +291,9 @@ export default function ContentProductionKanbanPage() {
                             </div>
 
                             {/* Title */}
-                            <h4 className="text-xs font-bold text-slate-900 leading-snug">{task.title}</h4>
+                            <h4 className="text-xs font-bold text-slate-900 leading-snug group-hover:text-pink-600 transition-colors">
+                              {task.title}
+                            </h4>
 
                             {/* Revision Indicator */}
                             {task.revisionTag && (
@@ -294,7 +307,7 @@ export default function ContentProductionKanbanPage() {
                             <div className="text-[10px] text-slate-500 space-y-1 pt-1 border-t border-slate-100">
                               <div className="flex items-center justify-between">
                                 <span className="flex items-center gap-1">
-                                  <User className="h-2.5 w-2.5 text-slate-400" /> Editor:
+                                  <User className="h-2.5 w-2.5 text-slate-400" /> Editor / PIC:
                                 </span>
                                 <strong className="text-slate-700 truncate max-w-[120px]">
                                   {task.user?.name}
@@ -312,7 +325,10 @@ export default function ContentProductionKanbanPage() {
 
                             {/* Deliverable Url if on Approval */}
                             {task.deliverableUrl && (
-                              <div className="rounded bg-emerald-50 border border-emerald-200 p-1.5 text-[10px] flex items-center justify-between">
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded bg-emerald-50 border border-emerald-200 p-1.5 text-[10px] flex items-center justify-between"
+                              >
                                 <span className="text-emerald-800 font-bold flex items-center gap-1">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-600" /> File Konten
                                 </span>
@@ -328,12 +344,15 @@ export default function ContentProductionKanbanPage() {
                             )}
 
                             {/* Stage Navigation Arrows */}
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1"
+                            >
                               {idx > 0 ? (
                                 <button
                                   onClick={() => handleMoveStage(task, DEFAULT_STAGES[idx - 1].key)}
                                   title={`Kembalikan ke ${DEFAULT_STAGES[idx - 1].label}`}
-                                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                                 >
                                   <ArrowLeft className="h-3.5 w-3.5" />
                                 </button>
@@ -343,7 +362,7 @@ export default function ContentProductionKanbanPage() {
                               {stage.key === "APPROVAL" ? (
                                 <button
                                   onClick={() => setRevisionModalTask(task)}
-                                  className="rounded-lg bg-rose-50 border border-rose-200 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition flex items-center gap-1"
+                                  className="rounded-lg bg-rose-50 border border-rose-200 px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition flex items-center gap-1 cursor-pointer"
                                 >
                                   <RefreshCw className="h-2.5 w-2.5" />
                                   <span>Minta Revisi</span>
@@ -351,7 +370,7 @@ export default function ContentProductionKanbanPage() {
                               ) : (
                                 <button
                                   onClick={() => handleMoveStage(task, DEFAULT_STAGES[idx + 1].key)}
-                                  className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-slate-800 transition"
+                                  className="flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-slate-800 transition cursor-pointer"
                                 >
                                   <span>Lanjut</span>
                                   <ArrowRight className="h-3 w-3" />
@@ -375,7 +394,18 @@ export default function ContentProductionKanbanPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         initialDepartment="SOSMED"
+        initialIsContentProduction={true}
         onSuccess={fetchTasks}
+      />
+
+      <TaskDetailModal
+        isOpen={Boolean(selectedTaskForDetail)}
+        onClose={() => setSelectedTaskForDetail(null)}
+        task={selectedTaskForDetail}
+        currentUser={user}
+        onUpdate={fetchTasks}
+        onOpenDeliverableModal={(t) => setApprovalModalTask(t)}
+        onOpenRevisionModal={(t) => setRevisionModalTask(t)}
       />
 
       {approvalModalTask && (

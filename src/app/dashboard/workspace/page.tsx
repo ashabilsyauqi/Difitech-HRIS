@@ -403,6 +403,37 @@ export default function WorkspaceCardsPage() {
 
                   {/* Card Body: Task List */}
                   <div className="p-3.5 bg-slate-50/60 flex-1 space-y-3 min-h-[420px] max-h-[700px] overflow-y-auto">
+                    {/* Khusus Card Sosmed: Direct shortcut banner untuk Request Konten ke Kanban */}
+                    {cardDef.key === "SOSMED" && (
+                      <div className="rounded-2xl border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-white p-3 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-2 rounded-xl bg-pink-600 text-white shadow-xs shrink-0">
+                              <Clapperboard className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-900 truncate">Produksi Konten</span>
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700 border border-pink-200">
+                                  Kanban
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                                Request shooting, desain & video editing
+                              </p>
+                            </div>
+                          </div>
+                          <Link
+                            href="/dashboard/content-production?new=true"
+                            className="shrink-0 px-3 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Request Konten</span>
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+
                     {cardTasks.length === 0 ? (
                       <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-slate-400">
                         <Layers className="h-8 w-8 text-slate-300 mb-2" />
@@ -613,6 +644,7 @@ export default function WorkspaceCardsPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         initialDepartment={targetCardForNew}
+        initialIsContentProduction={false}
         onSuccess={fetchTasks}
       />
 
