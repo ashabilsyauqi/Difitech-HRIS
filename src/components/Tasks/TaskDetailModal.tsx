@@ -121,8 +121,8 @@ export default function TaskDetailModal({
   const currentStageIdx = stages.findIndex((s) => s.key === currentStageKey);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
+      <div className="w-full max-w-7xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col h-[94vh] max-h-[96vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
@@ -209,7 +209,7 @@ export default function TaskDetailModal({
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                 Lembar Kerja & Instruksi Pengerjaan
               </h4>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs min-h-[220px]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs min-h-[360px]">
                 {task.description ? (
                   <div
                     className="prose prose-sm max-w-none text-slate-800 leading-relaxed"

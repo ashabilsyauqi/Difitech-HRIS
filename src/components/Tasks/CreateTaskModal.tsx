@@ -191,8 +191,8 @@ export default function CreateTaskModal({
   const selectedAssignee = employees.find((e) => e.id === assigneeId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
+      <div className="w-full max-w-7xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col h-[94vh] max-h-[96vh]">
         {/* Header Lembar Kerja */}
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
@@ -328,7 +328,7 @@ export default function CreateTaskModal({
                     value={description}
                     onChange={setDescription}
                     placeholder="Tuliskan spesifikasi detail, instruksi pengerjaan, checklist target, atau tempel link Figma/Drive di sini..."
-                    minHeight="260px"
+                    minHeight="380px"
                   />
                 </div>
               </div>
@@ -427,40 +427,21 @@ export default function CreateTaskModal({
                   </div>
                 </div>
 
-                {/* 4. Prioritas & Estimasi Jam */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Prioritas
-                    </label>
-                    <select
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
-                    >
-                      <option value="LOW">Rendah</option>
-                      <option value="MEDIUM">Sedang</option>
-                      <option value="HIGH">Tinggi</option>
-                      <option value="URGENT">Mendesak</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Estimasi Jam
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0.5"
-                        value={estimatedHours}
-                        onChange={(e) => setEstimatedHours(parseFloat(e.target.value) || 1)}
-                        className="w-full rounded-xl border border-slate-200 pl-7 pr-2 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white"
-                      />
-                      <Clock className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                    </div>
-                  </div>
+                {/* 4. Prioritas */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Prioritas Tugas
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
+                  >
+                    <option value="LOW">Rendah (Low)</option>
+                    <option value="MEDIUM">Sedang (Medium)</option>
+                    <option value="HIGH">Tinggi (High)</option>
+                    <option value="URGENT">Mendesak (Urgent)</option>
+                  </select>
                 </div>
 
                 {/* 5. Khusus Divisi Sosmed: Masukkan ke Kanban Content Production */}
