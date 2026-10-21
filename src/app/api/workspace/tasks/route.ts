@@ -14,15 +14,18 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const departmentCard = searchParams.get("departmentCard");
     const brandName = searchParams.get("brandName");
-    const myTasksTab = searchParams.get("myTasksTab"); // INBOX | IN_PROGRESS | COMPLETED
+    const myTasksTab = searchParams.get("myTasksTab"); // INBOX | IN_PROGRESS | COMPLETED | ALL
+    const myTasks = searchParams.get("myTasks");
     const isContentProduction = searchParams.get("isContentProduction");
     const kanbanStage = searchParams.get("kanbanStage");
     const search = searchParams.get("search");
 
     const whereClause: any = {};
 
-    // 1. Filter Tab "Tugas Pribadi"
-    if (myTasksTab) {
+    // 1. Filter Tab / Papan "Tugas Pribadi"
+    if (myTasks === "true" || myTasksTab === "ALL") {
+      whereClause.userId = authUser.userId;
+    } else if (myTasksTab) {
       whereClause.userId = authUser.userId;
       if (myTasksTab === "INBOX") {
         whereClause.status = "PENDING";
