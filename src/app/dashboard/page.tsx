@@ -23,8 +23,15 @@ import {
   AlertTriangle,
   Zap,
   X,
+  BellRing,
+  Tag,
+  Layers,
+  ExternalLink,
+  Inbox,
+  Filter,
 } from "lucide-react";
 import Link from "next/link";
+import FollowUpButton from "@/components/Tasks/FollowUpButton";
 
 export default function EmployeeDashboardPage() {
   const router = useRouter();
@@ -53,6 +60,12 @@ export default function EmployeeDashboardPage() {
   const [overtimeDurationStr, setOvertimeDurationStr] = useState<string>("00:00:00");
   const [hasShownOvertimePrompt, setHasShownOvertimePrompt] = useState(false);
 
+  // Dashboard Informasi Penting (Tugas Terkini Brand & Individu, Tugas Reminded)
+  const [workspaceTasks, setWorkspaceTasks] = useState<any[]>([]);
+  const [workspaceTab, setWorkspaceTab] = useState<"INDIVIDU" | "BRAND" | "REMINDED">("INDIVIDU");
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState<string>("ALL");
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+
   const fetchSessionData = async () => {
     try {
       const res = await fetch("/api/auth/me");
@@ -80,6 +93,20 @@ export default function EmployeeDashboardPage() {
       if (tasksRes.ok) {
         const tData = await tasksRes.json();
         setTasks(tData.tasks || []);
+      }
+
+      // Fetch Workspace Collaborative Tasks & Metadata
+      const [wRes, mRes] = await Promise.all([
+        fetch("/api/workspace/tasks"),
+        fetch("/api/workspace/metadata"),
+      ]);
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        setWorkspaceTasks(wData.tasks || []);
+      }
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        setAvailableBrands(mData.brands || []);
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -643,6 +670,229 @@ export default function EmployeeDashboardPage() {
               </div>
             </div>
           )}
+
+          {/* Dashboard Informasi Penting: Tugas Terkini per Brand, Individu, dan Tugas Reminded */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
+                  <BellRing className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Dashboard Informasi Tugas & Reminded
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Pantau tugas terkini individu, monitoring brand, serta tugas-tugas yang telah di-follow up.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/dashboard/my-tasks"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs flex items-center gap-1.5"
+                >
+                  <Inbox className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Tugas Pribadi</span>
+                </Link>
+                <Link
+                  href="/dashboard/workspace"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs flex items-center gap-1.5"
+                >
+                  <Layers className="h-3.5 w-3.5 text-red-600" />
+                  <span>6 Card Divisi</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Sub-tabs & Brand Selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab("INDIVIDU")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    workspaceTab === "INDIVIDU"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Tugas Individu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab("BRAND")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    workspaceTab === "BRAND"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Terkini per Brand
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceTab("REMINDED")}
+                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    workspaceTab === "REMINDED"
+                      ? "bg-rose-600 text-white shadow-2xs"
+                      : "text-rose-700 hover:text-rose-900"
+                  }`}
+                >
+                  <BellRing className="h-3 w-3" />
+                  <span>Tugas Reminded</span>
+                  {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length > 0 && (
+                    <span className="rounded-full bg-rose-200 text-rose-900 text-[9px] px-1.5 py-0.2 font-black">
+                      {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {workspaceTab === "BRAND" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
+                    <Filter className="h-3 w-3" /> Brand:
+                  </span>
+                  <select
+                    value={selectedBrandFilter}
+                    onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 font-semibold outline-none focus:border-red-500"
+                  >
+                    <option value="ALL">Semua Brand</option>
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* List of Tasks for Selected Tab */}
+            {(() => {
+              let displayList: any[] = [];
+              if (workspaceTab === "INDIVIDU") {
+                displayList = workspaceTasks.filter((t) => t.userId === user?.id && t.status !== "COMPLETED");
+              } else if (workspaceTab === "BRAND") {
+                displayList = workspaceTasks.filter((t) => {
+                  if (selectedBrandFilter === "ALL") return Boolean(t.brandName);
+                  return t.brandName === selectedBrandFilter;
+                });
+              } else if (workspaceTab === "REMINDED") {
+                displayList = workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0);
+              }
+
+              if (displayList.length === 0) {
+                return (
+                  <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400">
+                    <CheckSquare className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                    <p className="text-xs font-semibold text-slate-600">
+                      {workspaceTab === "INDIVIDU"
+                        ? "Tidak ada tugas individu yang aktif saat ini."
+                        : workspaceTab === "BRAND"
+                        ? "Tidak ada tugas untuk filter brand ini."
+                        : "Bagus! Belum ada tugas yang mandek atau perlu di-follow up."}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {displayList.slice(0, 9).map((task) => (
+                    <div
+                      key={task.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 shadow-2xs hover:bg-white hover:shadow-xs transition space-y-2.5 flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="rounded bg-slate-900 text-white font-black text-[9px] px-1.5 py-0.5 uppercase">
+                              {task.departmentCard || "GENERAL"}
+                            </span>
+                            {task.brandName && (
+                              <span className="rounded bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.5 flex items-center gap-0.5">
+                                <Tag className="h-2 w-2" /> {task.brandName}
+                              </span>
+                            )}
+                          </div>
+
+                          <FollowUpButton
+                            taskId={task.id}
+                            taskTitle={task.title}
+                            initialFollowUps={task.followUps}
+                            onFollowUpSuccess={fetchSessionData}
+                          />
+                        </div>
+
+                        <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2">
+                          {task.title}
+                        </h4>
+
+                        {/* Reminded Alert Info if has follow-ups */}
+                        {task.followUps && task.followUps.length > 0 && (
+                          <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-900 space-y-0.5">
+                            <div className="font-bold flex items-center gap-1 text-amber-800">
+                              <BellRing className="h-3 w-3 text-amber-600 shrink-0" />
+                              <span>Di-follow up oleh {task.followUps[0].sender?.name || "Rekan"}</span>
+                            </div>
+                            {task.followUps[0].message && (
+                              <p className="italic text-slate-600 line-clamp-1">"{task.followUps[0].message}"</p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="text-[10px] text-slate-500 space-y-0.5 pt-1">
+                          <div className="flex justify-between">
+                            <span>PIC:</span>
+                            <strong className="text-slate-700 truncate max-w-[120px]">{task.user?.name}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Target:</span>
+                            <span className="font-mono text-slate-700">
+                              {task.expectedDeadline
+                                ? new Date(task.expectedDeadline).toLocaleDateString("id-ID", {
+                                    day: "numeric",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "Fleksibel"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between">
+                        <span
+                          className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase ${
+                            task.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : task.status === "IN_PROGRESS"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {task.status}
+                        </span>
+
+                        <Link
+                          href="/dashboard/my-tasks"
+                          className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+                        >
+                          <span>Buka Detail</span>
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
         </main>
       </div>
 

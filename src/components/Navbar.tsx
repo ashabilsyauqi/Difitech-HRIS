@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, LogOut, Clock, User } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 interface NavbarProps {
   user: {
@@ -93,6 +94,9 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
           <span className="font-mono font-bold text-slate-800">{timeStr || "--:--:--"}</span>
           <span className="text-[10px] font-bold text-red-600">WIB</span>
         </div>
+
+        {/* Notifications */}
+        <NotificationBell />
 
         {/* User Info & Profile */}
         <div className="flex items-center gap-3">

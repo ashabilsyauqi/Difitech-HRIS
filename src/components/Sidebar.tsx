@@ -16,6 +16,10 @@ import {
   Wallet,
   UserCheck,
   FileCheck2,
+  Inbox,
+  Layers,
+  Clapperboard,
+  ActivitySquare,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,14 +35,20 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
 
   const employeeLinks = [
     { href: "/dashboard", label: "Presensi Harian", icon: Clock },
-    { href: "/dashboard/tasks", label: "Papan Tugas Harian", icon: CheckSquare },
-    { href: "/dashboard/tasks/history", label: "Arsip Riwayat Tugas", icon: History },
+    { href: "/dashboard/my-tasks", label: "Tugas Pribadi", icon: Inbox },
+    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
+    { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
+    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];
 
   const managerLinks = [
     { href: "/manager", label: "Ringkasan Tim & Radar", icon: LayoutDashboard },
+    { href: "/manager/task-radar", label: "Radar Tugas CEO & HR", icon: ActivitySquare },
+    { href: "/dashboard/my-tasks", label: "Tugas Pribadi", icon: Inbox },
+    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
+    { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
     { href: "/manager/employees", label: "Manajemen Karyawan", icon: UserCheck },
     { href: "/manager/live-map", label: "Peta Presensi Live", icon: MapPin },
     { href: "/manager/attendance", label: "Log & Audit Presensi", icon: CalendarCheck },

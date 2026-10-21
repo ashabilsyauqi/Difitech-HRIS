@@ -29,6 +29,10 @@ model User {
 
   attendances             Attendance[]
   tasks                   Task[]
+  createdTasks            Task[]          @relation("CreatedTasks")
+  taskFollowUpsSent       TaskFollowUp[]  @relation("FollowUpSender")
+  taskFollowUpsReceived   TaskFollowUp[]  @relation("FollowUpRecipient")
+  notifications           Notification[]
   salaryProfile           SalaryProfile?
   payslips                Payslip[]
   leaveRequests           LeaveRequest[]
@@ -115,33 +119,93 @@ model Attendance {
 }
 
 model Task {
-  id                String       @id @default(cuid())
-  userId            String
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  attendanceId      String?
-  attendance        Attendance?  @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  id                    String          @id @default(cuid())
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorId             String?
+  creator               User?           @relation("CreatedTasks", fields: [creatorId], references: [id], onDelete: SetNull)
+  attendanceId          String?
+  attendance            Attendance?     @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
 
-  targetDate        String?      // YYYY-MM-DD (Lembar tugas harian)
-  title             String
-  description       String?
-  category          String       @default("General") // Development, Design, Meeting, Operations, Marketing
-  priority          String       @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
-  status            String       @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  // 6 Card Besar Divisi & Brand
+  departmentCard        String?         // SOSMED, ADS, SEO, WEB, MARKETPLACE, HR
+  brandName             String?         // e.g. "Brand A", "Brand B", "Internal"
+  expectedDeadline      DateTime?       // Batas waktu yang diminta pembuat
+  suggestedDeadline     DateTime?       // Usulan tenggat waktu dari penerima
+  suggestionReason      String?         // Catatan pertimbangan pengajuan tenggat
+  suggestionStatus      String          @default("NONE") // NONE, PENDING, ACCEPTED, REJECTED
+
+  // Alur Kanban Content Production (Tim Sosmed)
+  isContentProduction   Boolean         @default(false)
+  kanbanStage           String?         @default("CONTENT_BRIEF") // CONTENT_BRIEF, SHOOTING, DESIGN, VIDEO_EDITING, REVISION, APPROVAL
+  kanbanOrder           Int             @default(0)
+
+  // Siklus Revisi Tanpa Menghapus Histori Kerja
+  parentTaskId          String?
+  parentTask            Task?           @relation("TaskRevisions", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  revisionTasks         Task[]          @relation("TaskRevisions")
+  revisionTag           String?         // e.g. "Request Revision by Tim Ads"
+  revisionNote          String?         // Catatan revisi dari pemberi tugas
+
+  // Sifat Tugas Harian / Standard Task
+  targetDate            String?         // YYYY-MM-DD (Lembar tugas harian)
+  title                 String
+  description           String?
+  category              String          @default("General") // Development, Design, Meeting, Operations, Marketing
+  priority              String          @default("MEDIUM")  // LOW, MEDIUM, HIGH, URGENT
+  status                String          @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
   
-  estimatedHours    Float        @default(1.0)
-  actualHours       Float?
+  estimatedHours        Float           @default(1.0)
+  actualHours           Float?
   deliverableUrl        String?
-  deliverableAttachment String?      // Base64 screenshot image or attachment
+  deliverableAttachment String?         // Base64 screenshot image or attachment
   completionNote        String?
   
   // Live Time Tracker
-  isTracking        Boolean      @default(false)
-  trackingStartedAt DateTime?
-  trackedSeconds    Int          @default(0)
+  isTracking            Boolean         @default(false)
+  trackingStartedAt     DateTime?
+  trackedSeconds        Int             @default(0)
 
-  orderIndex        Int          @default(0)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  orderIndex            Int             @default(0)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  followUps             TaskFollowUp[]
+}
+
+model TaskFollowUp {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation("FollowUpSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId String?
+  recipient   User?    @relation("FollowUpRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  message     String?  @default("Tolong dicek dan di-update progres tugas ini ya.")
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // TASK_ASSIGNED, DEADLINE_SUGGESTION, FOLLOW_UP, APPROVAL_COMPLETED, REVISION_REQUESTED
+  link      String?
+  taskId    String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model KanbanStageSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. CONTENT_BRIEF, SHOOTING, DESIGN, VIDEO_EDITING, REVISION, APPROVAL
+  label     String   // Nama stage
+  order     Int      @default(0)
+  color     String?  @default("#3b82f6")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ----------------------------------------------------------------------------

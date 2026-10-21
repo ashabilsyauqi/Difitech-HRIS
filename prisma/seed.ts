@@ -83,6 +83,23 @@ async function main() {
     },
   });
 
+  // 3. Inisialisasi Default Stages Kanban Content Production (Tim Sosmed)
+  const defaultKanbanStages = [
+    { key: "CONTENT_BRIEF", label: "Content Brief", order: 1, color: "#3b82f6" },
+    { key: "SHOOTING", label: "Shooting", order: 2, color: "#8b5cf6" },
+    { key: "DESIGN", label: "Design", order: 3, color: "#ec4899" },
+    { key: "VIDEO_EDITING", label: "Video Editing", order: 4, color: "#f59e0b" },
+    { key: "REVISION", label: "Revision", order: 5, color: "#ef4444" },
+    { key: "APPROVAL", label: "Approval", order: 6, color: "#10b981" },
+  ];
+  for (const stage of defaultKanbanStages) {
+    await prisma.kanbanStageSetting.upsert({
+      where: { key: stage.key },
+      update: { label: stage.label, order: stage.order, color: stage.color },
+      create: stage,
+    });
+  }
+
   console.log("✅ Inisialisasi Database Bersih Berhasil!");
   console.log("🔑 Akun Login Super Admin:");
   console.log("   - Email: admin@difitech.id");
