@@ -295,6 +295,63 @@ export default function CreateTaskModal({
               </div>
             )}
 
+            {/* Khusus Divisi Sosmed: Pilihan Alur Kerja Modern & Elegan */}
+            {departmentCard === "SOSMED" && (
+              <div className="mb-5 rounded-2xl border border-pink-200/80 bg-gradient-to-r from-pink-50/90 via-rose-50/50 to-white p-4 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-pink-600 text-white shadow-xs shrink-0">
+                      <Clapperboard className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <span>Pilihan Alur Kerja Tim Sosmed</span>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border transition ${
+                          isContentProduction
+                            ? "bg-pink-100 text-pink-700 border-pink-300"
+                            : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}>
+                          {isContentProduction ? "🎬 Kanban Konten (6 Tahap)" : "📋 Tugas Reguler Sosmed"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {isContentProduction
+                          ? "Tugas akan diproses bertahap di Kanban: Brief → Shooting → Design → Editing → Revisi → Approval."
+                          : "Tugas harian standar: Tugas Masuk → Sedang Dikerjakan → Selesai."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Segmented Switch Buttons */}
+                  <div className="flex items-center bg-white p-1 rounded-xl border border-pink-200 shadow-2xs shrink-0 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsContentProduction(false)}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        !isContentProduction
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      📋 Tugas Reguler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsContentProduction(true)}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                        isContentProduction
+                          ? "bg-pink-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-pink-600"
+                      }`}
+                    >
+                      <Clapperboard className="h-3.5 w-3.5" />
+                      <span>🎬 Produksi Konten (Kanban)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 2-Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* Kolom Kiri: Canvas Lembar Kerja (Judul & WYSIWYG Editor) */}
@@ -443,29 +500,6 @@ export default function CreateTaskModal({
                     <option value="URGENT">Mendesak (Urgent)</option>
                   </select>
                 </div>
-
-                {/* 5. Khusus Divisi Sosmed: Masukkan ke Kanban Content Production */}
-                {departmentCard === "SOSMED" && (
-                  <div className="pt-2 border-t border-slate-200">
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isContentProduction}
-                        onChange={(e) => setIsContentProduction(e.target.checked)}
-                        className="mt-0.5 rounded border-slate-300 text-pink-600 focus:ring-pink-500 accent-pink-600"
-                      />
-                      <div>
-                        <span className="text-xs font-bold text-pink-900 block flex items-center gap-1">
-                          <Clapperboard className="h-3 w-3 text-pink-600" />
-                          Pipeline Kanban Konten
-                        </span>
-                        <span className="text-[10px] text-pink-700 leading-tight block mt-0.5">
-                          Aktifkan jika tugas memerlukan alur Brief &rarr; Shooting &rarr; Editing &rarr; Approval.
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                )}
               </div>
             </div>
           </div>
