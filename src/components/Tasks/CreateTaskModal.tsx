@@ -1,13 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, User, Tag, Layers, AlertCircle } from "lucide-react";
+import {
+  X,
+  Send,
+  Calendar,
+  Clock,
+  User,
+  Tag,
+  Layers,
+  AlertCircle,
+  Clapperboard,
+  CheckCircle2,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
+import RichTextEditor from "./RichTextEditor";
 
 interface Employee {
   id: string;
   name: string;
   department: string | null;
   role: string;
+  jobTitle?: string | null;
   avatarUrl: string | null;
 }
 
@@ -21,12 +36,27 @@ interface CreateTaskModalProps {
 }
 
 const DEPARTMENTS = [
-  { key: "SOSMED", label: "Sosmed", color: "from-pink-500 to-rose-600" },
-  { key: "ADS", label: "Ads", color: "from-blue-500 to-indigo-600" },
-  { key: "SEO", label: "SEO", color: "from-amber-500 to-orange-600" },
-  { key: "WEB", label: "Web", color: "from-emerald-500 to-teal-600" },
-  { key: "MARKETPLACE", label: "Marketplace", color: "from-purple-500 to-violet-600" },
-  { key: "HR", label: "HR", color: "from-slate-600 to-slate-800" },
+  { key: "SOSMED", label: "Sosmed", color: "bg-pink-100 text-pink-700 border-pink-200" },
+  { key: "ADS", label: "Ads", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { key: "SEO", label: "SEO", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  { key: "WEB", label: "Web", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { key: "MARKETPLACE", label: "Marketplace", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  { key: "HR", label: "HR", color: "bg-slate-100 text-slate-700 border-slate-300" },
+];
+
+const STANDARD_STAGES = [
+  { key: "INBOX", label: "1. Tugas Masuk", sublabel: "Inbox / Antrean" },
+  { key: "IN_PROGRESS", label: "2. Dikerjakan", sublabel: "Sedang Berjalan" },
+  { key: "COMPLETED", label: "3. Selesai", sublabel: "Review & Hasil" },
+];
+
+const CONTENT_PRODUCTION_STAGES = [
+  { key: "CONTENT_BRIEF", label: "1. Brief" },
+  { key: "SHOOTING", label: "2. Shooting" },
+  { key: "DESIGN", label: "3. Design" },
+  { key: "VIDEO_EDITING", label: "4. Editing" },
+  { key: "REVISION", label: "5. Revisi" },
+  { key: "APPROVAL", label: "6. Approval" },
 ];
 
 export default function CreateTaskModal({
@@ -50,7 +80,6 @@ export default function CreateTaskModal({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [assignmentType, setAssignmentType] = useState<"TEAM" | "SELF">(defaultToSelf ? "SELF" : "TEAM");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -61,9 +90,6 @@ export default function CreateTaskModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (defaultToSelf) {
-        setAssignmentType("SELF");
-      }
       fetchMetadata();
     }
   }, [isOpen, defaultToSelf]);
@@ -101,13 +127,6 @@ export default function CreateTaskModal({
       }
     } catch (err) {
       console.error("Failed to fetch metadata:", err);
-    }
-  };
-
-  const handleAssignmentTypeChange = (type: "TEAM" | "SELF") => {
-    setAssignmentType(type);
-    if (type === "SELF" && currentUser) {
-      setAssigneeId(currentUser.id);
     }
   };
 
@@ -167,148 +186,167 @@ export default function CreateTaskModal({
 
   if (!isOpen) return null;
 
+  const currentDeptConfig = DEPARTMENTS.find((d) => d.key === departmentCard) || DEPARTMENTS[0];
+  const isSelfAssigned = currentUser && assigneeId === currentUser.id;
+  const selectedAssignee = employees.find((e) => e.id === assigneeId);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
-          <div className="flex items-center gap-2.5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
+      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto flex flex-col max-h-[92vh]">
+        {/* Header Lembar Kerja */}
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/90 px-6 py-4 shrink-0">
+          <div className="flex items-center gap-3">
             <div className="rounded-xl bg-red-100 p-2 text-red-600">
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Buat Tugas Baru (Cross-Department)</h3>
-              <p className="text-xs text-slate-500">Posting tugas ke 6 Card Divisi terhubung HRIS</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-base">Lembar Kerja Tugas Baru</h3>
+                <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${currentDeptConfig.color}`}>
+                  Card {currentDeptConfig.label}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Workspace Task Management • Terintegrasi Otomatis dengan HRIS
+              </p>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-600 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMsg && (
-            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* 1. Pilih Divisi Card Tujuan */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Pilih Card Divisi Tujuan <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {DEPARTMENTS.map((dept) => {
-                const isSelected = departmentCard === dept.key;
-                return (
-                  <button
-                    key={dept.key}
-                    type="button"
-                    onClick={() => setDepartmentCard(dept.key)}
-                    className={`rounded-xl py-2 px-1 text-xs font-bold transition border text-center ${
-                      isSelected
-                        ? "bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-900/20"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    {dept.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. Judul Tugas */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Judul Tugas <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Contoh: Pembuatan Video TikTok Review Produk X"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-            />
-          </div>
-
-          {/* 3. Label Nama Brand & Penerima Tugas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Label Nama Brand <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  list="brand-suggestions"
-                  placeholder="Ketik atau pilih brand..."
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                />
-                <Tag className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
-                <datalist id="brand-suggestions">
-                  {brands.map((b) => (
-                    <option key={b} value={b} />
-                  ))}
-                </datalist>
+        {/* Visual Pipeline Stages Bar */}
+        <div className="bg-slate-900 text-white px-6 py-2.5 shrink-0 overflow-x-auto">
+          <div className="flex items-center justify-between min-w-[500px]">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Tahapan Pipeline:
+              </span>
+              <div className="flex items-center gap-1.5">
+                {(departmentCard === "SOSMED" && isContentProduction
+                  ? CONTENT_PRODUCTION_STAGES
+                  : STANDARD_STAGES
+                ).map((stage, idx, arr) => (
+                  <div key={stage.key} className="flex items-center gap-1.5">
+                    <span
+                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition ${
+                        idx === 0
+                          ? "bg-red-600 text-white shadow-xs font-bold"
+                          : "bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      {idx === 0 && <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
+                      {stage.label}
+                    </span>
+                    {idx < arr.length - 1 && (
+                      <ChevronRight className="h-3 w-3 text-slate-600" />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Penerima Tugas <span className="text-red-500">*</span>
+            <span className="text-[11px] text-slate-400 hidden lg:inline">
+              Tugas baru akan diinisialisasi pada tahap pertama
+            </span>
+          </div>
+        </div>
+
+        {/* Form Body: 2-Column Worksheet */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col justify-between">
+          <div>
+            {errorMsg && (
+              <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 mb-4">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Pilihan Card Divisi: Hanya muncul jika TIDAK ADA initialDepartment (global modal) */}
+            {!initialDepartment && (
+              <div className="mb-4 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Pilih Card Divisi Tujuan <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => handleAssignmentTypeChange("TEAM")}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                      assignmentType === "TEAM"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    👥 Anggota Tim
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAssignmentTypeChange("SELF")}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                      assignmentType === "SELF"
-                        ? "bg-white text-blue-700 shadow-2xs font-extrabold"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    👤 Diri Sendiri
-                  </button>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {DEPARTMENTS.map((dept) => {
+                    const isSelected = departmentCard === dept.key;
+                    return (
+                      <button
+                        key={dept.key}
+                        type="button"
+                        onClick={() => setDepartmentCard(dept.key)}
+                        className={`rounded-xl py-2 px-1 text-xs font-bold transition border text-center cursor-pointer ${
+                          isSelected
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-900/20"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {dept.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 2-Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Kolom Kiri: Canvas Lembar Kerja (Judul & WYSIWYG Editor) */}
+              <div className="lg:col-span-8 space-y-4">
+                {/* Judul Tugas */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Judul Pekerjaan / Tugas <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Optimasi Konten SEO Pilar X / Produksi Video Review Produk..."
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full text-sm sm:text-base font-bold text-slate-900 placeholder:text-slate-300 border-0 border-b-2 border-slate-200 focus:border-red-500 focus:ring-0 outline-none pb-2 transition"
+                  />
+                </div>
+
+                {/* Lembar Kerja WYSIWYG Description */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <span>Lembar Kerja Brief & Catatan Pengerjaan</span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        (WYSIWYG: Dukungan format tebal, list, checklist & link)
+                      </span>
+                    </label>
+                  </div>
+                  <RichTextEditor
+                    value={description}
+                    onChange={setDescription}
+                    placeholder="Tuliskan spesifikasi detail, instruksi pengerjaan, checklist target, atau tempel link Figma/Drive di sini..."
+                    minHeight="260px"
+                  />
                 </div>
               </div>
 
-              {assignmentType === "SELF" ? (
-                <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-2.5 flex items-start gap-2">
-                  <div className="h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
-                    {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
-                  </div>
-                  <div className="text-[11px] text-blue-950">
-                    <div className="font-bold">{currentUser?.name || "Saya Sendiri"} (Pribadi)</div>
-                    <div className="text-[10px] text-blue-700 leading-tight mt-0.5">
-                      Tugas ini akan otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan dipajang di Card <strong>{departmentCard}</strong>.
-                    </div>
-                  </div>
+              {/* Kolom Kanan: Properti Tugas (Sidebar) */}
+              <div className="lg:col-span-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 p-4 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="text-xs font-bold text-slate-800">Properti Tugas</span>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${currentDeptConfig.color}`}>
+                    {currentDeptConfig.label}
+                  </span>
                 </div>
-              ) : (
+
+                {/* 1. Penerima Tugas: Dropdown Otomatis 1-Klik */}
                 <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>Penerima Tugas (Assignee) <span className="text-red-500">*</span></span>
+                  </label>
                   <div className="relative">
                     <select
                       required
@@ -316,120 +354,158 @@ export default function CreateTaskModal({
                       onChange={(e) => setAssigneeId(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none appearance-none bg-white font-medium"
                     >
-                      <option value="" disabled>Pilih Rekan Tim...</option>
+                      <option value="" disabled>Pilih Penerima Tugas...</option>
                       {currentUser && (
                         <option value={currentUser.id}>
                           👤 Saya Sendiri ({currentUser.name})
                         </option>
                       )}
-                      {employees
-                        .filter((emp) => !currentUser || emp.id !== currentUser.id)
-                        .map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.name} ({emp.department || "Karyawan"})
-                          </option>
-                        ))}
+                      <optgroup label="Rekan Kerja / Anggota Tim">
+                        {employees
+                          .filter((emp) => !currentUser || emp.id !== currentUser.id)
+                          .map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} — {emp.jobTitle || emp.department || "Karyawan"}
+                            </option>
+                          ))}
+                      </optgroup>
                     </select>
                     <User className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1 italic">
-                    💡 Contoh: Web Dev assign tugas ke Mas Danar (SEO) di Card SEO.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* 4. Target Deadline (Expected Deadline) & Prioritas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Deadline Expectation (Target)
-              </label>
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  value={expectedDeadline}
-                  onChange={(e) => setExpectedDeadline(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                />
-                <Calendar className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
+                  {/* Reactive indicator */}
+                  <div className="mt-1.5 text-[10px]">
+                    {isSelfAssigned ? (
+                      <p className="text-blue-700 bg-blue-50/80 border border-blue-200/80 p-2 rounded-lg leading-relaxed">
+                        ✨ <strong>Tugas Pribadi:</strong> Otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan terpajang di Card <strong>{departmentCard}</strong>.
+                      </p>
+                    ) : (
+                      <p className="text-purple-700 bg-purple-50/80 border border-purple-200/80 p-2 rounded-lg leading-relaxed">
+                        📤 <strong>Delegasi Tim:</strong> Ditugaskan ke <strong>{selectedAssignee?.name || "Rekan Tim"}</strong>. Notifikasi otomatis akan dikirim ke akunnya.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Label Nama Brand */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Label Nama Brand <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      list="brand-suggestions"
+                      placeholder="Ketik atau pilih brand..."
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
+                    />
+                    <Tag className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <datalist id="brand-suggestions">
+                      {brands.map((b) => (
+                        <option key={b} value={b} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+
+                {/* 3. Deadline Expectation */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Target Deadline
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="datetime-local"
+                      value={expectedDeadline}
+                      onChange={(e) => setExpectedDeadline(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
+                    />
+                    <Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                </div>
+
+                {/* 4. Prioritas & Estimasi Jam */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Prioritas
+                    </label>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
+                    >
+                      <option value="LOW">Rendah</option>
+                      <option value="MEDIUM">Sedang</option>
+                      <option value="HIGH">Tinggi</option>
+                      <option value="URGENT">Mendesak</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Estimasi Jam
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        value={estimatedHours}
+                        onChange={(e) => setEstimatedHours(parseFloat(e.target.value) || 1)}
+                        className="w-full rounded-xl border border-slate-200 pl-7 pr-2 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white"
+                      />
+                      <Clock className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Khusus Divisi Sosmed: Masukkan ke Kanban Content Production */}
+                {departmentCard === "SOSMED" && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isContentProduction}
+                        onChange={(e) => setIsContentProduction(e.target.checked)}
+                        className="mt-0.5 rounded border-slate-300 text-pink-600 focus:ring-pink-500 accent-pink-600"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-pink-900 block flex items-center gap-1">
+                          <Clapperboard className="h-3 w-3 text-pink-600" />
+                          Pipeline Kanban Konten
+                        </span>
+                        <span className="text-[10px] text-pink-700 leading-tight block mt-0.5">
+                          Aktifkan jika tugas memerlukan alur Brief &rarr; Shooting &rarr; Editing &rarr; Approval.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Prioritas
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
-              >
-                <option value="LOW">Rendah (Low)</option>
-                <option value="MEDIUM">Sedang (Medium)</option>
-                <option value="HIGH">Tinggi (High)</option>
-                <option value="URGENT">Mendesak (Urgent)</option>
-              </select>
-            </div>
           </div>
 
-          {/* 5. Deskripsi & Brief Detail */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Deskripsi & Catatan Brief
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Tuliskan spesifikasi, link referensi, atau instruksi pengerjaan..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none leading-relaxed"
-            />
-          </div>
-
-          {/* Khusus Divisi Sosmed: Checkbox Kanban Content Production */}
-          {departmentCard === "SOSMED" && (
-            <div className="rounded-xl border border-pink-200 bg-pink-50/60 p-3 flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="isContentProd"
-                checked={isContentProduction}
-                onChange={(e) => setIsContentProduction(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded text-pink-600 focus:ring-pink-500 border-pink-300"
-              />
-              <label htmlFor="isContentProd" className="text-xs text-slate-700 cursor-pointer">
-                <span className="font-bold text-pink-800">Oper Langsung ke Kanban Content Production</span>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Tugas akan langsung masuk ke alur produksi Tim Sosmed (Content Brief &rarr; Shooting &rarr; Editing &rarr; Approval).
-                </p>
-              </label>
-            </div>
-          )}
-
-          {/* Footer Submit */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          {/* Action Footer */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100 mt-6 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+              className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 disabled:opacity-50 transition cursor-pointer"
             >
-              {isLoading ? (
-                <span>Memproses...</span>
-              ) : (
-                <>
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Posting Tugas</span>
-                </>
-              )}
+              <Send className="h-3.5 w-3.5" />
+              <span>{isLoading ? "Menyimpan Lembar Kerja..." : "Posting Lembar Kerja Tugas"}</span>
             </button>
           </div>
         </form>

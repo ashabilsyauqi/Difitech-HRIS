@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
+import TaskDetailModal from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
@@ -123,7 +124,8 @@ export default function WorkspaceCardsPage() {
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [targetCardForNew, setTargetCardForNew] = useState<string>("SOSMED");
+  const [targetCardForNew, setTargetCardForNew] = useState<string | undefined>(undefined);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<TaskItem | null>(null);
   const [deadlineModalTask, setDeadlineModalTask] = useState<TaskItem | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<TaskItem | null>(null);
   const [deliverableModalTask, setDeliverableModalTask] = useState<TaskItem | null>(null);
@@ -260,7 +262,7 @@ export default function WorkspaceCardsPage() {
 
               <button
                 onClick={() => {
-                  setTargetCardForNew("SOSMED");
+                  setTargetCardForNew(undefined);
                   setCreateModalOpen(true);
                 }}
                 className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
@@ -422,7 +424,8 @@ export default function WorkspaceCardsPage() {
                       cardTasks.map((task) => (
                         <div
                           key={task.id}
-                          className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:border-slate-300 transition space-y-2.5"
+                          onClick={() => setSelectedTaskForDetail(task)}
+                          className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:border-slate-300 hover:shadow-sm transition space-y-2.5 cursor-pointer group"
                         >
                           {/* Tags & Status */}
                           <div className="flex items-center justify-between gap-1.5 flex-wrap">
@@ -451,20 +454,24 @@ export default function WorkspaceCardsPage() {
                             </div>
 
                             {/* Follow Up Button */}
-                            <FollowUpButton
-                              taskId={task.id}
-                              taskTitle={task.title}
-                              initialFollowUps={task.followUps}
-                              onFollowUpSuccess={fetchTasks}
-                            />
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <FollowUpButton
+                                taskId={task.id}
+                                taskTitle={task.title}
+                                initialFollowUps={task.followUps}
+                                onFollowUpSuccess={fetchTasks}
+                              />
+                            </div>
                           </div>
 
                           {/* Title & Description */}
                           <div>
-                            <h4 className="text-xs font-bold text-slate-900 leading-snug">{task.title}</h4>
+                            <h4 className="text-xs font-bold text-slate-900 leading-snug group-hover:text-red-600 transition">
+                              {task.title}
+                            </h4>
                             {task.description && (
                               <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
-                                {task.description}
+                                {task.description.replace(/<[^>]*>?/gm, "").trim()}
                               </p>
                             )}
                           </div>
@@ -607,6 +614,17 @@ export default function WorkspaceCardsPage() {
         onClose={() => setCreateModalOpen(false)}
         initialDepartment={targetCardForNew}
         onSuccess={fetchTasks}
+      />
+
+      <TaskDetailModal
+        isOpen={Boolean(selectedTaskForDetail)}
+        onClose={() => setSelectedTaskForDetail(null)}
+        task={selectedTaskForDetail}
+        currentUser={user}
+        onUpdate={fetchTasks}
+        onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
+        onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
+        onOpenRevisionModal={(t) => setRevisionModalTask(t)}
       />
 
       {deadlineModalTask && (

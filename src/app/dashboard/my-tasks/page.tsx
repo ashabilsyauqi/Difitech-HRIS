@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
+import TaskDetailModal from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
@@ -45,6 +46,7 @@ export default function MyTasksPage() {
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null);
   const [deadlineModalTask, setDeadlineModalTask] = useState<any | null>(null);
   const [deliverableModalTask, setDeliverableModalTask] = useState<any | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<any | null>(null);
@@ -307,7 +309,8 @@ export default function MyTasksPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs hover:shadow-xs transition space-y-3"
+                  onClick={() => setSelectedTaskForDetail(task)}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs hover:shadow-sm hover:border-slate-300 transition space-y-3 cursor-pointer group"
                 >
                   {/* Badges Bar */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -333,20 +336,24 @@ export default function MyTasksPage() {
                     </div>
 
                     {/* Follow Up Component */}
-                    <FollowUpButton
-                      taskId={task.id}
-                      taskTitle={task.title}
-                      initialFollowUps={task.followUps}
-                      onFollowUpSuccess={fetchTasks}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <FollowUpButton
+                        taskId={task.id}
+                        taskTitle={task.title}
+                        initialFollowUps={task.followUps}
+                        onFollowUpSuccess={fetchTasks}
+                      />
+                    </div>
                   </div>
 
                   {/* Title & Description */}
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug">{task.title}</h3>
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-red-600 transition">
+                      {task.title}
+                    </h3>
                     {task.description && (
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed whitespace-pre-line line-clamp-3">
-                        {task.description}
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-3">
+                        {task.description.replace(/<[^>]*>?/gm, "").trim()}
                       </p>
                     )}
                   </div>
@@ -438,7 +445,10 @@ export default function MyTasksPage() {
                   )}
 
                   {/* Action Buttons based on Active Tab */}
-                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2"
+                  >
                     {activeTab === "INBOX" && (
                       <>
                         <button
@@ -507,6 +517,17 @@ export default function MyTasksPage() {
         onClose={() => setCreateModalOpen(false)}
         onSuccess={fetchTasks}
         defaultToSelf={true}
+      />
+
+      <TaskDetailModal
+        isOpen={Boolean(selectedTaskForDetail)}
+        onClose={() => setSelectedTaskForDetail(null)}
+        task={selectedTaskForDetail}
+        currentUser={user}
+        onUpdate={fetchTasks}
+        onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
+        onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
+        onOpenRevisionModal={(t) => setRevisionModalTask(t)}
       />
 
       {deadlineModalTask && (
