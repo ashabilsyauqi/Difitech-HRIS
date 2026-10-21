@@ -119,6 +119,7 @@ export default function WorkspaceCardsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED">("ALL");
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -271,41 +272,100 @@ export default function WorkspaceCardsPage() {
           </div>
 
           {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-            <div className="relative w-full sm:w-96">
-              <input
-                type="text"
-                placeholder="Cari judul tugas, catatan, pembuat, atau brand..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-              />
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+            {/* View Scope Segmented Filter */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setViewScope("ALL")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                  viewScope === "ALL"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                🏢 Semua Tugas
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewScope("MINE")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  viewScope === "MINE"
+                    ? "bg-blue-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-blue-600"
+                }`}
+              >
+                <span>👤 Tugas Pribadi Saya</span>
+                {user && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "MINE" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                    {tasks.filter((t) => t.user?.id === user.id).length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewScope("DELEGATED")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  viewScope === "DELEGATED"
+                    ? "bg-purple-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-purple-600"
+                }`}
+              >
+                <span>📤 Saya Delegasikan</span>
+                {user && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "DELEGATED" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                    {tasks.filter((t) => t.creator?.id === user.id && t.user?.id !== user.id).length}
+                  </span>
+                )}
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                <Filter className="h-3.5 w-3.5" /> Filter Brand:
-              </span>
-              <select
-                value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
-              >
-                <option value="ALL">Semua Brand</option>
-                {availableBrands.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col sm:flex-row items-center gap-2.5">
+              <div className="relative w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="Cari tugas, brand, atau pembuat..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                />
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+              </div>
+
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1 shrink-0">
+                  <Filter className="h-3 w-3" /> Brand:
+                </span>
+                <select
+                  value={selectedBrand}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium w-full sm:w-auto"
+                >
+                  <option value="ALL">Semua Brand</option>
+                  {availableBrands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* 6 Card Besar Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
             {CARDS_DEFINITION.map((cardDef) => {
-              const cardTasks = tasks.filter(
+              const filteredTasks = tasks.filter((t) => {
+                if (viewScope === "MINE") {
+                  return t.user?.id === user?.id;
+                }
+                if (viewScope === "DELEGATED") {
+                  return t.creator?.id === user?.id && t.user?.id !== user?.id;
+                }
+                return true;
+              });
+
+              const cardTasks = filteredTasks.filter(
                 (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
               );
 
@@ -367,6 +427,16 @@ export default function WorkspaceCardsPage() {
                           {/* Tags & Status */}
                           <div className="flex items-center justify-between gap-1.5 flex-wrap">
                             <div className="flex items-center gap-1 flex-wrap">
+                              {task.user?.id === user?.id ? (
+                                <span className="rounded-md bg-blue-100 text-blue-800 border border-blue-200 font-extrabold text-[9px] px-1.5 py-0.5 flex items-center gap-1">
+                                  👤 Tugas Pribadi
+                                </span>
+                              ) : task.creator?.id === user?.id ? (
+                                <span className="rounded-md bg-purple-100 text-purple-800 border border-purple-200 font-extrabold text-[9px] px-1.5 py-0.5 flex items-center gap-1">
+                                  📤 Anda Delegasikan
+                                </span>
+                              ) : null}
+
                               {task.brandName && (
                                 <span className="rounded-md bg-red-50 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-0.5 flex items-center gap-1">
                                   <Tag className="h-2.5 w-2.5" /> {task.brandName}
@@ -399,27 +469,32 @@ export default function WorkspaceCardsPage() {
                             )}
                           </div>
 
-                          {/* Posting Author & Timestamp */}
-                          <div className="rounded-xl bg-slate-50 p-2 text-[10px] text-slate-600 border border-slate-100 flex items-center justify-between">
-                            <span className="truncate">
-                              Oleh: <strong className="text-slate-800">{task.creator?.name || "Kolega"}</strong>
-                            </span>
-                            <span className="text-[9px] text-slate-400 font-mono shrink-0">
-                              {formatDateTime(task.createdAt)}
-                            </span>
-                          </div>
-
-                          {/* Assignee & Deadline Section */}
-                          <div className="text-[11px] space-y-1">
-                            <div className="flex items-center justify-between text-slate-600">
-                              <span className="flex items-center gap-1 text-[10px]">
+                          {/* People: Assignee & Creator Info */}
+                          <div className="rounded-xl bg-slate-50 p-2.5 text-[10px] text-slate-600 border border-slate-100 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1 text-slate-500 font-medium">
                                 <User className="h-3 w-3 text-slate-400" /> Penerima:
                               </span>
-                              <span className="font-bold text-slate-800 text-[10px] truncate max-w-[140px]">
-                                {task.user?.name}
+                              <span className="font-bold text-slate-900 truncate max-w-[150px]">
+                                {task.user?.id === user?.id ? (
+                                  <span className="text-blue-700 font-extrabold">Saya Sendiri</span>
+                                ) : (
+                                  `${task.user?.name}${task.user?.department ? ` (${task.user.department})` : ""}`
+                                )}
                               </span>
                             </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-slate-500">
+                              <span className="truncate">
+                                Pemberi: <strong className="text-slate-800">{task.creator?.id === user?.id ? "Saya" : (task.creator?.name || "Kolega")}</strong>
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-mono shrink-0">
+                                {formatDateTime(task.createdAt)}
+                              </span>
+                            </div>
+                          </div>
 
+                          {/* Deadline Section */}
+                          <div className="text-[11px] space-y-1">
                             <div className="flex items-center justify-between text-slate-600">
                               <span className="flex items-center gap-1 text-[10px]">
                                 <Clock className="h-3 w-3 text-slate-400" /> Target:

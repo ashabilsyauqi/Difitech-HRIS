@@ -17,6 +17,7 @@ interface CreateTaskModalProps {
   onSuccess: () => void;
   initialDepartment?: string;
   initialBrand?: string;
+  defaultToSelf?: boolean;
 }
 
 const DEPARTMENTS = [
@@ -34,6 +35,7 @@ export default function CreateTaskModal({
   onSuccess,
   initialDepartment,
   initialBrand,
+  defaultToSelf = false,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -47,6 +49,8 @@ export default function CreateTaskModal({
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [assignmentType, setAssignmentType] = useState<"TEAM" | "SELF">(defaultToSelf ? "SELF" : "TEAM");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -57,26 +61,53 @@ export default function CreateTaskModal({
 
   useEffect(() => {
     if (isOpen) {
+      if (defaultToSelf) {
+        setAssignmentType("SELF");
+      }
       fetchMetadata();
     }
-  }, [isOpen]);
+  }, [isOpen, defaultToSelf]);
 
   const fetchMetadata = async () => {
     try {
-      const res = await fetch("/api/workspace/metadata");
-      if (res.ok) {
-        const data = await res.json();
+      const [metaRes, authRes] = await Promise.all([
+        fetch("/api/workspace/metadata"),
+        fetch("/api/auth/me"),
+      ]);
+
+      let userObj: any = null;
+      if (authRes.ok) {
+        const aData = await authRes.json();
+        userObj = aData.user;
+        setCurrentUser(aData.user);
+      }
+
+      if (metaRes.ok) {
+        const data = await metaRes.json();
         setEmployees(data.employees || []);
         setBrands(data.brands || []);
         if (!brandName && data.brands && data.brands.length > 0) {
           setBrandName(data.brands[0]);
         }
-        if (!assigneeId && data.employees && data.employees.length > 0) {
-          setAssigneeId(data.employees[0].id);
+        if (!assigneeId) {
+          if (defaultToSelf && userObj) {
+            setAssigneeId(userObj.id);
+          } else if (userObj) {
+            setAssigneeId(userObj.id);
+          } else if (data.employees && data.employees.length > 0) {
+            setAssigneeId(data.employees[0].id);
+          }
         }
       }
     } catch (err) {
       console.error("Failed to fetch metadata:", err);
+    }
+  };
+
+  const handleAssignmentTypeChange = (type: "TEAM" | "SELF") => {
+    setAssignmentType(type);
+    if (type === "SELF" && currentUser) {
+      setAssigneeId(currentUser.id);
     }
   };
 
@@ -234,25 +265,78 @@ export default function CreateTaskModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Penerima Tugas (Assignee) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  required
-                  value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none appearance-none bg-white"
-                >
-                  <option value="" disabled>Pilih Karyawan...</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.department || "Karyawan"})
-                    </option>
-                  ))}
-                </select>
-                <User className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Penerima Tugas <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => handleAssignmentTypeChange("TEAM")}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                      assignmentType === "TEAM"
+                        ? "bg-white text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    👥 Anggota Tim
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssignmentTypeChange("SELF")}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                      assignmentType === "SELF"
+                        ? "bg-white text-blue-700 shadow-2xs font-extrabold"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    👤 Diri Sendiri
+                  </button>
+                </div>
               </div>
+
+              {assignmentType === "SELF" ? (
+                <div className="rounded-xl bg-blue-50/80 border border-blue-200 p-2.5 flex items-start gap-2">
+                  <div className="h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
+                    {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <div className="text-[11px] text-blue-950">
+                    <div className="font-bold">{currentUser?.name || "Saya Sendiri"} (Pribadi)</div>
+                    <div className="text-[10px] text-blue-700 leading-tight mt-0.5">
+                      Tugas ini akan otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan dipajang di Card <strong>{departmentCard}</strong>.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="relative">
+                    <select
+                      required
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none appearance-none bg-white font-medium"
+                    >
+                      <option value="" disabled>Pilih Rekan Tim...</option>
+                      {currentUser && (
+                        <option value={currentUser.id}>
+                          👤 Saya Sendiri ({currentUser.name})
+                        </option>
+                      )}
+                      {employees
+                        .filter((emp) => !currentUser || emp.id !== currentUser.id)
+                        .map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name} ({emp.department || "Karyawan"})
+                          </option>
+                        ))}
+                    </select>
+                    <User className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1 italic">
+                    💡 Contoh: Web Dev assign tugas ke Mas Danar (SEO) di Card SEO.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

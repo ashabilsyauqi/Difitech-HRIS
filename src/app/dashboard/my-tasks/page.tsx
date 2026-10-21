@@ -506,6 +506,7 @@ export default function MyTasksPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSuccess={fetchTasks}
+        defaultToSelf={true}
       />
 
       {deadlineModalTask && (
