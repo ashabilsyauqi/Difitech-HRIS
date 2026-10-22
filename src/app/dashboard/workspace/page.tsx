@@ -352,6 +352,7 @@ export default function WorkspaceCardsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [selectedMember, setSelectedMember] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
@@ -458,6 +459,9 @@ export default function WorkspaceCardsPage() {
   useEffect(() => {
     fetchSession();
     fetchBrandsAndMetadata();
+    if (typeof document !== "undefined") {
+      document.title = "DifWorkBoard - BigBoard 6 Divisi & Kolaborasi";
+    }
 
     // Check URL parameters for board mode or card
     if (typeof window !== "undefined") {
@@ -1323,20 +1327,18 @@ export default function WorkspaceCardsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-md bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
-                      {isAdmin ? "Executive Overview" : "Ruang Kerja Kolaborasi"}
+                      BigBoard Divisi (Kanban 6 Divisi)
                     </span>
                     <span className="text-slate-400 text-xs">•</span>
                     <span className="text-xs font-semibold text-slate-500">
-                      {isAdmin ? "BigBoard 6 Divisi Kerja" : "Divisi & Kolaborasi Terkait Anda"}
+                      {isAdmin ? "Executive Board (Semua Divisi)" : "Kolaborasi Lintas Divisi"}
                     </span>
                   </div>
                   <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-                    {isAdmin ? "BigBoard 6 Divisi Kerja" : "BigBoard Divisi Kolaborasi"}
+                    BigBoard Kanban 6 Divisi Difitech
                   </h1>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isAdmin
-                      ? "Ringkasan aktivitas 6 divisi kerja. Pantau kolaborasi lintas tim, tugas yang sedang berjalan, dan delegasi antar karyawan."
-                      : "Pantau pipeline divisi kerja yang berkolaborasi dengan Anda, request lintas tim, serta tugas yang ditugaskan."}
+                    Papan kerja horizontal kolaboratif non-stage. Setiap kolom mewakili divisi dan setiap tugas berbentuk kartu kerja (sticky notes).
                   </p>
                 </div>
 
@@ -1365,60 +1367,114 @@ export default function WorkspaceCardsPage() {
               </div>
 
               {/* Toolbar & Filter Bar */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                {/* View Scope Filter */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto w-full sm:w-auto">
-                  {!isAdmin ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("RELEVANT")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "RELEVANT"
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-blue-600"
-                        }`}
-                      >
-                        <span>🎯 Divisi Terkait Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "RELEVANT"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-600"
-                            }`}
-                          >
-                            {CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length}
-                          </span>
-                        )}
-                      </button>
+              <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+                {/* Left Controls: Scope & Status Tabs */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Scope Selector */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+                    {!isAdmin ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setViewScope("RELEVANT")}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                            viewScope === "RELEVANT"
+                              ? "bg-blue-600 text-white shadow-2xs"
+                              : "text-slate-600 hover:text-blue-600"
+                          }`}
+                        >
+                          <span>🎯 Divisi Terkait Saya</span>
+                          {user && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                viewScope === "RELEVANT"
+                                  ? "bg-white/20 text-white"
+                                  : "bg-slate-200 text-slate-600"
+                              }`}
+                            >
+                              {CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length}
+                            </span>
+                          )}
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("ALL")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "ALL"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Semua 6 Divisi
-                      </button>
-                    </>
-                  ) : (
-                    <div className="px-3 py-1 text-xs font-bold text-slate-700">
-                      🏢 Tampilan BigBoard Semua Divisi (Admin/Manager)
-                    </div>
-                  )}
+                        <button
+                          type="button"
+                          onClick={() => setViewScope("ALL")}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                            viewScope === "ALL"
+                              ? "bg-white text-slate-900 shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Semua 6 Divisi
+                        </button>
+                      </>
+                    ) : (
+                      <div className="px-3 py-1 text-xs font-bold text-slate-700">
+                        🏢 Semua 6 Divisi
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status Filter Tabs */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter("ALL")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                        statusFilter === "ALL"
+                          ? "bg-white text-slate-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Semua Kartu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter("IN_PROGRESS")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                        statusFilter === "IN_PROGRESS"
+                          ? "bg-blue-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-blue-600"
+                      }`}
+                    >
+                      <PlayCircle className="h-3 w-3" />
+                      <span>Sedang Jalan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter("REVIEW")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                        statusFilter === "REVIEW"
+                          ? "bg-amber-500 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-amber-600"
+                      }`}
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>Butuh Review</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter("COMPLETED")}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                        statusFilter === "COMPLETED"
+                          ? "bg-emerald-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-emerald-600"
+                      }`}
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>Selesai</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Search & Brand Filter */}
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <div className="relative flex-1 sm:w-56">
+                {/* Right Controls: Search & Brand Filter */}
+                <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
+                  <div className="relative flex-1 xl:w-56">
                     <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari tugas / brand / PIC..."
+                      placeholder="Cari kartu kerja / PIC / brand..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
@@ -1472,251 +1528,303 @@ export default function WorkspaceCardsPage() {
                 }
 
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="flex flex-row items-start gap-4 lg:gap-5 overflow-x-auto pb-6 w-full min-h-[calc(100vh-250px)] custom-scrollbar">
                     {displayedCards.map((cardDef) => {
                       const Icon = cardDef.icon;
-                      const cardTasks = tasks.filter(
+                      const allDivTasks = tasks.filter(
                         (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
                       );
+                      const cardTasks = allDivTasks.filter((t) => {
+                        if (statusFilter === "ALL") return true;
+                        if (statusFilter === "IN_PROGRESS") return t.status === "IN_PROGRESS";
+                        if (statusFilter === "REVIEW") {
+                          return (
+                            t.reviewStatus === "TO_BE_REVIEWED" ||
+                            t.reviewStatus === "UNDER_REVIEW" ||
+                            t.reviewStatus === "REVISION_REQUESTED"
+                          );
+                        }
+                        if (statusFilter === "COMPLETED") return t.status === "COMPLETED";
+                        return true;
+                      });
 
-                      const total = cardTasks.length;
-                      const runningTasks = cardTasks.filter((t) => t.status === "IN_PROGRESS");
-                      const runningCount = runningTasks.length;
-                      const requestedCount = cardTasks.filter(
-                        (t) =>
-                          t.status === "REQUESTED" ||
-                          (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id)
-                      ).length;
-                      const reviewCount = cardTasks.filter(
+                      const runningCount = allDivTasks.filter((t) => t.status === "IN_PROGRESS").length;
+                      const reviewCount = allDivTasks.filter(
                         (t) =>
                           t.reviewStatus === "TO_BE_REVIEWED" ||
+                          t.reviewStatus === "UNDER_REVIEW" ||
                           t.reviewStatus === "REVISION_REQUESTED"
                       ).length;
-                      const completedCount = cardTasks.filter((t) => t.status === "COMPLETED").length;
-
-                      // Active workers map (including multi-assignees)
-                      const activeWorkerMap = new Map<string, { id: string; name: string; avatarUrl?: string | null }>();
-                      cardTasks
-                        .filter((t) => t.status !== "COMPLETED")
-                        .forEach((t) => {
-                          if (t.user?.id) {
-                            activeWorkerMap.set(t.user.id, {
-                              id: t.user.id,
-                              name: t.user.name,
-                              avatarUrl: t.user.avatarUrl,
-                            });
-                          }
-                          if (t.assignees) {
-                            t.assignees.forEach((a) => {
-                              if (a.user?.id) {
-                                activeWorkerMap.set(a.user.id, {
-                                  id: a.user.id,
-                                  name: a.user.name,
-                                  avatarUrl: a.user.avatarUrl,
-                                });
-                              }
-                            });
-                          }
-                        });
-                      const activeWorkers = Array.from(activeWorkerMap.values());
-
-                      // Cross-Department Collaboration Requests ("Biar Bos Tau")
-                      const crossRequests = cardTasks.filter(
-                        (t) => t.creator?.id && t.creator.id !== t.user?.id && t.status !== "COMPLETED"
-                      );
 
                       return (
                         <div
                           key={cardDef.key}
-                          onClick={() => openDivisionStage(cardDef.key)}
-                          className={`group rounded-3xl border border-slate-200 bg-white shadow-xs hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer ${cardDef.borderHover}`}
+                          className="w-[310px] sm:w-[340px] shrink-0 flex flex-col bg-slate-100/80 rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden max-h-[calc(100vh-250px)]"
                         >
-                          {/* Thumbnail Header */}
+                          {/* Column Header */}
                           <div className={`p-4 text-white ${cardDef.headerBg}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2.5">
                                 <div className="p-2 rounded-xl bg-white/20 backdrop-blur-xs text-white">
-                                  <Icon className="h-5 w-5" />
+                                  <Icon className="h-4 w-4" />
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <h3 className="text-base font-black tracking-tight">{cardDef.label}</h3>
                                     <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black">
-                                      {total} Tugas
+                                      {cardTasks.length} Kartu
                                     </span>
                                   </div>
                                   <p className="text-[11px] text-white/80 line-clamp-1">{cardDef.sublabel}</p>
                                 </div>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTargetCardForNew(cardDef.key);
-                                  setCreateModalOpen(true);
-                                }}
-                                title={`Request tugas ke ${cardDef.label}`}
-                                className="rounded-xl bg-white/20 hover:bg-white/30 px-2.5 py-1.5 text-white transition flex items-center gap-1 text-[11px] font-bold cursor-pointer shrink-0"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Request</span>
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  title={`Tambah Kartu Kerja di ${cardDef.label}`}
+                                  onClick={() => {
+                                    setTargetCardForNew(cardDef.key);
+                                    setCreateModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-xl bg-white/25 hover:bg-white/40 text-white transition shadow-2xs cursor-pointer"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Quick mini indicators */}
+                            <div className="mt-3 pt-2.5 border-t border-white/20 flex items-center justify-between text-[11px] font-bold text-white/90">
+                              <span className="flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></span>
+                                {runningCount} Berjalan
+                              </span>
+                              {reviewCount > 0 && (
+                                <span className="rounded-full bg-amber-400 text-amber-950 px-2 py-0.2 text-[10px] font-black">
+                                  {reviewCount} Butuh Review
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {/* Thumbnail Body */}
-                          <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                            {/* Live Notification Bar */}
-                            <div className="grid grid-cols-3 gap-2">
-                              {/* Running Tasks */}
-                              <div
-                                className={`p-2.5 rounded-2xl border transition ${
-                                  runningCount > 0
-                                    ? "bg-blue-50/80 border-blue-200 text-blue-900 shadow-2xs"
-                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold">Sedang Jalan</span>
-                                  {runningCount > 0 && (
-                                    <span className="relative flex h-2 w-2">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-lg font-black mt-0.5">
-                                  {runningCount} <span className="text-[10px] font-medium text-slate-500">task</span>
-                                </div>
-                              </div>
-
-                              {/* User Requested */}
-                              <div
-                                className={`p-2.5 rounded-2xl border transition ${
-                                  requestedCount > 0
-                                    ? "bg-purple-50/80 border-purple-200 text-purple-900 shadow-2xs"
-                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
-                                }`}
-                              >
-                                <span className="text-[10px] font-bold">Request Masuk</span>
-                                <div className="text-lg font-black mt-0.5">
-                                  {requestedCount} <span className="text-[10px] font-medium text-slate-500">task</span>
-                                </div>
-                              </div>
-
-                              {/* Review Gate Pending */}
-                              <div
-                                className={`p-2.5 rounded-2xl border transition ${
-                                  reviewCount > 0
-                                    ? "bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs"
-                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
-                                }`}
-                              >
-                                <span className="text-[10px] font-bold">Butuh Review</span>
-                                <div className="text-lg font-black mt-0.5">
-                                  {reviewCount} <span className="text-[10px] font-medium text-slate-500">task</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Active Workers */}
-                            <div className="rounded-2xl bg-slate-50/80 border border-slate-200/70 p-3 space-y-2">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                                  <User className="h-3.5 w-3.5 text-slate-500" />
-                                  Sedang Bekerja di Sini:
-                                </span>
-                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-700">
-                                  {activeWorkers.length} Karyawan
-                                </span>
-                              </div>
-
-                              {activeWorkers.length === 0 ? (
-                                <p className="text-[11px] text-slate-400 italic">
-                                  Belum ada karyawan aktif yang mengerjakan tugas saat ini.
+                          {/* Sticky Notes Scrollable Body */}
+                          <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                            {cardTasks.length === 0 ? (
+                              <div className="p-6 text-center rounded-2xl border border-dashed border-slate-300 bg-white/60 space-y-2 my-2">
+                                <p className="text-xs font-semibold text-slate-500">
+                                  {statusFilter !== "ALL"
+                                    ? "Tidak ada kartu pada filter ini"
+                                    : "Belum ada kartu kerja di divisi ini"}
                                 </p>
-                              ) : (
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {activeWorkers.slice(0, 4).map((worker) => (
-                                    <span
-                                      key={worker.id}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2 py-0.8 text-[11px] font-bold text-slate-800 shadow-2xs"
-                                    >
-                                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                      {worker.name}
-                                    </span>
-                                  ))}
-                                  {activeWorkers.length > 4 && (
-                                    <span className="rounded-lg bg-slate-200 px-2 py-0.8 text-[10px] font-bold text-slate-600">
-                                      +{activeWorkers.length - 4} lainnya
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Radar Request Lintas Divisi */}
-                            <div className="rounded-2xl bg-gradient-to-r from-red-50/40 via-amber-50/30 to-purple-50/40 border border-slate-200/80 p-3 space-y-2">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                                  <Share2 className="h-3.5 w-3.5 text-red-600" />
-                                  Radar Request Lintas Divisi:
-                                </span>
-                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
-                                  {crossRequests.length} Aktif
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTargetCardForNew(cardDef.key);
+                                    setCreateModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 cursor-pointer"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span>Buat Kartu Baru</span>
+                                </button>
                               </div>
+                            ) : (
+                              cardTasks.map((task) => (
+                                <div
+                                  key={task.id}
+                                  onClick={() => setSelectedTaskForDetail(task)}
+                                  className={`group relative rounded-2xl border bg-white p-3.5 shadow-2xs hover:shadow-md transition-all duration-150 cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between ${
+                                    task.priority === "URGENT"
+                                      ? "border-red-300 ring-1 ring-red-200/60"
+                                      : task.reviewStatus === "TO_BE_REVIEWED"
+                                      ? "border-amber-300 ring-1 ring-amber-200/60"
+                                      : "border-slate-200/90 hover:border-slate-300"
+                                  }`}
+                                >
+                                  {/* Sticky Note Top Accent / Tape */}
+                                  <div className={`h-1.5 w-full rounded-full mb-2.5 ${cardDef.headerBg}`} />
 
-                              {crossRequests.length === 0 ? (
-                                <p className="text-[11px] text-slate-500">
-                                  Tidak ada delegasi lintas divisi aktif saat ini.
-                                </p>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  {crossRequests.slice(0, 2).map((reqTask) => (
-                                    <div
-                                      key={reqTask.id}
-                                      className="rounded-xl bg-white/90 border border-slate-200 p-2 text-[11px] text-slate-700 shadow-2xs"
-                                    >
-                                      <div className="flex items-center justify-between gap-1">
-                                        <div className="flex items-center gap-1 truncate font-bold text-slate-900">
-                                          <span className="text-red-700 font-extrabold">{reqTask.creator?.name || "Kolega"}</span>
-                                          <span className="text-slate-400">➔</span>
-                                          <span className="text-blue-700 truncate">{reqTask.user?.name}</span>
-                                        </div>
-                                        <span className="text-[9px] font-black uppercase px-1 rounded bg-slate-100 text-slate-600 shrink-0">
-                                          {reqTask.status === "IN_PROGRESS"
-                                            ? "Sedang Jalan"
-                                            : reqTask.reviewStatus === "TO_BE_REVIEWED"
-                                            ? "Review"
-                                            : "Pending"}
+                                  <div>
+                                    {/* Tags Row: Priority + Status */}
+                                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        {task.priority === "URGENT" && (
+                                          <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-2 py-0.5 flex items-center gap-1 shadow-2xs">
+                                            <Flame className="h-2.5 w-2.5" />
+                                            Urgent
+                                          </span>
+                                        )}
+                                        {task.priority === "HIGH" && (
+                                          <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-2 py-0.5 border border-orange-200">
+                                            Tinggi
+                                          </span>
+                                        )}
+                                        {task.priority === "NORMAL" && (
+                                          <span className="rounded-full bg-slate-100 text-slate-600 text-[9px] font-medium px-2 py-0.5">
+                                            Normal
+                                          </span>
+                                        )}
+
+                                        {task.brandName && (
+                                          <span className="rounded-full bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 border border-slate-200 truncate max-w-[100px]">
+                                            {task.brandName}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Stage Badge */}
+                                      {(() => {
+                                        if (task.reviewStatus === "TO_BE_REVIEWED") {
+                                          return (
+                                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-2 py-0.5 flex items-center gap-1 animate-pulse">
+                                              <Clock className="h-2.5 w-2.5 text-amber-700" />
+                                              Menunggu Review
+                                            </span>
+                                          );
+                                        }
+                                        if (task.reviewStatus === "UNDER_REVIEW") {
+                                          return (
+                                            <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                              <Eye className="h-2.5 w-2.5 text-amber-600" />
+                                              Sedang Review
+                                            </span>
+                                          );
+                                        }
+                                        if (task.reviewStatus === "REVISION_REQUESTED") {
+                                          return (
+                                            <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black px-2 py-0.5 flex items-center gap-1">
+                                              <AlertCircle className="h-2.5 w-2.5 text-rose-600" />
+                                              Perlu Revisi
+                                            </span>
+                                          );
+                                        }
+                                        if (task.status === "COMPLETED") {
+                                          return (
+                                            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                              <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+                                              ✓ Selesai
+                                            </span>
+                                          );
+                                        }
+                                        if (task.status === "IN_PROGRESS") {
+                                          return (
+                                            <span className="rounded-full bg-blue-100 text-blue-800 border border-blue-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                              <PlayCircle className="h-2.5 w-2.5 text-blue-600" />
+                                              Dikerjakan
+                                            </span>
+                                          );
+                                        }
+                                        return (
+                                          <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                            <Inbox className="h-2.5 w-2.5 text-purple-600" />
+                                            Request Masuk
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {/* Title */}
+                                    <h4 className="text-xs font-black text-slate-800 leading-snug line-clamp-2 mt-2 group-hover:text-red-600 transition">
+                                      {task.title}
+                                    </h4>
+
+                                    {/* Description snippet */}
+                                    {task.description && (
+                                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                                        {task.description}
+                                      </p>
+                                    )}
+
+                                    {/* Corong / Request Delegation Tag */}
+                                    {task.creator?.id && task.creator.id !== task.user?.id && (
+                                      <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                        <Share2 className="h-3 w-3 text-red-500 shrink-0" />
+                                        <span className="truncate">
+                                          <span className="font-bold text-slate-900">{task.creator.name}</span>
+                                          <span className="text-slate-400 mx-1">➔</span>
+                                          <span className="font-bold text-blue-700">
+                                            {task.assignees && task.assignees.length > 0
+                                              ? task.assignees.map((a) => a.user.name).join(", ")
+                                              : task.user?.name || "PIC"}
+                                          </span>
                                         </span>
                                       </div>
-                                      <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
-                                        "{reqTask.title}"
-                                      </p>
-                                    </div>
-                                  ))}
-                                  {crossRequests.length > 2 && (
-                                    <p className="text-[10px] text-red-700 font-bold text-center">
-                                      +{crossRequests.length - 2} request lintas divisi lainnya
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                                    )}
 
-                            {/* Action Footer */}
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-500">
-                                {completedCount} tuntas dari {total} tugas
-                              </span>
-                              <div className="inline-flex items-center gap-1.5 text-xs font-black text-red-600 group-hover:text-red-700 group-hover:translate-x-0.5 transition">
-                                <span>Buka BigBoard {cardDef.label}</span>
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </div>
-                            </div>
+                                    {/* Deliverable preview badge */}
+                                    {task.deliverableUrl && (
+                                      <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                        <ExternalLink className="h-3 w-3 text-emerald-600" />
+                                        <span>Bukti Hasil Siap Di-review</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Footer: Multi-Assignee Avatar Stack + Deadline */}
+                                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      {/* Avatar Stack */}
+                                      <div className="flex -space-x-1.5 overflow-hidden shrink-0">
+                                        {(() => {
+                                          const allPeople = [
+                                            task.user,
+                                            ...(task.assignees?.map((a) => a.user) || []),
+                                          ].filter(Boolean);
+                                          const uniquePeople = Array.from(
+                                            new Map(allPeople.map((p) => [p.id, p])).values()
+                                          );
+                                          return uniquePeople.slice(0, 3).map((person, idx) => (
+                                            <div
+                                              key={person.id || idx}
+                                              title={person.name}
+                                              className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-slate-200 text-slate-700 text-[9px] font-black flex items-center justify-center overflow-hidden shrink-0"
+                                            >
+                                              {person.avatarUrl ? (
+                                                <img src={person.avatarUrl} alt={person.name} className="h-full w-full object-cover" />
+                                              ) : (
+                                                person.name?.charAt(0) || "U"
+                                              )}
+                                            </div>
+                                          ));
+                                        })()}
+                                      </div>
+                                      <span className="text-[11px] font-bold text-slate-700 truncate">
+                                        {task.user?.name}
+                                      </span>
+                                    </div>
+
+                                    {/* Deadline */}
+                                    {task.expectedDeadline && (
+                                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 shrink-0">
+                                        <Calendar className="h-3 w-3 text-slate-400" />
+                                        <span>
+                                          {new Date(task.expectedDeadline).toLocaleDateString("id-ID", {
+                                            day: "numeric",
+                                            month: "short",
+                                          })}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Column Bottom Action */}
+                          <div className="p-3 bg-white/70 border-t border-slate-200/70">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetCardForNew(cardDef.key);
+                                setCreateModalOpen(true);
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-white rounded-xl transition border border-dashed border-slate-300 hover:border-red-300 shadow-2xs cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              <span>Tambah Kartu Kerja</span>
+                            </button>
                           </div>
                         </div>
                       );

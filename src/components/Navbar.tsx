@@ -73,7 +73,16 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
           </button>
         )}
 
-        <Link href={user.role === "EMPLOYEE" ? "/dashboard" : "/manager"} className="flex items-center gap-2.5">
+        <Link
+          href={
+            pathname?.includes("workspace") || pathname?.includes("content-production")
+              ? "/dashboard/workspace"
+              : user.role === "EMPLOYEE"
+              ? "/dashboard"
+              : "/manager"
+          }
+          className="flex items-center gap-2.5"
+        >
           {/* Difitech Shield Logo */}
           <img src="/logo.png" alt="Difitech HRIS Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
           <div>
