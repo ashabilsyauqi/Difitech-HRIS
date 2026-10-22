@@ -29,10 +29,19 @@ import {
   History,
   Timer,
   ArrowRight,
+  Inbox,
+  Filter,
 } from "lucide-react";
 import { getWIBDateString } from "@/lib/date-utils";
 
 const COLUMNS = [
+  {
+    id: "REQUESTED",
+    title: "User Requested",
+    badgeColor: "bg-purple-100 text-purple-800 border-purple-200",
+    icon: Inbox,
+    description: "Request divisi kolaborasi",
+  },
   {
     id: "PENDING",
     title: "Belum Dikerjakan",
@@ -63,13 +72,18 @@ const COLUMNS = [
   },
 ];
 
-export default function MyTasksPage() {
+export default function UnifiedTasksPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [counts, setCounts] = useState({ inbox: 0, inProgress: 0, completed: 0, pendingReview: 0 });
   const [isLoading, setIsLoading] = useState(true);
+
+  // Daily Fresh Sheet Date Navigator
+  const todayStr = getWIBDateString();
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [filterByDate, setFilterByDate] = useState(false);
 
   // Live Timers
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
@@ -88,8 +102,6 @@ export default function MyTasksPage() {
   const [deadlineModalTask, setDeadlineModalTask] = useState<any | null>(null);
   const [deliverableModalTask, setDeliverableModalTask] = useState<any | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<any | null>(null);
-
-  const todayStr = getWIBDateString();
 
   const fetchSession = async () => {
     try {
@@ -123,7 +135,7 @@ export default function MyTasksPage() {
         }
       }
     } catch (err) {
-      console.error("Failed to fetch my tasks:", err);
+      console.error("Failed to fetch tasks:", err);
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +162,7 @@ export default function MyTasksPage() {
     fetchTasks();
   }, [selectedBrand, selectedDepartment, searchQuery]);
 
-  // Sync initial tracked seconds based on database state
+  // Sync initial tracked seconds
   useEffect(() => {
     const initial: Record<string, number> = {};
     const now = Date.now();
@@ -269,11 +281,16 @@ export default function MyTasksPage() {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = async (e: React.DragEvent, targetStatus: string) => {
+  const handleDrop = async (e: React.DragEvent, targetColId: string) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
     setDraggedTaskId(null);
     if (!taskId) return;
+
+    let targetStatus = targetColId;
+    if (targetColId === "REQUESTED") {
+      targetStatus = "REQUESTED";
+    }
 
     await handleStatusChange(taskId, targetStatus);
   };
@@ -317,6 +334,7 @@ export default function MyTasksPage() {
     }
   };
 
+  // Filter tasks based on search, brand, dept, priority, and optional date
   const filteredTasks = (tasks || []).filter((t) => {
     if (!t) return false;
     const title = t.title || "";
@@ -327,8 +345,41 @@ export default function MyTasksPage() {
     const matchesBrand = selectedBrand === "ALL" || (t.brandName === selectedBrand || t.category === selectedBrand);
     const matchesDept = selectedDepartment === "ALL" || t.departmentCard === selectedDepartment;
     const matchesPriority = selectedPriority === "ALL" || t.priority === selectedPriority;
-    return Boolean(matchesSearch && matchesBrand && matchesDept && matchesPriority);
+
+    let matchesDate = true;
+    if (filterByDate && selectedDate) {
+      // User Requested tasks are ALWAYS visible regardless of date filter
+      const isUserRequested = t.status === "REQUESTED" || (t.status === "PENDING" && t.creatorId && t.creatorId !== user?.id);
+      if (!isUserRequested) {
+        const target = t.targetDate || (t.expectedDeadline ? t.expectedDeadline.split("T")[0] : null);
+        matchesDate = target === selectedDate || !target || target < todayStr;
+      }
+    }
+
+    return Boolean(matchesSearch && matchesBrand && matchesDept && matchesPriority && matchesDate);
   });
+
+  // Categorize tasks into the 5 stages
+  const getTasksForColumn = (colId: string) => {
+    return filteredTasks.filter((t) => {
+      if (colId === "REQUESTED") {
+        return t.status === "REQUESTED" || (t.status === "PENDING" && t.creatorId && t.creatorId !== user?.id);
+      }
+      if (colId === "PENDING") {
+        return t.status === "PENDING" && (!t.creatorId || t.creatorId === user?.id);
+      }
+      if (colId === "IN_PROGRESS") {
+        return t.status === "IN_PROGRESS";
+      }
+      if (colId === "COMPLETED") {
+        return t.status === "COMPLETED";
+      }
+      if (colId === "BLOCKED") {
+        return t.status === "BLOCKED";
+      }
+      return false;
+    });
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
@@ -338,7 +389,7 @@ export default function MyTasksPage() {
         {user && <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* Header Banner - Exact styling of old Papan Tugas */}
+          {/* Header Banner - Exact styling of Papan Tugas Harian */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-red-100 bg-gradient-to-r from-red-50/70 via-white to-blue-50/40 p-6 shadow-xs">
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
@@ -346,7 +397,7 @@ export default function MyTasksPage() {
                 <span>Lembar Kerja Aktivitas Harian Difitech</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
-                Papan Tugas Pribadi Karyawan
+                Papan Tugas Harian Karyawan
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 Setiap hari adalah lembar tugas baru. Jalankan time tracker langsung pada tugas yang sedang aktif.
@@ -372,20 +423,54 @@ export default function MyTasksPage() {
             </div>
           </div>
 
-          {/* Search & Filters Bar - Single clean line matching old board */}
+          {/* Date Selector & Search & Filters Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="relative min-w-[220px] flex-1 max-w-sm">
-              <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+            {/* Daily Fresh Sheet Date Navigator */}
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-red-600" />
+              <span className="text-xs font-bold text-slate-700">Lembar Tanggal:</span>
               <input
-                type="text"
-                placeholder="Cari tugas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:outline-none"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setFilterByDate(true);
+                }}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-red-500 focus:outline-none"
               />
+              {filterByDate ? (
+                <button
+                  onClick={() => setFilterByDate(false)}
+                  className="rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 text-[11px] font-bold transition cursor-pointer"
+                >
+                  Tampilkan Semua Tanggal
+                </button>
+              ) : selectedDate !== todayStr && (
+                <button
+                  onClick={() => {
+                    setSelectedDate(todayStr);
+                    setFilterByDate(true);
+                  }}
+                  className="rounded-lg bg-red-50 text-red-700 px-2.5 py-1 text-[11px] font-bold hover:bg-red-100 transition cursor-pointer"
+                >
+                  Kembali ke Hari Ini
+                </button>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search and Filters */}
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
+              <div className="relative min-w-[180px] max-w-xs">
+                <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari tugas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+
               <select
                 value={selectedBrand}
                 onChange={(e) => setSelectedBrand(e.target.value)}
@@ -425,13 +510,15 @@ export default function MyTasksPage() {
                 <option value="LOW">Rendah</option>
               </select>
 
-              {(searchQuery || selectedBrand !== "ALL" || selectedDepartment !== "ALL" || selectedPriority !== "ALL") && (
+              {(searchQuery || selectedBrand !== "ALL" || selectedDepartment !== "ALL" || selectedPriority !== "ALL" || filterByDate) && (
                 <button
                   onClick={() => {
                     setSearchQuery("");
                     setSelectedBrand("ALL");
                     setSelectedDepartment("ALL");
                     setSelectedPriority("ALL");
+                    setFilterByDate(false);
+                    setSelectedDate(todayStr);
                   }}
                   className="rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs font-semibold transition cursor-pointer"
                 >
@@ -441,7 +528,7 @@ export default function MyTasksPage() {
             </div>
           </div>
 
-          {/* Pending Review Alert Banner if needed - Clean compact strip */}
+          {/* Pending Review Alert Banner if needed */}
           {counts.pendingReview > 0 && (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-2.5 text-xs shadow-2xs">
               <div className="flex items-center gap-2 text-amber-900 font-medium">
@@ -481,17 +568,17 @@ export default function MyTasksPage() {
             </button>
           </div>
 
-          {/* 4 Kanban Columns - Exact match of TaskKanbanBoard */}
+          {/* 5 Kanban Columns: User Requested, Belum Dikerjakan, Sedang Berjalan, Selesai, Terkendala */}
           {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white text-center text-slate-400">
               <RefreshCw className="h-7 w-7 animate-spin text-red-600 mb-2" />
               <p className="text-xs font-semibold">Memuat tugas...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 items-start">
               {COLUMNS.map((col) => {
                 const ColIcon = col.icon;
-                const colTasks = filteredTasks.filter((t) => t.status === col.id);
+                const colTasks = getTasksForColumn(col.id);
 
                 return (
                   <div
@@ -519,8 +606,8 @@ export default function MyTasksPage() {
                     {/* Task Cards Container */}
                     <div className="flex-1 space-y-2.5 overflow-y-auto pr-0.5">
                       {colTasks.length === 0 ? (
-                        <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-400">
-                          <p>Tidak ada tugas di kolom ini</p>
+                        <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-400 p-2">
+                          <p className="text-[11px]">Tidak ada tugas di kolom ini</p>
                           {col.id === "PENDING" && (
                             <button
                               onClick={() => setCreateModalOpen(true)}
@@ -551,11 +638,13 @@ export default function MyTasksPage() {
                                   ? "border-amber-300 bg-amber-50/20"
                                   : task.reviewStatus === "REVISION_REQUESTED"
                                   ? "border-rose-300 bg-rose-50/20"
+                                  : col.id === "REQUESTED"
+                                  ? "border-purple-200 bg-purple-50/15"
                                   : "border-slate-200"
                               }`}
                             >
                               {/* Top Badges */}
-                              <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center justify-between gap-1.5 mb-2 flex-wrap">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                                     {task.departmentCard || task.brandName || "General"}
@@ -563,7 +652,7 @@ export default function MyTasksPage() {
 
                                   {/* Delegated from coworker indicator */}
                                   {task.creator && task.creator.id !== user?.id && (
-                                    <span className="rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.2 text-[9px] font-bold">
+                                    <span className="rounded bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.2 text-[9px] font-bold">
                                       Dari: {task.creator.name}
                                     </span>
                                   )}
@@ -586,7 +675,7 @@ export default function MyTasksPage() {
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1">
                                   <span
                                     className={`rounded border px-1.5 py-0.2 text-[9px] font-bold uppercase ${getPriorityBadge(
                                       task.priority
@@ -729,10 +818,17 @@ export default function MyTasksPage() {
                                 </div>
 
                                 <select
-                                  value={task.status}
+                                  value={
+                                    task.status === "REQUESTED" || (task.status === "PENDING" && task.creatorId && task.creatorId !== user?.id)
+                                      ? "REQUESTED"
+                                      : task.status
+                                  }
                                   onChange={(e) => handleStatusChange(task.id, e.target.value)}
                                   className="rounded bg-slate-50 border border-slate-200 text-[10px] text-slate-700 px-1.5 py-0.5 focus:border-red-500 focus:outline-none font-semibold cursor-pointer"
                                 >
+                                  {task.creatorId && task.creatorId !== user?.id && (
+                                    <option value="REQUESTED">Requested</option>
+                                  )}
                                   <option value="PENDING">Backlog</option>
                                   <option value="IN_PROGRESS">Berjalan</option>
                                   <option value="COMPLETED">Selesai</option>

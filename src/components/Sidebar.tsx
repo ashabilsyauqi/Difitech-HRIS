@@ -35,10 +35,9 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
 
   const employeeLinks = [
     { href: "/dashboard", label: "Presensi Harian", icon: Clock },
-    { href: "/dashboard/my-tasks", label: "Tugas Pribadi", icon: Inbox },
+    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
     { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
-    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];
@@ -46,7 +45,7 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
   const managerLinks = [
     { href: "/manager", label: "Ringkasan Tim & Radar", icon: LayoutDashboard },
     { href: "/manager/task-radar", label: "Radar Tugas CEO & HR", icon: ActivitySquare },
-    { href: "/dashboard/my-tasks", label: "Tugas Pribadi", icon: Inbox },
+    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
     { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
     { href: "/manager/employees", label: "Manajemen Karyawan", icon: UserCheck },

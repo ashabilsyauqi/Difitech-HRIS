@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
         expectedDeadline: expectedDeadline ? new Date(expectedDeadline) : null,
         priority: priority || "MEDIUM",
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : 1.0,
-        status: "PENDING",
+        status: assigneeId === authUser.userId ? "PENDING" : "REQUESTED",
         isContentProduction: isSosmedProduction,
         kanbanStage: isSosmedProduction ? "CONTENT_BRIEF" : null,
         category: normalizedDepartmentCard,
@@ -219,9 +219,9 @@ export async function POST(req: NextRequest) {
         data: {
           userId: assigneeId,
           title: `Tugas Baru dari ${authUser.name} (${authUser.department || "Rekan"})`,
-          message: `Tugas [${normalizedDepartmentCard} - ${brandName}]: "${title}". Harap tinjau di menu Tugas Masuk Anda.`,
+          message: `Tugas [${normalizedDepartmentCard} - ${brandName}]: "${title}". Harap tinjau di stage User Requested pada Lembar Tugas Anda.`,
           type: "TASK_ASSIGNED",
-          link: "/dashboard/my-tasks",
+          link: "/dashboard/tasks",
           taskId: newTask.id,
         },
       });
