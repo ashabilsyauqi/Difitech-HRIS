@@ -105,7 +105,7 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
       )}
 
       <aside
-        className={`fixed top-16 bottom-0 left-0 z-40 w-64 border-r border-slate-200 bg-white p-4 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xs flex flex-col justify-between overflow-y-auto ${
+        className={`shrink-0 fixed top-16 bottom-0 left-0 z-40 w-64 border-r border-slate-200 bg-white p-4 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xs flex flex-col justify-between overflow-y-auto ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

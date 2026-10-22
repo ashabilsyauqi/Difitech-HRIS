@@ -333,6 +333,21 @@ const isCardRelevantForEmployee = (cardKey: string, user: any, allTasks: TaskIte
   );
 };
 
+const getCleanDescriptionSnippet = (desc?: string | null) => {
+  if (!desc) return "";
+  let text = desc.replace(/<img[^>]*>/gi, "");
+  text = text.replace(/<[^>]+>/g, " ");
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+  return text;
+};
+
 export default function WorkspaceCardsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -1032,10 +1047,10 @@ export default function WorkspaceCardsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="h-screen bg-slate-100 flex flex-col overflow-hidden">
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-w-0 overflow-hidden">
         {user && (
           <Sidebar
             role={user.role}
@@ -1045,88 +1060,109 @@ export default function WorkspaceCardsPage() {
           />
         )}
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full space-y-6">
+        <main
+          className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col ${
+            boardMode === "PERSONAL" ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
+          }`}
+        >
           {/* ========================================================================= */}
           {/* DIFWORKBOARD TOP NAVIGATION & BIGBOARD SWITCHER                           */}
           {/* ========================================================================= */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200 shadow-2xs shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center font-black shadow-xs">
-                <Sparkles className="h-6 w-6" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                <Sparkles className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-slate-900 text-lg tracking-tight">
+                  <span className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
                     Dif<span className="text-red-600">WorkBoard</span>
                   </span>
                   <span className="rounded-full bg-slate-900 text-white text-[9px] font-black px-2 py-0.5 uppercase tracking-wider">
                     Agile Funnel
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 line-clamp-1">
                   {boardMode === "PERSONAL"
                     ? "BigBoard Pribadi: Kelola Tugas Mandiri & Delegasi Corong Tim"
-                    : selectedDivision
-                    ? `BigBoard Divisi: Pipeline Kolaborasi ${currentDivisionDef?.label}`
-                    : "BigBoard Divisi: Radar 6 Divisi & Corong Kolaborasi Lintas Tim"}
+                    : "Papan kerja kolaboratif non-stage. Setiap kolom mewakili divisi dan tugas berbentuk kartu kerja (sticky notes)."}
                 </p>
               </div>
             </div>
 
-            {/* Switcher Buttons: BigBoard Divisi vs BigBoard Pribadi */}
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setBoardMode("DIVISION");
-                  if (typeof window !== "undefined") {
-                    window.history.pushState(
-                      {},
-                      "",
-                      selectedDivision
-                        ? `/dashboard/workspace?card=${selectedDivision}`
-                        : `/dashboard/workspace`
-                    );
-                  }
-                }}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  boardMode === "DIVISION"
-                    ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Layers className={`h-4 w-4 ${boardMode === "DIVISION" ? "text-red-600" : "text-slate-400"}`} />
-                <span>BigBoard Divisi</span>
-                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
-                  6 Divisi
-                </span>
-              </button>
+            {/* Switcher Buttons & Quick Actions */}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBoardMode("DIVISION");
+                    setSelectedDivision(null);
+                    if (typeof window !== "undefined") {
+                      window.history.pushState({}, "", "/dashboard/workspace");
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    boardMode === "DIVISION"
+                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200 font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Layers className={`h-3.5 w-3.5 ${boardMode === "DIVISION" ? "text-red-600" : "text-slate-400"}`} />
+                  <span>BigBoard Divisi</span>
+                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                    6 Divisi
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBoardMode("PERSONAL");
+                    if (typeof window !== "undefined") {
+                      window.history.pushState({}, "", "/dashboard/workspace?view=personal");
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    boardMode === "PERSONAL"
+                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200 font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Users className={`h-3.5 w-3.5 ${boardMode === "PERSONAL" ? "text-blue-600" : "text-slate-400"}`} />
+                  <span>BigBoard Pribadi</span>
+                  {pendingReviewForMeCount > 0 && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                  )}
+                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700">
+                    {myAssignedTasks.length}
+                  </span>
+                </button>
+              </div>
+
+              {isSosmedUser && (
+                <Link
+                  href="/dashboard/content-production"
+                  className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
+                >
+                  <Clapperboard className="h-3.5 w-3.5 text-pink-600" />
+                  <span className="hidden md:inline">Kanban Konten</span>
+                </Link>
+              )}
 
               <button
                 type="button"
                 onClick={() => {
-                  setBoardMode("PERSONAL");
-                  if (typeof window !== "undefined") {
-                    window.history.pushState({}, "", `/dashboard/workspace?view=personal`);
-                  }
+                  setTargetCardForNew(undefined);
+                  setCreateModalOpen(true);
                 }}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  boardMode === "PERSONAL"
-                    ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer shrink-0"
               >
-                <Users className={`h-4 w-4 ${boardMode === "PERSONAL" ? "text-blue-600" : "text-slate-400"}`} />
-                <span>BigBoard Pribadi</span>
-                {pendingReviewForMeCount > 0 && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                  </span>
-                )}
-                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700">
-                  {myAssignedTasks.length}
-                </span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>+ Request Tugas</span>
               </button>
             </div>
           </div>
@@ -1319,55 +1355,11 @@ export default function WorkspaceCardsPage() {
             </div>
           ) : !selectedDivision ? (
             /* ========================================================================= */
-            /* VIEW MODE 2: BIGBOARD DIVISI (Thumbnail Overview 6 Card)                  */
+            /* VIEW MODE 2: BIGBOARD DIVISI (Full Height Kanban 6 Divisi)               */
             /* ========================================================================= */
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
-                      BigBoard Divisi (Kanban 6 Divisi)
-                    </span>
-                    <span className="text-slate-400 text-xs">•</span>
-                    <span className="text-xs font-semibold text-slate-500">
-                      {isAdmin ? "Executive Board (Semua Divisi)" : "Kolaborasi Lintas Divisi"}
-                    </span>
-                  </div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-                    BigBoard Kanban 6 Divisi Difitech
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Papan kerja horizontal kolaboratif non-stage. Setiap kolom mewakili divisi dan setiap tugas berbentuk kartu kerja (sticky notes).
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  {isSosmedUser && (
-                    <Link
-                      href="/dashboard/content-production"
-                      className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
-                    >
-                      <Clapperboard className="h-4 w-4 text-pink-600" />
-                      <span>Kanban Konten (Sosmed)</span>
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setTargetCardForNew(undefined);
-                      setCreateModalOpen(true);
-                    }}
-                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Request Tugas Lintas Divisi</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Toolbar & Filter Bar */}
-              <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
+              {/* Toolbar & Filter Bar (Compact shrink-0) */}
+              <div className="shrink-0 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
                 {/* Left Controls: Scope & Status Tabs */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Scope Selector */}
@@ -1377,7 +1369,7 @@ export default function WorkspaceCardsPage() {
                         <button
                           type="button"
                           onClick={() => setViewScope("RELEVANT")}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
                             viewScope === "RELEVANT"
                               ? "bg-blue-600 text-white shadow-2xs"
                               : "text-slate-600 hover:text-blue-600"
@@ -1400,9 +1392,9 @@ export default function WorkspaceCardsPage() {
                         <button
                           type="button"
                           onClick={() => setViewScope("ALL")}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
                             viewScope === "ALL"
-                              ? "bg-white text-slate-900 shadow-2xs"
+                              ? "bg-white text-slate-900 shadow-2xs font-black"
                               : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
@@ -1423,7 +1415,7 @@ export default function WorkspaceCardsPage() {
                       onClick={() => setStatusFilter("ALL")}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
                         statusFilter === "ALL"
-                          ? "bg-white text-slate-900 shadow-2xs"
+                          ? "bg-white text-slate-900 shadow-2xs font-black"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
@@ -1434,7 +1426,7 @@ export default function WorkspaceCardsPage() {
                       onClick={() => setStatusFilter("IN_PROGRESS")}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
                         statusFilter === "IN_PROGRESS"
-                          ? "bg-blue-600 text-white shadow-2xs"
+                          ? "bg-blue-600 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-blue-600"
                       }`}
                     >
@@ -1446,7 +1438,7 @@ export default function WorkspaceCardsPage() {
                       onClick={() => setStatusFilter("REVIEW")}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
                         statusFilter === "REVIEW"
-                          ? "bg-amber-500 text-white shadow-2xs"
+                          ? "bg-amber-500 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-amber-600"
                       }`}
                     >
@@ -1458,7 +1450,7 @@ export default function WorkspaceCardsPage() {
                       onClick={() => setStatusFilter("COMPLETED")}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
                         statusFilter === "COMPLETED"
-                          ? "bg-emerald-600 text-white shadow-2xs"
+                          ? "bg-emerald-600 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-emerald-600"
                       }`}
                     >
@@ -1469,12 +1461,12 @@ export default function WorkspaceCardsPage() {
                 </div>
 
                 {/* Right Controls: Search & Brand Filter */}
-                <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
-                  <div className="relative flex-1 xl:w-56">
+                <div className="flex items-center gap-2 justify-end">
+                  <div className="relative flex-1 md:w-56">
                     <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari kartu kerja / PIC / brand..."
+                      placeholder="Cari kartu kerja..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
@@ -1496,7 +1488,7 @@ export default function WorkspaceCardsPage() {
                 </div>
               </div>
 
-              {/* 6 Cards Grid Overview */}
+              {/* 6 Columns Kanban Container */}
               {(() => {
                 const displayedCards = CARDS_DEFINITION.filter((c) => {
                   if (isAdmin) return true;
@@ -1506,20 +1498,20 @@ export default function WorkspaceCardsPage() {
 
                 if (displayedCards.length === 0) {
                   return (
-                    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center space-y-3">
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                        <Inbox className="h-7 w-7" />
+                    <div className="flex-1 rounded-2xl border border-dashed border-slate-300 bg-white p-10 flex flex-col items-center justify-center text-center space-y-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                        <Inbox className="h-6 w-6" />
                       </div>
-                      <h3 className="text-base font-bold text-slate-800">
+                      <h3 className="text-sm font-bold text-slate-800">
                         Tidak Ada Divisi Terkait Aktif
                       </h3>
-                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      <p className="text-xs text-slate-500 max-w-md">
                         Saat ini belum ada tugas atau request kerjaan yang melibatkan Anda di divisi lain.
-                        Klik tombol di bawah untuk melihat seluruh 6 divisi atau buat request baru.
+                        Klik tombol di bawah untuk melihat seluruh 6 divisi.
                       </p>
                       <button
                         onClick={() => setViewScope("ALL")}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer"
                       >
                         Lihat Semua 6 Divisi
                       </button>
@@ -1528,7 +1520,7 @@ export default function WorkspaceCardsPage() {
                 }
 
                 return (
-                  <div className="flex flex-row items-start gap-4 lg:gap-5 overflow-x-auto pb-6 w-full min-h-[calc(100vh-250px)] custom-scrollbar">
+                  <div className="flex-1 min-h-0 w-full flex flex-row items-stretch gap-3.5 sm:gap-4 overflow-x-auto pb-2 kanban-scroll">
                     {displayedCards.map((cardDef) => {
                       const Icon = cardDef.icon;
                       const allDivTasks = tasks.filter(
@@ -1559,27 +1551,27 @@ export default function WorkspaceCardsPage() {
                       return (
                         <div
                           key={cardDef.key}
-                          className="w-[310px] sm:w-[340px] shrink-0 flex flex-col bg-slate-100/80 rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden max-h-[calc(100vh-250px)]"
+                          className="w-[290px] sm:w-[315px] shrink-0 h-full flex flex-col bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden"
                         >
                           {/* Column Header */}
-                          <div className={`p-4 text-white ${cardDef.headerBg}`}>
+                          <div className={`p-3 text-white ${cardDef.headerBg} shrink-0`}>
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-xl bg-white/20 backdrop-blur-xs text-white">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-xs text-white shrink-0">
                                   <Icon className="h-4 w-4" />
                                 </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="text-base font-black tracking-tight">{cardDef.label}</h3>
-                                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black">
-                                      {cardTasks.length} Kartu
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <h3 className="text-sm font-black tracking-tight truncate">{cardDef.label}</h3>
+                                    <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-black shrink-0">
+                                      {cardTasks.length}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-white/80 line-clamp-1">{cardDef.sublabel}</p>
+                                  <p className="text-[10px] text-white/80 truncate">{cardDef.sublabel}</p>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   type="button"
                                   title={`Tambah Kartu Kerja di ${cardDef.label}`}
@@ -1587,21 +1579,21 @@ export default function WorkspaceCardsPage() {
                                     setTargetCardForNew(cardDef.key);
                                     setCreateModalOpen(true);
                                   }}
-                                  className="p-1.5 rounded-xl bg-white/25 hover:bg-white/40 text-white transition shadow-2xs cursor-pointer"
+                                  className="p-1 rounded-lg bg-white/20 hover:bg-white/35 text-white transition shadow-2xs cursor-pointer"
                                 >
-                                  <Plus className="h-4 w-4" />
+                                  <Plus className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>
 
                             {/* Quick mini indicators */}
-                            <div className="mt-3 pt-2.5 border-t border-white/20 flex items-center justify-between text-[11px] font-bold text-white/90">
+                            <div className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between text-[10px] font-bold text-white/90">
                               <span className="flex items-center gap-1">
                                 <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"></span>
                                 {runningCount} Berjalan
                               </span>
                               {reviewCount > 0 && (
-                                <span className="rounded-full bg-amber-400 text-amber-950 px-2 py-0.2 text-[10px] font-black">
+                                <span className="rounded-full bg-amber-400 text-amber-950 px-1.5 py-0.2 text-[9px] font-black">
                                   {reviewCount} Butuh Review
                                 </span>
                               )}
@@ -1609,9 +1601,9 @@ export default function WorkspaceCardsPage() {
                           </div>
 
                           {/* Sticky Notes Scrollable Body */}
-                          <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 custom-scrollbar">
                             {cardTasks.length === 0 ? (
-                              <div className="p-6 text-center rounded-2xl border border-dashed border-slate-300 bg-white/60 space-y-2 my-2">
+                              <div className="p-5 text-center rounded-xl border border-dashed border-slate-300 bg-white/60 space-y-1.5 my-2">
                                 <p className="text-xs font-semibold text-slate-500">
                                   {statusFilter !== "ALL"
                                     ? "Tidak ada kartu pada filter ini"
@@ -1634,7 +1626,7 @@ export default function WorkspaceCardsPage() {
                                 <div
                                   key={task.id}
                                   onClick={() => setSelectedTaskForDetail(task)}
-                                  className={`group relative rounded-2xl border bg-white p-3.5 shadow-2xs hover:shadow-md transition-all duration-150 cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between ${
+                                  className={`group relative rounded-xl border bg-white p-3 shadow-2xs hover:shadow-md transition-all duration-150 cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between ${
                                     task.priority === "URGENT"
                                       ? "border-red-300 ring-1 ring-red-200/60"
                                       : task.reviewStatus === "TO_BE_REVIEWED"
@@ -1643,31 +1635,31 @@ export default function WorkspaceCardsPage() {
                                   }`}
                                 >
                                   {/* Sticky Note Top Accent / Tape */}
-                                  <div className={`h-1.5 w-full rounded-full mb-2.5 ${cardDef.headerBg}`} />
+                                  <div className={`h-1.5 w-full rounded-full mb-2 ${cardDef.headerBg}`} />
 
                                   <div>
                                     {/* Tags Row: Priority + Status */}
-                                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                    <div className="flex items-center justify-between gap-1 flex-wrap">
                                       <div className="flex items-center gap-1">
                                         {task.priority === "URGENT" && (
-                                          <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-2 py-0.5 flex items-center gap-1 shadow-2xs">
+                                          <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs">
                                             <Flame className="h-2.5 w-2.5" />
                                             Urgent
                                           </span>
                                         )}
                                         {task.priority === "HIGH" && (
-                                          <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-2 py-0.5 border border-orange-200">
+                                          <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-1.5 py-0.5 border border-orange-200">
                                             Tinggi
                                           </span>
                                         )}
                                         {task.priority === "NORMAL" && (
-                                          <span className="rounded-full bg-slate-100 text-slate-600 text-[9px] font-medium px-2 py-0.5">
+                                          <span className="rounded-full bg-slate-100 text-slate-600 text-[9px] font-medium px-1.5 py-0.5">
                                             Normal
                                           </span>
                                         )}
 
                                         {task.brandName && (
-                                          <span className="rounded-full bg-slate-100 text-slate-700 text-[9px] font-bold px-2 py-0.5 border border-slate-200 truncate max-w-[100px]">
+                                          <span className="rounded-full bg-slate-100 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 border border-slate-200 truncate max-w-[85px]">
                                             {task.brandName}
                                           </span>
                                         )}
@@ -1677,7 +1669,7 @@ export default function WorkspaceCardsPage() {
                                       {(() => {
                                         if (task.reviewStatus === "TO_BE_REVIEWED") {
                                           return (
-                                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-2 py-0.5 flex items-center gap-1 animate-pulse">
+                                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1 animate-pulse">
                                               <Clock className="h-2.5 w-2.5 text-amber-700" />
                                               Menunggu Review
                                             </span>
@@ -1685,7 +1677,7 @@ export default function WorkspaceCardsPage() {
                                         }
                                         if (task.reviewStatus === "UNDER_REVIEW") {
                                           return (
-                                            <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
                                               <Eye className="h-2.5 w-2.5 text-amber-600" />
                                               Sedang Review
                                             </span>
@@ -1693,7 +1685,7 @@ export default function WorkspaceCardsPage() {
                                         }
                                         if (task.reviewStatus === "REVISION_REQUESTED") {
                                           return (
-                                            <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black px-2 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1">
                                               <AlertCircle className="h-2.5 w-2.5 text-rose-600" />
                                               Perlu Revisi
                                             </span>
@@ -1701,7 +1693,7 @@ export default function WorkspaceCardsPage() {
                                         }
                                         if (task.status === "COMPLETED") {
                                           return (
-                                            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
                                               <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
                                               ✓ Selesai
                                             </span>
@@ -1709,14 +1701,14 @@ export default function WorkspaceCardsPage() {
                                         }
                                         if (task.status === "IN_PROGRESS") {
                                           return (
-                                            <span className="rounded-full bg-blue-100 text-blue-800 border border-blue-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
                                               <PlayCircle className="h-2.5 w-2.5 text-blue-600" />
                                               Dikerjakan
                                             </span>
                                           );
                                         }
                                         return (
-                                          <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                                          <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
                                             <Inbox className="h-2.5 w-2.5 text-purple-600" />
                                             Request Masuk
                                           </span>
@@ -1729,16 +1721,29 @@ export default function WorkspaceCardsPage() {
                                       {task.title}
                                     </h4>
 
-                                    {/* Description snippet */}
-                                    {task.description && (
-                                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                                        {task.description}
-                                      </p>
-                                    )}
+                                    {/* Description snippet (Cleaned of raw HTML & base64) */}
+                                    {(() => {
+                                      const snippet = getCleanDescriptionSnippet(task.description);
+                                      const hasImg = /<img[^>]*>/i.test(task.description || "");
+                                      return (
+                                        <>
+                                          {snippet && (
+                                            <p className="text-[11px] text-slate-600 line-clamp-2 mt-1 leading-relaxed">
+                                              {snippet}
+                                            </p>
+                                          )}
+                                          {hasImg && (
+                                            <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                              <span>📷 Lampiran Screenshot</span>
+                                            </div>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
 
                                     {/* Corong / Request Delegation Tag */}
                                     {task.creator?.id && task.creator.id !== task.user?.id && (
-                                      <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
                                         <Share2 className="h-3 w-3 text-red-500 shrink-0" />
                                         <span className="truncate">
                                           <span className="font-bold text-slate-900">{task.creator.name}</span>
@@ -1754,7 +1759,7 @@ export default function WorkspaceCardsPage() {
 
                                     {/* Deliverable preview badge */}
                                     {task.deliverableUrl && (
-                                      <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                      <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
                                         <ExternalLink className="h-3 w-3 text-emerald-600" />
                                         <span>Bukti Hasil Siap Di-review</span>
                                       </div>
@@ -1762,7 +1767,7 @@ export default function WorkspaceCardsPage() {
                                   </div>
 
                                   {/* Footer: Multi-Assignee Avatar Stack + Deadline */}
-                                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5 min-w-0">
                                       {/* Avatar Stack */}
                                       <div className="flex -space-x-1.5 overflow-hidden shrink-0">
@@ -1789,14 +1794,14 @@ export default function WorkspaceCardsPage() {
                                           ));
                                         })()}
                                       </div>
-                                      <span className="text-[11px] font-bold text-slate-700 truncate">
+                                      <span className="text-[10px] font-bold text-slate-700 truncate">
                                         {task.user?.name}
                                       </span>
                                     </div>
 
                                     {/* Deadline */}
                                     {task.expectedDeadline && (
-                                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 shrink-0">
+                                      <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500 shrink-0">
                                         <Calendar className="h-3 w-3 text-slate-400" />
                                         <span>
                                           {new Date(task.expectedDeadline).toLocaleDateString("id-ID", {
@@ -1813,14 +1818,14 @@ export default function WorkspaceCardsPage() {
                           </div>
 
                           {/* Column Bottom Action */}
-                          <div className="p-3 bg-white/70 border-t border-slate-200/70">
+                          <div className="p-2 bg-white/80 border-t border-slate-200/80 shrink-0">
                             <button
                               type="button"
                               onClick={() => {
                                 setTargetCardForNew(cardDef.key);
                                 setCreateModalOpen(true);
                               }}
-                              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-white rounded-xl transition border border-dashed border-slate-300 hover:border-red-300 shadow-2xs cursor-pointer"
+                              className="w-full flex items-center justify-center gap-1 py-1.5 text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-white rounded-xl transition border border-dashed border-slate-300 hover:border-red-300 shadow-2xs cursor-pointer"
                             >
                               <Plus className="h-3.5 w-3.5" />
                               <span>Tambah Kartu Kerja</span>
