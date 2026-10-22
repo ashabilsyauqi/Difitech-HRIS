@@ -32,6 +32,41 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
+import TaskDetailModal from "@/components/Tasks/TaskDetailModal";
+import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
+import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
+import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
+
+const DEPT_BADGES: Record<string, { label: string; color: string }> = {
+  SOSMED: { label: "Sosmed", color: "bg-pink-50 text-pink-700 border-pink-200" },
+  ADS: { label: "Ads", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  SEO: { label: "SEO", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  WEB: { label: "Web", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  MARKETPLACE: { label: "Marketplace", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  HR: { label: "HR", color: "bg-slate-100 text-slate-700 border-slate-200" },
+};
+
+function getCardStatusBadge(task: any) {
+  if (task.reviewStatus === "TO_BE_REVIEWED") {
+    return { label: "⏳ Menunggu Review", color: "bg-amber-100 text-amber-800 border-amber-300" };
+  }
+  if (task.reviewStatus === "UNDER_REVIEW") {
+    return { label: "👀 Sedang Review", color: "bg-indigo-100 text-indigo-800 border-indigo-300" };
+  }
+  if (task.reviewStatus === "REVISION_REQUESTED") {
+    return { label: "⚠️ Perlu Revisi", color: "bg-rose-100 text-rose-800 border-rose-300" };
+  }
+  if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED") {
+    return { label: "✓ Selesai", color: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+  }
+  if (task.status === "IN_PROGRESS") {
+    return { label: "⚡ Dikerjakan", color: "bg-blue-100 text-blue-800 border-blue-300" };
+  }
+  if (task.status === "BLOCKED") {
+    return { label: "⛔ Terkendala", color: "bg-red-100 text-red-800 border-red-300" };
+  }
+  return { label: "Antrean", color: "bg-slate-100 text-slate-700 border-slate-200" };
+}
 
 export default function EmployeeDashboardPage() {
   const router = useRouter();
@@ -60,11 +95,15 @@ export default function EmployeeDashboardPage() {
   const [overtimeDurationStr, setOvertimeDurationStr] = useState<string>("00:00:00");
   const [hasShownOvertimePrompt, setHasShownOvertimePrompt] = useState(false);
 
-  // Dashboard Informasi Penting (Tugas Terkini Brand & Individu, Tugas Reminded)
+  // Dashboard Informasi Penting (Semua Tugas, Tugas Pribadi, Tugas Reminded)
   const [workspaceTasks, setWorkspaceTasks] = useState<any[]>([]);
-  const [workspaceTab, setWorkspaceTab] = useState<"INDIVIDU" | "BRAND" | "REMINDED">("INDIVIDU");
-  const [selectedBrandFilter, setSelectedBrandFilter] = useState<string>("ALL");
-  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [workspaceTab, setWorkspaceTab] = useState<"ALL" | "INDIVIDU" | "REMINDED">("ALL");
+
+  // Detail & Action Modals for Task Thumbnails
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null);
+  const [revisionModalTask, setRevisionModalTask] = useState<any | null>(null);
+  const [deliverableModalTask, setDeliverableModalTask] = useState<any | null>(null);
+  const [deadlineModalTask, setDeadlineModalTask] = useState<any | null>(null);
 
   const fetchSessionData = async () => {
     try {
@@ -95,18 +134,11 @@ export default function EmployeeDashboardPage() {
         setTasks(tData.tasks || []);
       }
 
-      // Fetch Workspace Collaborative Tasks & Metadata
-      const [wRes, mRes] = await Promise.all([
-        fetch("/api/workspace/tasks"),
-        fetch("/api/workspace/metadata"),
-      ]);
+      // Fetch Workspace Collaborative Tasks
+      const wRes = await fetch("/api/workspace/tasks");
       if (wRes.ok) {
         const wData = await wRes.json();
         setWorkspaceTasks(wData.tasks || []);
-      }
-      if (mRes.ok) {
-        const mData = await mRes.json();
-        setAvailableBrands(mData.brands || []);
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -742,8 +774,8 @@ export default function EmployeeDashboardPage() {
             </div>
           )}
 
-          {/* Dashboard Informasi Penting: Tugas Terkini per Brand, Individu, dan Tugas Reminded */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5">
+          {/* Dashboard Informasi Tugas & Reminded: Thumbnail Overview */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
@@ -754,7 +786,7 @@ export default function EmployeeDashboardPage() {
                     Dashboard Informasi Tugas & Reminded
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Pantau tugas terkini individu, monitoring brand, serta tugas-tugas yang telah di-follow up.
+                    Pantau ringkasan tugas terkini, tugas pribadi, serta tugas yang di-follow up.
                   </p>
                 </div>
               </div>
@@ -777,84 +809,88 @@ export default function EmployeeDashboardPage() {
               </div>
             </div>
 
-            {/* Sub-tabs & Brand Selector */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceTab("INDIVIDU")}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                    workspaceTab === "INDIVIDU"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
+            {/* Sub-tabs: Semua Tugas, Tugas Pribadi, Tugas Reminded */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 w-fit">
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab("ALL")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  workspaceTab === "ALL"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Semua Tugas</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[9px] font-black ${
+                    workspaceTab === "ALL" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-700"
                   }`}
                 >
-                  Tugas Individu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceTab("BRAND")}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                    workspaceTab === "BRAND"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Terkini per Brand
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkspaceTab("REMINDED")}
-                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                    workspaceTab === "REMINDED"
-                      ? "bg-rose-600 text-white shadow-2xs"
-                      : "text-rose-700 hover:text-rose-900"
-                  }`}
-                >
-                  <BellRing className="h-3 w-3" />
-                  <span>Tugas Reminded</span>
-                  {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length > 0 && (
-                    <span className="rounded-full bg-rose-200 text-rose-900 text-[9px] px-1.5 py-0.2 font-black">
-                      {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length}
-                    </span>
-                  )}
-                </button>
-              </div>
+                  {workspaceTasks.length}
+                </span>
+              </button>
 
-              {workspaceTab === "BRAND" && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
-                    <Filter className="h-3 w-3" /> Brand:
-                  </span>
-                  <select
-                    value={selectedBrandFilter}
-                    onChange={(e) => setSelectedBrandFilter(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 font-semibold outline-none focus:border-red-500"
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab("INDIVIDU")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  workspaceTab === "INDIVIDU"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Tugas Pribadi</span>
+                {workspaceTasks.filter((t) => t.userId === user?.id && t.status !== "COMPLETED").length > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[9px] font-black ${
+                      workspaceTab === "INDIVIDU" ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700"
+                    }`}
                   >
-                    <option value="ALL">Semua Brand</option>
-                    {availableBrands.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                    {workspaceTasks.filter((t) => t.userId === user?.id && t.status !== "COMPLETED").length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWorkspaceTab("REMINDED")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  workspaceTab === "REMINDED"
+                    ? "bg-rose-600 text-white shadow-2xs"
+                    : "text-rose-700 hover:text-rose-900"
+                }`}
+              >
+                <BellRing className="h-3 w-3" />
+                <span>Tugas Reminded</span>
+                {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[9px] font-black ${
+                      workspaceTab === "REMINDED" ? "bg-white text-rose-700" : "bg-rose-200 text-rose-900"
+                    }`}
+                  >
+                    {workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0).length}
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* List of Tasks for Selected Tab */}
+            {/* List of Tasks for Selected Tab as Compact Card Thumbnails */}
             {(() => {
               let displayList: any[] = [];
-              if (workspaceTab === "INDIVIDU") {
+              if (workspaceTab === "ALL") {
+                displayList = [...workspaceTasks];
+              } else if (workspaceTab === "INDIVIDU") {
                 displayList = workspaceTasks.filter((t) => t.userId === user?.id && t.status !== "COMPLETED");
-              } else if (workspaceTab === "BRAND") {
-                displayList = workspaceTasks.filter((t) => {
-                  if (selectedBrandFilter === "ALL") return Boolean(t.brandName);
-                  return t.brandName === selectedBrandFilter;
-                });
               } else if (workspaceTab === "REMINDED") {
                 displayList = workspaceTasks.filter((t) => t.followUps && t.followUps.length > 0);
               }
+
+              displayList.sort((a, b) => {
+                const aDone = a.status === "COMPLETED" || a.reviewStatus === "APPROVED";
+                const bDone = b.status === "COMPLETED" || b.reviewStatus === "APPROVED";
+                if (aDone !== bDone) return aDone ? 1 : -1;
+                return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+              });
 
               if (displayList.length === 0) {
                 return (
@@ -862,104 +898,103 @@ export default function EmployeeDashboardPage() {
                     <CheckSquare className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                     <p className="text-xs font-semibold text-slate-600">
                       {workspaceTab === "INDIVIDU"
-                        ? "Tidak ada tugas individu yang aktif saat ini."
-                        : workspaceTab === "BRAND"
-                        ? "Tidak ada tugas untuk filter brand ini."
-                        : "Bagus! Belum ada tugas yang mandek atau perlu di-follow up."}
+                        ? "Tidak ada tugas pribadi yang aktif saat ini."
+                        : workspaceTab === "REMINDED"
+                        ? "Bagus! Belum ada tugas yang mandek atau perlu di-follow up."
+                        : "Belum ada tugas kolaborasi yang terdaftar."}
                     </p>
                   </div>
                 );
               }
 
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {displayList.slice(0, 9).map((task) => (
-                    <div
-                      key={task.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5 shadow-2xs hover:bg-white hover:shadow-xs transition space-y-2.5 flex flex-col justify-between"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-1 flex-wrap">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <span className="rounded bg-slate-900 text-white font-black text-[9px] px-1.5 py-0.5 uppercase">
-                              {task.departmentCard || "GENERAL"}
-                            </span>
-                            {task.brandName && (
-                              <span className="rounded bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.5 flex items-center gap-0.5">
-                                <Tag className="h-2 w-2" /> {task.brandName}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {displayList.slice(0, 8).map((task) => {
+                      const dept = DEPT_BADGES[task.departmentCard] || {
+                        label: task.departmentCard || "GENERAL",
+                        color: "bg-slate-100 text-slate-700 border-slate-200",
+                      };
+                      const statusBadge = getCardStatusBadge(task);
+
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => setSelectedTaskForDetail(task)}
+                          className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3 hover:border-blue-400 hover:shadow-xs transition cursor-pointer space-y-2.5"
+                        >
+                          <div className="space-y-1.5">
+                            {/* Card Top: Department Badge & Status Badge */}
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              <span
+                                className={`rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${dept.color}`}
+                              >
+                                {dept.label}
                               </span>
-                            )}
-                          </div>
 
-                          <FollowUpButton
-                            taskId={task.id}
-                            taskTitle={task.title}
-                            initialFollowUps={task.followUps}
-                            onFollowUpSuccess={fetchSessionData}
-                          />
-                        </div>
-
-                        <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2">
-                          {task.title}
-                        </h4>
-
-                        {/* Reminded Alert Info if has follow-ups */}
-                        {task.followUps && task.followUps.length > 0 && (
-                          <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-900 space-y-0.5">
-                            <div className="font-bold flex items-center gap-1 text-amber-800">
-                              <BellRing className="h-3 w-3 text-amber-600 shrink-0" />
-                              <span>Di-follow up oleh {task.followUps[0].sender?.name || "Rekan"}</span>
+                              <span
+                                className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${statusBadge.color}`}
+                              >
+                                {statusBadge.label}
+                              </span>
                             </div>
-                            {task.followUps[0].message && (
-                              <p className="italic text-slate-600 line-clamp-1">"{task.followUps[0].message}"</p>
+
+                            {/* Task Title */}
+                            <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug">
+                              {task.title}
+                            </h4>
+
+                            {/* Reminded Notice if follow-ups exist */}
+                            {task.followUps && task.followUps.length > 0 && (
+                              <div className="rounded bg-amber-50 border border-amber-200/80 px-2 py-1 flex items-center gap-1.5 text-[10px] text-amber-800">
+                                <BellRing className="h-3 w-3 text-amber-600 shrink-0" />
+                                <span className="truncate italic">
+                                  {task.followUps[0].sender?.name ? `${task.followUps[0].sender.name}: ` : ""}
+                                  "{task.followUps[0].message || "Tolong di-follow up"}"
+                                </span>
+                              </div>
                             )}
                           </div>
-                        )}
 
-                        <div className="text-[10px] text-slate-500 space-y-0.5 pt-1">
-                          <div className="flex justify-between">
-                            <span>PIC:</span>
-                            <strong className="text-slate-700 truncate max-w-[120px]">{task.user?.name}</strong>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Target:</span>
-                            <span className="font-mono text-slate-700">
+                          {/* Footer Info: PIC & Due Date */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                            <div className="flex items-center gap-1.5 truncate pr-1">
+                              <div className="h-4 w-4 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-bold text-[8px] shrink-0">
+                                {(task.user?.name || "U")[0]}
+                              </div>
+                              <span className="truncate font-medium text-slate-700">
+                                {task.user?.name || "Belum ada PIC"}
+                              </span>
+                            </div>
+
+                            <span className="shrink-0 font-mono text-[9px] text-slate-400">
                               {task.expectedDeadline
                                 ? new Date(task.expectedDeadline).toLocaleDateString("id-ID", {
                                     day: "numeric",
                                     month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
                                   })
                                 : "Fleksibel"}
                             </span>
                           </div>
                         </div>
-                      </div>
+                      );
+                    })}
+                  </div>
 
-                      <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between">
-                        <span
-                          className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase ${
-                            task.status === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : task.status === "IN_PROGRESS"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {task.status}
-                        </span>
-
-                        <Link
-                          href="/dashboard/my-tasks"
-                          className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-                        >
-                          <span>Buka Detail</span>
-                          <ExternalLink className="h-2.5 w-2.5" />
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
+                  {/* Footer Link / Counter */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
+                    <p>
+                      Menampilkan <span className="font-bold text-slate-800">{Math.min(displayList.length, 8)}</span> dari{" "}
+                      <span className="font-bold text-slate-800">{displayList.length}</span> tugas
+                    </p>
+                    <Link
+                      href="/dashboard/my-tasks"
+                      className="inline-flex items-center gap-1 font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
+                    >
+                      <span>Lihat Semua di Lembar Tugas Harian</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 </div>
               );
             })()}
@@ -1139,6 +1174,53 @@ export default function EmployeeDashboardPage() {
         attendance={todayAttendance}
         viewType={photoViewType}
       />
+
+      {/* Task Detail & Collaborative Actions Modal */}
+      {selectedTaskForDetail && (
+        <TaskDetailModal
+          isOpen={!!selectedTaskForDetail}
+          onClose={() => setSelectedTaskForDetail(null)}
+          task={selectedTaskForDetail}
+          currentUser={user}
+          onUpdate={fetchSessionData}
+          onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
+          onOpenRevisionModal={(t) => setRevisionModalTask(t)}
+          onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
+        />
+      )}
+
+      {/* Request Revision Modal */}
+      {revisionModalTask && (
+        <RequestRevisionModal
+          isOpen={!!revisionModalTask}
+          onClose={() => setRevisionModalTask(null)}
+          task={revisionModalTask}
+          currentUser={user}
+          onSuccess={fetchSessionData}
+        />
+      )}
+
+      {/* Submit Deliverable Modal */}
+      {deliverableModalTask && (
+        <SubmitDeliverableModal
+          isOpen={!!deliverableModalTask}
+          onClose={() => setDeliverableModalTask(null)}
+          task={deliverableModalTask}
+          currentUser={user}
+          onSuccess={fetchSessionData}
+        />
+      )}
+
+      {/* Deadline Suggestion Modal */}
+      {deadlineModalTask && (
+        <DeadlineSuggestionModal
+          isOpen={!!deadlineModalTask}
+          onClose={() => setDeadlineModalTask(null)}
+          task={deadlineModalTask}
+          currentUser={user}
+          onSuccess={fetchSessionData}
+        />
+      )}
     </div>
   );
 }
