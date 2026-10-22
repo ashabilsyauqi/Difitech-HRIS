@@ -138,7 +138,29 @@ export default function ContentProductionKanbanPage() {
         return;
       }
       const data = await res.json();
-      setUser(data.user);
+      const currentUser = data?.user;
+      if (!currentUser) {
+        router.push("/login");
+        return;
+      }
+      const isAdm = currentUser.role === "ADMIN" || currentUser.role === "MANAGER";
+      const dept = (currentUser.department || "").toLowerCase();
+      const isSosmed =
+        isAdm ||
+        dept.includes("sosmed") ||
+        dept.includes("social") ||
+        dept.includes("konten") ||
+        dept.includes("content") ||
+        dept.includes("creat") ||
+        dept.includes("desain") ||
+        dept.includes("design");
+
+      if (!isSosmed) {
+        router.push("/dashboard/workspace");
+        return;
+      }
+
+      setUser(currentUser);
     } catch {
       router.push("/login");
     }
@@ -242,7 +264,7 @@ export default function ContentProductionKanbanPage() {
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
 
       <div className="flex flex-1">
-        {user && <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        {user && <Sidebar role={user.role} department={user.department} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0 space-y-6">
           {/* Header */}

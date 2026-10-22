@@ -280,8 +280,8 @@ export default function WorkspaceCardsPage() {
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [selectedMember, setSelectedMember] = useState("ALL");
   const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
-  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const isSosmedUser = isHomeCard("SOSMED", user?.department) || isAdmin;
 
   // Drag and Drop & Timers
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -602,7 +602,7 @@ export default function WorkspaceCardsPage() {
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
 
       <div className="flex flex-1">
-        {user && <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        {user && <Sidebar role={user.role} department={user.department} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full space-y-6">
           {/* ========================================================================= */}
@@ -633,13 +633,15 @@ export default function WorkspaceCardsPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <Link
-                    href="/dashboard/content-production"
-                    className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
-                  >
-                    <Clapperboard className="h-4 w-4 text-pink-600" />
-                    <span>Kanban Konten (Sosmed)</span>
-                  </Link>
+                  {isSosmedUser && (
+                    <Link
+                      href="/dashboard/content-production"
+                      className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3.5 py-2 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
+                    >
+                      <Clapperboard className="h-4 w-4 text-pink-600" />
+                      <span>Kanban Konten (Sosmed)</span>
+                    </Link>
+                  )}
 
                   <button
                     onClick={() => {
@@ -1158,7 +1160,7 @@ export default function WorkspaceCardsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {currentDivisionDef?.isContentHub && (
+                  {currentDivisionDef?.isContentHub && isSosmedUser && (
                     <Link
                       href="/dashboard/content-production"
                       className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"

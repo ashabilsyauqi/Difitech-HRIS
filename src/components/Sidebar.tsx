@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -24,20 +25,49 @@ import {
 
 interface SidebarProps {
   role: string;
+  department?: string | null;
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ role, department, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [userDept, setUserDept] = useState<string | null>(department || null);
+
+  useEffect(() => {
+    if (department !== undefined) {
+      setUserDept(department);
+      return;
+    }
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.department) {
+          setUserDept(data.user.department);
+        }
+      })
+      .catch(() => {});
+  }, [department]);
 
   const isManagerOrAdmin = role === "ADMIN" || role === "MANAGER";
+  const deptLower = (userDept || "").toLowerCase();
+  const isSosmedMember =
+    isManagerOrAdmin ||
+    deptLower.includes("sosmed") ||
+    deptLower.includes("social") ||
+    deptLower.includes("konten") ||
+    deptLower.includes("content") ||
+    deptLower.includes("creat") ||
+    deptLower.includes("desain") ||
+    deptLower.includes("design");
 
   const employeeLinks = [
     { href: "/dashboard", label: "Presensi Harian", icon: Clock },
     { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
-    { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
+    ...(isSosmedMember
+      ? [{ href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard }]
+      : []),
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];

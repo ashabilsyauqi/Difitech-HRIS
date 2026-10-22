@@ -386,7 +386,7 @@ export default function UnifiedTasksPage() {
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
 
       <div className="flex flex-1 overflow-hidden">
-        {user && <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        {user && <Sidebar role={user.role} department={user.department} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
           {/* Header Banner - Exact styling of Papan Tugas Harian */}
