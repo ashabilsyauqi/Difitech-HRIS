@@ -188,6 +188,83 @@ const STAGE_COLUMNS = [
   },
 ];
 
+const isHomeCard = (cardKey: string, userDept?: string | null) => {
+  const key = cardKey.toUpperCase();
+  const dept = (userDept || "").toLowerCase();
+  if (
+    key === "WEB" &&
+    (dept.includes("engineer") ||
+      dept.includes("web") ||
+      dept.includes("it") ||
+      dept.includes("tech") ||
+      dept.includes("dev") ||
+      dept.includes("software"))
+  ) {
+    return true;
+  }
+  if (
+    key === "SOSMED" &&
+    (dept.includes("sosmed") ||
+      dept.includes("konten") ||
+      dept.includes("content") ||
+      dept.includes("creat") ||
+      dept.includes("desain") ||
+      dept.includes("design") ||
+      dept.includes("marketing"))
+  ) {
+    return true;
+  }
+  if (
+    key === "ADS" &&
+    (dept.includes("ads") ||
+      dept.includes("advert") ||
+      dept.includes("traffic") ||
+      dept.includes("media buying"))
+  ) {
+    return true;
+  }
+  if (
+    key === "SEO" &&
+    (dept.includes("seo") ||
+      dept.includes("organ") ||
+      dept.includes("artik") ||
+      dept.includes("writer"))
+  ) {
+    return true;
+  }
+  if (
+    key === "MARKETPLACE" &&
+    (dept.includes("market") ||
+      dept.includes("toko") ||
+      dept.includes("ecom"))
+  ) {
+    return true;
+  }
+  if (
+    key === "HR" &&
+    (dept.includes("hr") ||
+      dept.includes("human") ||
+      dept.includes("people") ||
+      dept.includes("ops") ||
+      dept.includes("operas"))
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const isCardRelevantForEmployee = (cardKey: string, user: any, allTasks: TaskItem[]) => {
+  if (!user) return false;
+  // 1. Home division
+  if (isHomeCard(cardKey, user.department)) return true;
+  // 2. Any active/existing task involving the user in this card (assignee or requester)
+  return allTasks.some(
+    (t) =>
+      (t.departmentCard || "").toUpperCase() === cardKey.toUpperCase() &&
+      (t.user?.id === user.id || t.creator?.id === user.id)
+  );
+};
+
 export default function WorkspaceCardsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -202,7 +279,7 @@ export default function WorkspaceCardsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [selectedMember, setSelectedMember] = useState("ALL");
-  const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED">("ALL");
+  const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
 
   // Drag and Drop & Timers
@@ -226,6 +303,12 @@ export default function WorkspaceCardsPage() {
       }
       const data = await res.json();
       setUser(data.user);
+      const isAdm = data.user?.role === "ADMIN" || data.user?.role === "MANAGER";
+      if (isAdm) {
+        setViewScope("ALL");
+      } else {
+        setViewScope("RELEVANT");
+      }
     } catch {
       router.push("/login");
     }
@@ -505,6 +588,10 @@ export default function WorkspaceCardsPage() {
       if (viewScope === "DELEGATED" && (t.creator?.id !== user?.id || t.user?.id === user?.id)) {
         return false;
       }
+      if (viewScope === "RELEVANT") {
+        const isInvolved = t.user?.id === user?.id || t.creator?.id === user?.id;
+        if (!isInvolved) return false;
+      }
       return true;
     });
   }, [divisionTasks, selectedMember, viewScope, user]);
@@ -527,16 +614,20 @@ export default function WorkspaceCardsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-md bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
-                      Executive Overview
+                      {isAdmin ? "Executive Overview" : "Ruang Kerja Kolaborasi"}
                     </span>
                     <span className="text-slate-400 text-xs">•</span>
-                    <span className="text-xs font-semibold text-slate-500">Divisi Kolaborasi (6 Card)</span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {isAdmin ? "Divisi Kolaborasi (6 Card)" : "Divisi & Kolaborasi Terkait Anda"}
+                    </span>
                   </div>
                   <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-                    6 Card Divisi Kerja
+                    {isAdmin ? "6 Card Divisi Kerja" : "Divisi Kolaborasi Kerja"}
                   </h1>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Ringkasan aktivitas 6 divisi kerja. Pantau kolaborasi lintas tim, tugas yang sedang berjalan, dan delegasi antar karyawan.
+                    {isAdmin
+                      ? "Ringkasan aktivitas 6 divisi kerja. Pantau kolaborasi lintas tim, tugas yang sedang berjalan, dan delegasi antar karyawan."
+                      : "Pantau pipeline divisi kerja yang berkolaborasi dengan Anda, request lintas tim, serta tugas yang ditugaskan."}
                   </p>
                 </div>
 
@@ -566,49 +657,143 @@ export default function WorkspaceCardsPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                 {/* View Scope Filter */}
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("ALL")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                      viewScope === "ALL"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🏢 Semua Divisi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("MINE")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      viewScope === "MINE"
-                        ? "bg-blue-600 text-white shadow-2xs"
-                        : "text-slate-600 hover:text-blue-600"
-                    }`}
-                  >
-                    <span>👤 Tugas Saya</span>
-                    {user && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "MINE" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
-                        {tasks.filter((t) => t.user?.id === user.id).length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("DELEGATED")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      viewScope === "DELEGATED"
-                        ? "bg-purple-600 text-white shadow-2xs"
-                        : "text-slate-600 hover:text-purple-600"
-                    }`}
-                  >
-                    <span>📤 Saya Delegasikan</span>
-                    {user && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "DELEGATED" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
-                        {tasks.filter((t) => t.creator?.id === user.id && t.user?.id !== user.id).length}
-                      </span>
-                    )}
-                  </button>
+                  {!isAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("RELEVANT")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "RELEVANT"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-blue-600"
+                        }`}
+                      >
+                        <span>🎯 Divisi Terkait Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "RELEVANT"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              tasks.filter(
+                                (t) => t.user?.id === user.id || t.creator?.id === user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("DELEGATED")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "DELEGATED"
+                            ? "bg-purple-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-purple-600"
+                        }`}
+                      >
+                        <span>📤 Saya Delegasikan</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "DELEGATED"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              tasks.filter(
+                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("ALL")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          viewScope === "ALL"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🏢 Jelajahi Semua 6 Divisi
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("ALL")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          viewScope === "ALL"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🏢 Semua 6 Divisi
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("RELEVANT")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "RELEVANT"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-blue-600"
+                        }`}
+                      >
+                        <span>🎯 Tugas Terkait Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "RELEVANT"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              tasks.filter(
+                                (t) => t.user?.id === user.id || t.creator?.id === user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("DELEGATED")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "DELEGATED"
+                            ? "bg-purple-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-purple-600"
+                        }`}
+                      >
+                        <span>📤 Saya Delegasikan</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "DELEGATED"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              tasks.filter(
+                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Search & Brand */}
@@ -644,21 +829,69 @@ export default function WorkspaceCardsPage() {
                 </div>
               </div>
 
-              {/* 6 CARD THUMBNAIL GRID */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {CARDS_DEFINITION.map((cardDef) => {
-                  const Icon = cardDef.icon;
-                  // All tasks in this division
-                  const cardAllTasks = tasks.filter(
-                    (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
-                  );
+              {/* CARD THUMBNAIL GRID */}
+              {(() => {
+                const visibleCardDefs = CARDS_DEFINITION.filter((cardDef) => {
+                  if (viewScope === "ALL") return true;
+                  if (viewScope === "DELEGATED") {
+                    return tasks.some(
+                      (t) =>
+                        (t.departmentCard || "").toUpperCase() === cardDef.key &&
+                        t.creator?.id === user?.id &&
+                        t.user?.id !== user?.id
+                    );
+                  }
+                  // viewScope === "RELEVANT" or "MINE"
+                  if (isAdmin) return true;
+                  return isCardRelevantForEmployee(cardDef.key, user, tasks);
+                });
 
-                  // Tasks filtered by viewScope
-                  const cardTasks = cardAllTasks.filter((t) => {
-                    if (viewScope === "MINE") return t.user?.id === user?.id;
-                    if (viewScope === "DELEGATED") return t.creator?.id === user?.id && t.user?.id !== user?.id;
-                    return true;
-                  });
+                if (visibleCardDefs.length === 0) {
+                  return (
+                    <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center text-slate-400 space-y-3">
+                      <CheckSquare className="h-10 w-10 mx-auto text-slate-300" />
+                      <div>
+                        <h3 className="text-base font-bold text-slate-800">
+                          Belum Ada Kolaborasi Lintas Divisi yang Terhubung
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                          Saat rekan dari divisi lain (misal: Sosmed, Marketing, Ads) meminta bantuan Anda, card divisi mereka akan otomatis muncul di sini.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setTargetCardForNew(undefined);
+                          setCreateModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Request Tugas Lintas Divisi</span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {visibleCardDefs.map((cardDef) => {
+                      const Icon = cardDef.icon;
+                      // All tasks in this division
+                      const cardAllTasks = tasks.filter(
+                        (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
+                      );
+
+                      // Tasks filtered by viewScope and role
+                      const cardTasks = cardAllTasks.filter((t) => {
+                        if (viewScope === "ALL") return true;
+                        if (viewScope === "DELEGATED") return t.creator?.id === user?.id && t.user?.id !== user?.id;
+                        if (viewScope === "MINE") return t.user?.id === user?.id;
+                        // viewScope === "RELEVANT"
+                        if (!isAdmin) {
+                          return t.user?.id === user?.id || t.creator?.id === user?.id;
+                        }
+                        return true;
+                      });
 
                   // Calculations
                   const total = cardTasks.length;
@@ -882,10 +1115,12 @@ export default function WorkspaceCardsPage() {
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
           ) : (
             /* ========================================================================= */
             /* VIEW 2: STAGE KANBAN VIEW ("Seperti Tugas Pribadi")                       */
@@ -949,43 +1184,141 @@ export default function WorkspaceCardsPage() {
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                 {/* View Scope Filter */}
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("ALL")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                      viewScope === "ALL" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🏢 Semua Tugas ({divisionTasks.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("MINE")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      viewScope === "MINE" ? "bg-blue-600 text-white shadow-2xs" : "text-slate-600 hover:text-blue-600"
-                    }`}
-                  >
-                    <span>👤 Tugas Saya</span>
-                    {user && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "MINE" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
-                        {divisionTasks.filter((t) => t.user?.id === user.id).length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("DELEGATED")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      viewScope === "DELEGATED" ? "bg-purple-600 text-white shadow-2xs" : "text-slate-600 hover:text-purple-600"
-                    }`}
-                  >
-                    <span>📤 Delegasi Saya</span>
-                    {user && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${viewScope === "DELEGATED" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
-                        {divisionTasks.filter((t) => t.creator?.id === user.id && t.user?.id !== user.id).length}
-                      </span>
-                    )}
-                  </button>
+                  {!isAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("RELEVANT")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "RELEVANT"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-blue-600"
+                        }`}
+                      >
+                        <span>🎯 Pipeline Terkait Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "RELEVANT"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              divisionTasks.filter(
+                                (t) => t.user?.id === user.id || t.creator?.id === user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("DELEGATED")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "DELEGATED"
+                            ? "bg-purple-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-purple-600"
+                        }`}
+                      >
+                        <span>📤 Delegasi Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "DELEGATED"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              divisionTasks.filter(
+                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("ALL")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          viewScope === "ALL"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🏢 Semua Tugas Divisi ({divisionTasks.length})
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("ALL")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          viewScope === "ALL"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🏢 Semua Tugas ({divisionTasks.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("RELEVANT")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "RELEVANT"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-blue-600"
+                        }`}
+                      >
+                        <span>🎯 Tugas Terkait Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "RELEVANT"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              divisionTasks.filter(
+                                (t) => t.user?.id === user.id || t.creator?.id === user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("DELEGATED")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          viewScope === "DELEGATED"
+                            ? "bg-purple-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-purple-600"
+                        }`}
+                      >
+                        <span>📤 Delegasi Saya</span>
+                        {user && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              viewScope === "DELEGATED"
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {
+                              divisionTasks.filter(
+                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
+                              ).length
+                            }
+                          </span>
+                        )}
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Member, Brand, and Search Filters */}
@@ -1037,6 +1370,24 @@ export default function WorkspaceCardsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Employee Mode Indicator in Stage View */}
+              {!isAdmin && viewScope === "RELEVANT" && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200/80 px-3.5 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-900 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0"></span>
+                    <span className="font-bold">Mode Karyawan:</span>
+                    <span>Hanya menampilkan pipeline stage yang bersangkutan dengan Anda ({filteredDivisionTasks.length} tugas).</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setViewScope("ALL")}
+                    className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline text-left sm:text-right cursor-pointer"
+                  >
+                    Buka semua tugas divisi ({divisionTasks.length}) →
+                  </button>
+                </div>
+              )}
 
               {/* 5-COLUMN KANBAN BOARD */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start pb-8">
