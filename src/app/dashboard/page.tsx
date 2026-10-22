@@ -1194,8 +1194,9 @@ export default function EmployeeDashboardPage() {
         <RequestRevisionModal
           isOpen={!!revisionModalTask}
           onClose={() => setRevisionModalTask(null)}
-          task={revisionModalTask}
-          currentUser={user}
+          taskId={revisionModalTask.id}
+          taskTitle={revisionModalTask.title}
+          brandName={revisionModalTask.brandName || "Umum"}
           onSuccess={fetchSessionData}
         />
       )}
@@ -1205,8 +1206,8 @@ export default function EmployeeDashboardPage() {
         <SubmitDeliverableModal
           isOpen={!!deliverableModalTask}
           onClose={() => setDeliverableModalTask(null)}
-          task={deliverableModalTask}
-          currentUser={user}
+          taskId={deliverableModalTask.id}
+          taskTitle={deliverableModalTask.title}
           onSuccess={fetchSessionData}
         />
       )}
@@ -1216,8 +1217,9 @@ export default function EmployeeDashboardPage() {
         <DeadlineSuggestionModal
           isOpen={!!deadlineModalTask}
           onClose={() => setDeadlineModalTask(null)}
-          task={deadlineModalTask}
-          currentUser={user}
+          taskId={deadlineModalTask.id}
+          taskTitle={deadlineModalTask.title}
+          currentExpectedDeadline={deadlineModalTask.expectedDeadline}
           onSuccess={fetchSessionData}
         />
       )}

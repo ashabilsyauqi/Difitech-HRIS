@@ -15,6 +15,7 @@ export interface TaskItem {
   deliverableUrl?: string | null;
   deliverableAttachment?: string | null;
   completionNote?: string | null;
+  targetDate?: string | null;
 }
 
 interface TaskFormModalProps {

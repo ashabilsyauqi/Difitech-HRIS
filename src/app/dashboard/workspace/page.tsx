@@ -280,6 +280,7 @@ export default function WorkspaceCardsPage() {
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [selectedMember, setSelectedMember] = useState("ALL");
   const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
   const isSosmedUser = isHomeCard("SOSMED", user?.department) || isAdmin;
 

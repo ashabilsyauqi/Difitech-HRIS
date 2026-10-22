@@ -84,7 +84,7 @@ export function exportTasksToExcel(
 /**
  * Generates and triggers download of Excel (.xlsx) file from attendance dataset
  */
-export function exportAttendanceToExcel(data: AttendanceExportRow[], filename = "HRIS_Attendance_Report.xlsx") {
+export function exportAttendanceToExcel(data: Record<string, any>[], filename = "HRIS_Attendance_Report.xlsx") {
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Logs");

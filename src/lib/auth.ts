@@ -35,8 +35,8 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     const parsed = payload as unknown as TokenPayload;
     return {
       ...parsed,
-      id: parsed.userId || parsed.id,
-      userId: parsed.userId || parsed.id,
+      id: (parsed.userId || parsed.id || "") as string,
+      userId: (parsed.userId || parsed.id || "") as string,
     };
   } catch {
     return null;
