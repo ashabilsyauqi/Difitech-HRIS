@@ -222,8 +222,8 @@ export default function TaskDetailModal({
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Kolom Kiri: Lembar Kerja Deskripsi / Brief (WYSIWYG View) */}
           <div className="lg:col-span-8 space-y-5">
-            {/* Review Gate Banner (Jika TO_BE_REVIEWED) */}
-            {task.reviewStatus === "TO_BE_REVIEWED" && (
+            {/* Review Gate Banner (Jika TO_BE_REVIEWED atau UNDER_REVIEW) */}
+            {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW") && (
               <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4 space-y-3 shadow-xs animate-in fade-in">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
                   <div className="flex items-center gap-2">
@@ -232,7 +232,9 @@ export default function TaskDetailModal({
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                     </span>
                     <h4 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-wide">
-                      Menunggu Review Pemberi Tugas (TO BE REVIEWED)
+                      {task.reviewStatus === "UNDER_REVIEW"
+                        ? "Sedang Di-review"
+                        : "Menunggu Review Pemberi Tugas"}
                     </h4>
                   </div>
                   {task.deliverableUrl && (
@@ -263,6 +265,30 @@ export default function TaskDetailModal({
                 {(isCreator || currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER") ? (
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-200">
                     <span className="text-[11px] font-bold text-amber-800 mr-1">Keputusan Pemberi Tugas:</span>
+                    {task.reviewStatus === "TO_BE_REVIEWED" && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            setIsUpdating(true);
+                            await fetch(`/api/workspace/tasks/${task.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ reviewAction: { action: "START_REVIEW" } }),
+                            });
+                            onUpdate();
+                          } catch (err) {
+                            console.error(err);
+                          } finally {
+                            setIsUpdating(false);
+                          }
+                        }}
+                        disabled={isUpdating}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
+                      >
+                        <Clock className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Mulai Review</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         onClose();
@@ -271,7 +297,7 @@ export default function TaskDetailModal({
                       className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
-                      <span>Minta Revisi (Revision)</span>
+                      <span>Minta Revisi</span>
                     </button>
                     <button
                       onClick={handleApproveReview}
@@ -279,12 +305,17 @@ export default function TaskDetailModal({
                       className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Setujui (Done !)</span>
+                      <span>ACC / Selesai (Done !)</span>
                     </button>
                   </div>
                 ) : (
                   <p className="text-[11px] text-amber-800 italic pt-1 border-t border-amber-200">
-                    Menunggu konfirmasi review dari <strong>{task.creator?.name || "Pemberi Tugas"}</strong>. Tugas akan otomatis tercatat <strong>Done !</strong> begitu disetujui.
+                    {task.reviewStatus === "UNDER_REVIEW" ? (
+                      <>Sedang di-review oleh <strong>{task.creator?.name || "Pemberi Tugas"}</strong>.</>
+                    ) : (
+                      <>Menunggu review dari <strong>{task.creator?.name || "Pemberi Tugas"}</strong>.</>
+                    )}{" "}
+                    Tugas akan resmi masuk ke stage <strong>Selesai (Done !)</strong> begitu di-ACC.
                   </p>
                 )}
               </div>
@@ -292,11 +323,11 @@ export default function TaskDetailModal({
 
             {/* Banner Catatan Revisi jika REVISION_REQUESTED */}
             {task.reviewStatus === "REVISION_REQUESTED" && (
-              <div className="rounded-2xl bg-rose-50 border-2 border-rose-300 p-4 space-y-2 animate-in fade-in">
+              <div className="rounded-2xl bg-rose-50 border-2 border-rose-300 p-4 space-y-2.5 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-rose-800 font-bold text-xs">
                     <AlertCircle className="h-4 w-4 text-rose-600" />
-                    <span>Perlu Revisi dari Pemberi Tugas</span>
+                    <span>Perlu Revisi dari Pemberi Tugas ({task.creator?.name || "Kolega"})</span>
                   </div>
                   {isAssignee && onOpenDeliverableModal && (
                     <button
@@ -312,9 +343,13 @@ export default function TaskDetailModal({
                   )}
                 </div>
                 {task.revisionNote && (
-                  <p className="text-xs text-rose-900 bg-rose-100/70 p-2.5 rounded-xl border border-rose-200">
-                    <strong>Catatan Revisi:</strong> "{task.revisionNote}"
-                  </p>
+                  <div className="rounded-xl bg-white border border-rose-200 p-3 text-xs text-slate-800 shadow-2xs">
+                    <strong className="text-rose-800 block mb-1.5 font-bold">Catatan & Bukti Screenshot Revisi:</strong>
+                    <div
+                      className="prose prose-sm max-w-none text-slate-800 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: task.revisionNote }}
+                    />
+                  </div>
                 )}
               </div>
             )}

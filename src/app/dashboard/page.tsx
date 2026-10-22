@@ -393,6 +393,77 @@ export default function EmployeeDashboardPage() {
             </div>
           </div>
 
+          {/* Notifikasi Review Gate: Tugas yang Didelegasikan Menunggu Review */}
+          {workspaceTasks.filter((t) => t.creator?.id === user?.id && (t.reviewStatus === "TO_BE_REVIEWED" || t.reviewStatus === "UNDER_REVIEW")).length > 0 && (
+            <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-4 sm:p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500 text-white shadow-xs">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black text-amber-950">
+                      {workspaceTasks.filter((t) => t.creator?.id === user?.id && (t.reviewStatus === "TO_BE_REVIEWED" || t.reviewStatus === "UNDER_REVIEW")).length} Tugas Delegasi Anda Telah Selesai & Menunggu Review!
+                    </h3>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Pengerja telah mengunggah hasil kerja. Silakan periksa hasil kerja, ajukan catatan revisi (dengan screenshot jika ada), atau klik ACC untuk menyelesaikan tugas.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/dashboard/workspace"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition"
+                >
+                  <span>Buka Lembar Kerja Divisi</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+                {workspaceTasks
+                  .filter((t) => t.creator?.id === user?.id && (t.reviewStatus === "TO_BE_REVIEWED" || t.reviewStatus === "UNDER_REVIEW"))
+                  .slice(0, 4)
+                  .map((rt) => (
+                    <div
+                      key={rt.id}
+                      className="rounded-xl border border-amber-200 bg-white p-3 shadow-2xs flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-amber-700 uppercase bg-amber-100 px-1.5 py-0.2 rounded">
+                            {rt.departmentCard || "Tugas"}
+                          </span>
+                          <span className="text-slate-500 truncate">
+                            Pengerja: <strong className="text-slate-800">{rt.user?.name}</strong>
+                          </span>
+                        </div>
+                        <h5 className="text-xs font-bold text-slate-900 truncate mt-1">{rt.title}</h5>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {rt.deliverableUrl && (
+                          <a
+                            href={rt.deliverableUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold hover:bg-emerald-100 transition"
+                          >
+                            Bukti ↗
+                          </a>
+                        )}
+                        <Link
+                          href={`/dashboard/workspace?card=${rt.departmentCard || ""}`}
+                          className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition shadow-2xs"
+                        >
+                          Review & ACC
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Shift Timer Card */}

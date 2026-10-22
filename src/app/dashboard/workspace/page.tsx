@@ -418,6 +418,19 @@ export default function WorkspaceCardsPage() {
     }
   };
 
+  const handleStartReview = async (taskId: string) => {
+    try {
+      await fetch(`/api/workspace/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewAction: { action: "START_REVIEW" } }),
+      });
+      fetchTasks();
+    } catch (err) {
+      console.error("Failed to start review:", err);
+    }
+  };
+
   const formatTimerSeconds = (sec: number) => {
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
@@ -1176,37 +1189,53 @@ export default function WorkspaceCardsPage() {
                                 </div>
 
                                 {/* Review Gate Alert Banners */}
-                                {task.reviewStatus === "TO_BE_REVIEWED" && (
+                                {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW") && (
                                   <div
                                     onClick={(e) => e.stopPropagation()}
-                                    className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[10px] space-y-1"
+                                    className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[10px] space-y-1.5"
                                   >
                                     <div className="flex items-center justify-between font-black">
                                       <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3 text-amber-600" /> TO BE REVIEWED
+                                        <Clock className="h-3 w-3 text-amber-600" />
+                                        {task.reviewStatus === "UNDER_REVIEW" ? "👀 SEDANG DI-REVIEW" : "⏳ MENUNGGU REVIEW"}
                                       </span>
                                       {isCreator && (
-                                        <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded">
+                                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold">
                                           Pemberi Tugas
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-[9px] text-amber-700">
-                                      Tugas telah disubmit. Menunggu persetujuan {task.creator?.name || "pemberi tugas"}.
-                                    </p>
-                                    {isCreator || user?.role === "ADMIN" || user?.role === "MANAGER" ? (
-                                      <div className="flex items-center gap-1.5 pt-1">
+
+                                    {!isCreator && (
+                                      <p className="text-[9px] text-amber-700">
+                                        {task.reviewStatus === "UNDER_REVIEW"
+                                          ? `Sedang di-review oleh ${task.creator?.name || "pemberi tugas"}.`
+                                          : `Menunggu review dari ${task.creator?.name || "pemberi tugas"}.`}
+                                      </p>
+                                    )}
+
+                                    {/* Action buttons for creator / manager */}
+                                    {(isCreator || user?.role === "ADMIN" || user?.role === "MANAGER") ? (
+                                      <div className="flex items-center gap-1.5 pt-1 border-t border-amber-200/70">
+                                        {task.reviewStatus === "TO_BE_REVIEWED" && (
+                                          <button
+                                            onClick={() => handleStartReview(task.id)}
+                                            className="flex-1 py-1 rounded-lg bg-white border border-amber-400 text-amber-800 text-[9px] font-bold hover:bg-amber-100 transition text-center cursor-pointer"
+                                          >
+                                            Review
+                                          </button>
+                                        )}
                                         <button
                                           onClick={() => setRevisionModalTask(task)}
-                                          className="flex-1 py-1 rounded bg-white border border-rose-300 text-rose-700 text-[9px] font-bold hover:bg-rose-50 transition text-center cursor-pointer"
+                                          className="flex-1 py-1 rounded-lg bg-white border border-rose-300 text-rose-700 text-[9px] font-bold hover:bg-rose-50 transition text-center cursor-pointer"
                                         >
                                           Revisi
                                         </button>
                                         <button
                                           onClick={() => handleApproveTask(task.id)}
-                                          className="flex-1 py-1 rounded bg-emerald-600 text-white text-[9px] font-black hover:bg-emerald-700 transition text-center cursor-pointer"
+                                          className="flex-1 py-1 rounded-lg bg-emerald-600 text-white text-[9px] font-black hover:bg-emerald-700 transition text-center cursor-pointer shadow-2xs"
                                         >
-                                          Done !
+                                          ACC / Done !
                                         </button>
                                       </div>
                                     ) : null}
@@ -1214,24 +1243,24 @@ export default function WorkspaceCardsPage() {
                                 )}
 
                                 {task.reviewStatus === "REVISION_REQUESTED" && (
-                                  <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-[10px] space-y-1">
-                                    <span className="font-black flex items-center gap-1">
-                                      ⚠️ PERLU REVISI
-                                    </span>
-                                    {task.revisionTag && (
-                                      <p className="text-[9px] text-rose-700 italic font-medium">
-                                        "{task.revisionTag}"
-                                      </p>
-                                    )}
+                                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[10px] space-y-1.5">
+                                    <div className="flex items-center justify-between font-black">
+                                      <span className="flex items-center gap-1">
+                                        ⚠️ PERLU REVISI
+                                      </span>
+                                      <span className="text-[9px] bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded font-bold">
+                                        Catatan Tersedia
+                                      </span>
+                                    </div>
                                     {isMyTask && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setDeliverableModalTask(task);
                                         }}
-                                        className="w-full mt-1 py-1 rounded bg-rose-600 text-white text-[9px] font-black hover:bg-rose-700 transition text-center cursor-pointer"
+                                        className="w-full mt-1 py-1 rounded-lg bg-rose-600 text-white text-[9px] font-black hover:bg-rose-700 transition text-center cursor-pointer shadow-2xs"
                                       >
-                                        Submit Revisi & Bukti
+                                        Submit Revisi & Bukti Baru
                                       </button>
                                     )}
                                   </div>

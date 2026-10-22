@@ -230,7 +230,7 @@ export async function PATCH(
 
     // 6. Review Action oleh Pemberi Tugas (APPROVE = "Done !" atau REVISION = "Minta Revisi")
     if (body.reviewAction) {
-      const { action, revisionNote } = body.reviewAction; // 'APPROVE' | 'REVISION'
+      const { action, revisionNote } = body.reviewAction; // 'START_REVIEW' | 'APPROVE' | 'REVISION'
       const isCreator = existingTask.creatorId === authUser.userId;
       const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
 
@@ -239,6 +239,30 @@ export async function PATCH(
           { error: "Hanya pemberi tugas atau manager yang berhak mereview dan menyetujui tugas ini" },
           { status: 403 }
         );
+      }
+
+      if (action === "START_REVIEW") {
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            reviewStatus: "UNDER_REVIEW",
+          },
+        });
+
+        if (existingTask.userId !== authUser.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: existingTask.userId,
+              title: `Tugas Sedang Di-review: ${existingTask.title}`,
+              message: `${authUser.name} (Pemberi Tugas) sedang mereview hasil kerja Anda.`,
+              type: "UNDER_REVIEW",
+              link: "/dashboard/tasks",
+              taskId: existingTask.id,
+            },
+          });
+        }
+
+        return NextResponse.json({ success: true, task: updated });
       }
 
       if (action === "APPROVE") {

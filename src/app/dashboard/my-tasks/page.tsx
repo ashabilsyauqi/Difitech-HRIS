@@ -660,17 +660,22 @@ export default function UnifiedTasksPage() {
                                   {/* Review Gate Badges */}
                                   {task.reviewStatus === "TO_BE_REVIEWED" && (
                                     <span className="rounded bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 text-[9px] font-black animate-pulse">
-                                      ⏳ Review
+                                      ⏳ Menunggu Review
+                                    </span>
+                                  )}
+                                  {task.reviewStatus === "UNDER_REVIEW" && (
+                                    <span className="rounded bg-amber-200 text-amber-900 border border-amber-400 px-1.5 py-0.2 text-[9px] font-black animate-pulse">
+                                      👀 Sedang Di-review
                                     </span>
                                   )}
                                   {task.reviewStatus === "REVISION_REQUESTED" && (
                                     <span className="rounded bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.2 text-[9px] font-black">
-                                      ⚠️ Revisi
+                                      ⚠️ Perlu Revisi
                                     </span>
                                   )}
                                   {task.status === "COMPLETED" && (
                                     <span className="rounded bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 text-[9px] font-black">
-                                      ✓ DONE !
+                                      ✓ ACC / Selesai
                                     </span>
                                   )}
                                 </div>
@@ -742,6 +747,18 @@ export default function UnifiedTasksPage() {
                                   <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
                                     ⏳ Menunggu Review
                                   </span>
+                                ) : task.reviewStatus === "UNDER_REVIEW" ? (
+                                  <span className="text-[10px] font-bold text-amber-900 bg-amber-200 px-2 py-0.5 rounded border border-amber-400">
+                                    👀 Sedang Di-review
+                                  </span>
+                                ) : task.reviewStatus === "REVISION_REQUESTED" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeliverableModalTask(task)}
+                                    className="text-[10px] font-bold text-rose-700 bg-rose-100 hover:bg-rose-200 px-2 py-0.5 rounded border border-rose-300 transition cursor-pointer"
+                                  >
+                                    Submit Revisi &rarr;
+                                  </button>
                                 ) : (
                                   <div className="flex items-center gap-1.5">
                                     <button
