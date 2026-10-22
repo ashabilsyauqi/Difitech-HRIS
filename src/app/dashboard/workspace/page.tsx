@@ -42,6 +42,7 @@ import {
   CheckSquare,
   Flame,
   MessageSquare,
+  Eye,
 } from "lucide-react";
 
 interface TaskItem {
@@ -59,6 +60,7 @@ interface TaskItem {
   isContentProduction: boolean;
   kanbanStage?: string | null;
   revisionTag?: string | null;
+  revisionNote?: string | null;
   deliverableUrl?: string | null;
   reviewStatus?: string;
   reviewedAt?: string | null;
@@ -77,6 +79,16 @@ interface TaskItem {
     department?: string | null;
     avatarUrl?: string | null;
   } | null;
+  assignees?: {
+    id: string;
+    role?: string;
+    user: {
+      id: string;
+      name: string;
+      department?: string | null;
+      avatarUrl?: string | null;
+    };
+  }[];
   followUps?: any[];
 }
 
@@ -150,45 +162,101 @@ const CARDS_DEFINITION = [
   },
 ];
 
-const STAGE_COLUMNS = [
+const DIVISION_STAGE_COLUMNS = [
   {
     id: "REQUESTED",
     title: "User Requested",
     badgeColor: "bg-purple-100 text-purple-800 border-purple-200",
     icon: Inbox,
-    description: "Request divisi kolaborasi",
-  },
-  {
-    id: "PENDING",
-    title: "Belum Dikerjakan",
-    badgeColor: "bg-slate-100 text-slate-700 border-slate-200",
-    icon: Clock,
-    description: "Rencana & antrean tugas",
+    description: "Request divisi kolaborasi & antrean",
   },
   {
     id: "IN_PROGRESS",
     title: "Sedang Berjalan",
     badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
     icon: PlayCircle,
-    description: "Dalam pengerjaan aktif",
+    description: "Dalam pengerjaan aktif anggota divisi",
+  },
+  {
+    id: "UNDER_REVIEW",
+    title: "Review & Revisi",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+    icon: Clock,
+    description: "Menunggu ACC atau dalam perbaikan",
   },
   {
     id: "COMPLETED",
     title: "Selesai",
     badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: CheckCircle2,
-    description: "Tugas tuntas & hasil kerja",
-  },
-  {
-    id: "BLOCKED",
-    title: "Terkendala",
-    badgeColor: "bg-red-100 text-red-800 border-red-200",
-    icon: AlertCircle,
-    description: "Butuh bantuan / blocker",
+    description: "Tugas tuntas & hasil kerja disetujui",
   },
 ];
 
-const isHomeCard = (cardKey: string, userDept?: string | null) => {
+const PERSONAL_MY_TASKS_STAGES = [
+  {
+    id: "REQUESTED",
+    title: "1. Tugas Masuk",
+    badgeColor: "bg-purple-100 text-purple-800 border-purple-200",
+    icon: Inbox,
+    description: "Antrean tugas baru & rencana kerja",
+  },
+  {
+    id: "IN_PROGRESS",
+    title: "2. Dikerjakan",
+    badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: PlayCircle,
+    description: "Sedang Anda kerjakan secara aktif",
+  },
+  {
+    id: "UNDER_REVIEW",
+    title: "3. Sedang Di-review / Revisi",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+    icon: Clock,
+    description: "Menunggu ACC atau perlu perbaikan",
+  },
+  {
+    id: "COMPLETED",
+    title: "4. Selesai (Done !)",
+    badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    icon: CheckCircle2,
+    description: "Hasil kerja telah disetujui",
+  },
+];
+
+const PERSONAL_DELEGATED_STAGES = [
+  {
+    id: "PENDING",
+    title: "1. Menunggu Dikerjakan PIC",
+    badgeColor: "bg-slate-100 text-slate-700 border-slate-200",
+    icon: Clock,
+    description: "PIC belum memulai pengerjaan",
+  },
+  {
+    id: "IN_PROGRESS",
+    title: "2. Sedang Dikerjakan PIC",
+    badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: PlayCircle,
+    description: "PIC sedang aktif mengerjakan",
+  },
+  {
+    id: "TO_BE_REVIEWED",
+    title: "3. 🚨 Perlu Review Anda",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
+    icon: Flame,
+    description: "Deliverable siap: Minta Revisi atau ACC!",
+  },
+  {
+    id: "COMPLETED",
+    title: "4. Selesai (Sudah di-ACC)",
+    badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    icon: CheckCircle2,
+    description: "Tugas delegasi tuntas & disetujui",
+  },
+];
+
+const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
+  if (!cardKey) return false;
   const key = cardKey.toUpperCase();
   const dept = (userDept || "").toLowerCase();
   if (
@@ -255,13 +323,13 @@ const isHomeCard = (cardKey: string, userDept?: string | null) => {
 
 const isCardRelevantForEmployee = (cardKey: string, user: any, allTasks: TaskItem[]) => {
   if (!user) return false;
-  // 1. Home division
   if (isHomeCard(cardKey, user.department)) return true;
-  // 2. Any active/existing task involving the user in this card (assignee or requester)
   return allTasks.some(
     (t) =>
       (t.departmentCard || "").toUpperCase() === cardKey.toUpperCase() &&
-      (t.user?.id === user.id || t.creator?.id === user.id)
+      (t.user?.id === user.id ||
+        t.creator?.id === user.id ||
+        t.assignees?.some((a) => a.user?.id === user.id))
   );
 };
 
@@ -272,7 +340,12 @@ export default function WorkspaceCardsPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Active view: null for Thumbnail Overview, or division key (e.g. "WEB") for Stage View
+  // Top-level board mode: "DIVISION" (BigBoard Divisi) vs "PERSONAL" (BigBoard Pribadi)
+  const [boardMode, setBoardMode] = useState<"DIVISION" | "PERSONAL">("DIVISION");
+  // Subtab under Personal BigBoard: "MY_TASKS" | "DELEGATED"
+  const [personalTab, setPersonalTab] = useState<"MY_TASKS" | "DELEGATED">("MY_TASKS");
+
+  // Division stage view: null for Division Overview, or division key (e.g. "WEB") for Stage View
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
   // Filters
@@ -386,13 +459,17 @@ export default function WorkspaceCardsPage() {
     fetchSession();
     fetchBrandsAndMetadata();
 
-    // Check if URL specifies a division
+    // Check URL parameters for board mode or card
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("view") === "personal") {
+        setBoardMode("PERSONAL");
+      }
       const cardParam = searchParams.get("card");
       if (cardParam) {
         const found = CARDS_DEFINITION.find((c) => c.key.toLowerCase() === cardParam.toLowerCase());
         if (found) {
+          setBoardMode("DIVISION");
           setSelectedDivision(found.key);
         }
       }
@@ -405,6 +482,7 @@ export default function WorkspaceCardsPage() {
 
   // Navigate to division stage view
   const openDivisionStage = (divisionKey: string) => {
+    setBoardMode("DIVISION");
     setSelectedDivision(divisionKey);
     setSelectedMember("ALL");
     if (typeof window !== "undefined") {
@@ -448,13 +526,16 @@ export default function WorkspaceCardsPage() {
     if (!task) return;
 
     if (targetStatus === "COMPLETED") {
-      setDeliverableModalTask(task);
-      return;
+      const isSelfAssigned = !task.creator?.id || task.creator.id === user?.id;
+      if (!isSelfAssigned && task.reviewStatus !== "APPROVED") {
+        setDeliverableModalTask(task);
+        return;
+      }
+      if (isSelfAssigned && !task.deliverableUrl) {
+        setDeliverableModalTask(task);
+        return;
+      }
     }
-
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
-    );
 
     try {
       await fetch(`/api/workspace/tasks/${taskId}`, {
@@ -487,7 +568,19 @@ export default function WorkspaceCardsPage() {
     setDraggedTaskId(null);
     if (!taskId) return;
 
-    await handleStatusChange(taskId, targetColId);
+    if (targetColId === "REQUESTED") {
+      await handleStatusChange(taskId, "PENDING");
+    } else if (targetColId === "UNDER_REVIEW" || targetColId === "TO_BE_REVIEWED") {
+      // If moving to review, open deliverable modal if not submitted
+      const task = tasks.find((t) => t.id === taskId);
+      if (task && !task.deliverableUrl) {
+        setDeliverableModalTask(task);
+      } else {
+        await handleStatusChange(taskId, "IN_PROGRESS");
+      }
+    } else {
+      await handleStatusChange(taskId, targetColId);
+    }
   };
 
   const handleApproveTask = async (taskId: string) => {
@@ -574,6 +667,13 @@ export default function WorkspaceCardsPage() {
       if (t.user?.id && t.user?.name) {
         map.set(t.user.id, t.user.name);
       }
+      if (t.assignees) {
+        t.assignees.forEach((a) => {
+          if (a.user?.id && a.user?.name) {
+            map.set(a.user.id, a.user.name);
+          }
+        });
+      }
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [divisionTasks]);
@@ -581,35 +681,642 @@ export default function WorkspaceCardsPage() {
   // Filtered division tasks based on member, brand, search, viewScope
   const filteredDivisionTasks = useMemo(() => {
     return divisionTasks.filter((t) => {
-      if (selectedMember !== "ALL" && t.user?.id !== selectedMember) {
+      const isAssignedToUser =
+        t.user?.id === user?.id || t.assignees?.some((a) => a.user?.id === user?.id);
+      const isCreator = t.creator?.id === user?.id;
+
+      if (selectedMember !== "ALL") {
+        const matchesMember =
+          t.user?.id === selectedMember ||
+          t.assignees?.some((a) => a.user?.id === selectedMember);
+        if (!matchesMember) return false;
+      }
+      if (viewScope === "MINE" && !isAssignedToUser) {
         return false;
       }
-      if (viewScope === "MINE" && t.user?.id !== user?.id) {
-        return false;
-      }
-      if (viewScope === "DELEGATED" && (t.creator?.id !== user?.id || t.user?.id === user?.id)) {
+      if (viewScope === "DELEGATED" && (!isCreator || isAssignedToUser)) {
         return false;
       }
       if (viewScope === "RELEVANT") {
-        const isInvolved = t.user?.id === user?.id || t.creator?.id === user?.id;
+        const isInvolved = isAssignedToUser || isCreator;
         if (!isInvolved) return false;
       }
       return true;
     });
   }, [divisionTasks, selectedMember, viewScope, user]);
 
+  // Personal Tasks: Assigned to user (either primary PIC or in assignees)
+  const myAssignedTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter((t) => {
+      const isDirect = t.user?.id === user.id;
+      const isCoAssignee = t.assignees?.some((a) => a.user?.id === user.id);
+      return isDirect || isCoAssignee;
+    });
+  }, [tasks, user]);
+
+  // Delegated Tasks: Created by user where user is NOT the sole assignee
+  const myDelegatedTasks = useMemo(() => {
+    if (!user) return [];
+    return tasks.filter((t) => {
+      const isCreator = t.creator?.id === user.id;
+      const isSelfOnly =
+        t.user?.id === user.id &&
+        (!t.assignees || t.assignees.length === 0 || t.assignees.every((a) => a.user?.id === user.id));
+      return isCreator && !isSelfOnly;
+    });
+  }, [tasks, user]);
+
+  const pendingReviewForMeCount = useMemo(() => {
+    return myDelegatedTasks.filter(
+      (t) => t.reviewStatus === "TO_BE_REVIEWED" || t.reviewStatus === "UNDER_REVIEW"
+    ).length;
+  }, [myDelegatedTasks]);
+
+  // Helper to render individual task cards with multi-assignee avatars and Corong indicators
+  const renderCard = (task: TaskItem, isPersonalBoard: boolean = false, isDelegatedView: boolean = false) => {
+    const isRunning = Boolean(task.timerStartedAt);
+    const elapsed = activeTimers[task.id] || 0;
+    const isMyTask = task.user?.id === user?.id || task.assignees?.some((a) => a.user?.id === user?.id);
+    const isCreator = task.creator?.id === user?.id;
+
+    // Check if created from another department (Corong Cross-Department)
+    const isCrossDepartment =
+      task.creator?.id &&
+      task.creator.id !== task.user?.id &&
+      task.departmentCard;
+
+    return (
+      <div
+        key={task.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, task.id)}
+        onClick={() => setSelectedTaskForDetail(task)}
+        className={`rounded-2xl border bg-white p-3.5 shadow-2xs transition-all duration-150 space-y-2.5 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-slate-300 ${
+          task.priority === "URGENT"
+            ? "border-red-200 ring-1 ring-red-100"
+            : task.reviewStatus === "TO_BE_REVIEWED"
+            ? "border-amber-300 bg-amber-50/20"
+            : task.reviewStatus === "REVISION_REQUESTED"
+            ? "border-rose-300 bg-rose-50/20"
+            : "border-slate-200"
+        }`}
+      >
+        {/* Top Badge Row */}
+        <div className="flex items-center justify-between gap-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Division Badge */}
+            {task.departmentCard && (
+              <span className="rounded-md bg-slate-900 text-white font-black text-[9px] px-1.5 py-0.2 tracking-wide uppercase">
+                {task.departmentCard}
+              </span>
+            )}
+            {task.brandName && (
+              <span className="rounded-md bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.2 flex items-center gap-1">
+                <Tag className="h-2.5 w-2.5" />
+                {task.brandName}
+              </span>
+            )}
+            <span className={`rounded-md border font-bold text-[9px] px-1.5 py-0.2 ${getPriorityBadge(task.priority)}`}>
+              {task.priority}
+            </span>
+          </div>
+
+          {/* Follow Up Button */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <FollowUpButton
+              taskId={task.id}
+              taskTitle={task.title}
+              initialFollowUps={task.followUps}
+              onFollowUpSuccess={fetchTasks}
+            />
+          </div>
+        </div>
+
+        {/* Title & Snippet */}
+        <div>
+          <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 hover:text-red-600 transition">
+            {task.title}
+          </h4>
+          {task.description && (
+            <p className="text-[10px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+              {task.description.replace(/<[^>]*>?/gm, "").trim()}
+            </p>
+          )}
+        </div>
+
+        {/* People Info: Multi-Assignee Stack & Creator Corong */}
+        <div className="rounded-xl bg-slate-50 p-2.5 text-[10px] text-slate-600 border border-slate-200/70 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 font-medium">Tim Pelaksana:</span>
+            <div className="flex items-center gap-1.5">
+              {/* Overlapping avatars */}
+              <div className="flex -space-x-1.5 overflow-hidden">
+                {task.assignees && task.assignees.length > 0 ? (
+                  task.assignees.map((asgn) => {
+                    const u = asgn.user || task.user;
+                    return (
+                      <span
+                        key={asgn.id || u?.id}
+                        title={u?.name}
+                        className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-slate-200 text-[9px] font-bold text-slate-700 flex items-center justify-center overflow-hidden shrink-0"
+                      >
+                        {u?.avatarUrl ? (
+                          <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" />
+                        ) : (
+                          (u?.name || "?").charAt(0).toUpperCase()
+                        )}
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span className="inline-block h-5 w-5 rounded-full ring-2 ring-white bg-slate-200 text-[9px] font-bold text-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                    {(task.user?.name || "?").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span className="font-bold text-slate-900 truncate max-w-[110px]">
+                {task.assignees && task.assignees.length > 1
+                  ? `${task.assignees.length} Orang`
+                  : isMyTask
+                  ? "Saya Sendiri"
+                  : task.user?.name || "Belum ada"}
+              </span>
+            </div>
+          </div>
+
+          {/* Corong Origin: Creator & Department */}
+          {task.creator?.id && (
+            <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+              <span className="text-slate-500 font-medium">Pemberi:</span>
+              <span className="font-bold text-purple-700 truncate max-w-[130px] flex items-center gap-1">
+                <span>{isCreator ? "Saya" : task.creator.name}</span>
+                {task.creator.department && (
+                  <span className="text-[9px] font-normal text-slate-400">({task.creator.department})</span>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Live Timer Section for In-Progress Task */}
+        {task.status === "IN_PROGRESS" && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-between rounded-xl bg-blue-50/80 border border-blue-200 px-2.5 py-1.5 text-[10px] text-blue-900"
+          >
+            <div className="flex items-center gap-1.5 font-mono font-bold">
+              <Timer className="h-3 w-3 text-blue-600" />
+              <span>{formatTimerSeconds(elapsed)}</span>
+              {isRunning && (
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-600"></span>
+                </span>
+              )}
+            </div>
+
+            {isMyTask && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleToggleTimer(task)}
+                  className="rounded-lg bg-blue-600 px-2 py-0.5 text-white font-bold hover:bg-blue-700 transition flex items-center gap-1 cursor-pointer"
+                >
+                  {isRunning ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
+                  <span>{isRunning ? "Jeda" : "Mulai"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliverableModalTask(task)}
+                  className="rounded-lg bg-emerald-600 px-2 py-0.5 text-white font-bold hover:bg-emerald-700 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Submit</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Review Gate Alert Banners */}
+        {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW" || (Boolean(task.deliverableUrl) && task.status !== "COMPLETED")) && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-[10px] space-y-2 shadow-2xs"
+          >
+            <div className="flex items-center justify-between font-black">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 text-amber-600" />
+                {task.reviewStatus === "UNDER_REVIEW" ? "👀 SEDANG DI-REVIEW" : "⏳ MENUNGGU REVIEW"}
+              </span>
+              {isCreator && (
+                <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold">
+                  Pemberi Tugas
+                </span>
+              )}
+            </div>
+
+            {task.deliverableUrl && (
+              <a
+                href={task.deliverableUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between rounded-lg bg-white border border-amber-300 px-2 py-1 text-amber-900 font-bold hover:bg-amber-100 transition"
+              >
+                <span className="truncate">Periksa Deliverable</span>
+                <ExternalLink className="h-3 w-3 text-amber-700" />
+              </a>
+            )}
+
+            {/* Action buttons for creator / manager */}
+            {(isCreator || user?.role === "ADMIN" || user?.role === "MANAGER") && (
+              <div className="flex items-center gap-1.5 pt-1 border-t border-amber-200/80">
+                {task.reviewStatus !== "UNDER_REVIEW" && (
+                  <button
+                    onClick={() => handleStartReview(task.id)}
+                    className="flex-1 py-1 rounded-lg bg-white border border-amber-400 text-amber-800 text-[9px] font-bold hover:bg-amber-100 transition text-center cursor-pointer shadow-2xs"
+                  >
+                    Mulai Review
+                  </button>
+                )}
+                <button
+                  onClick={() => setRevisionModalTask(task)}
+                  className="flex-1 py-1 rounded-lg bg-white border border-rose-300 text-rose-700 text-[9px] font-bold hover:bg-rose-50 transition text-center cursor-pointer shadow-2xs"
+                >
+                  Minta Revisi
+                </button>
+                <button
+                  onClick={() => handleApproveTask(task.id)}
+                  className="flex-1 py-1 rounded-lg bg-emerald-600 text-white text-[9px] font-black hover:bg-emerald-700 transition text-center cursor-pointer shadow-2xs"
+                >
+                  ACC / Done !
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Revision Requested Banner */}
+        {task.reviewStatus === "REVISION_REQUESTED" && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-[10px] space-y-1.5"
+          >
+            <div className="flex items-center justify-between font-black">
+              <span className="flex items-center gap-1">
+                <RefreshCw className="h-3.5 w-3.5 text-rose-600 animate-spin" />
+                ⚠️ PERLU REVISI
+              </span>
+              <span className="text-[9px] bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded font-bold">
+                Ada Catatan
+              </span>
+            </div>
+
+            {task.revisionNote && (
+              <p className="italic text-[10px] text-rose-800 line-clamp-2 bg-white/70 p-1.5 rounded-lg border border-rose-200">
+                "{task.revisionNote.replace(/<[^>]*>?/gm, "").trim()}"
+              </p>
+            )}
+
+            {isMyTask && (
+              <button
+                type="button"
+                onClick={() => setDeliverableModalTask(task)}
+                className="w-full py-1 rounded-lg bg-rose-600 text-white font-bold hover:bg-rose-700 transition text-center cursor-pointer"
+              >
+                Submit Hasil Revisi
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Completed Banner */}
+        {task.status === "COMPLETED" && (
+          <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-[10px] text-emerald-800 font-bold">
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              Selesai & Di-ACC
+            </span>
+            {task.deliverableUrl && (
+              <a
+                href={task.deliverableUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-emerald-700 hover:underline flex items-center gap-0.5 text-[9px]"
+              >
+                <span>Hasil</span>
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Footer date & deadline */}
+        <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-100 font-mono">
+          <span>{formatDateTime(task.createdAt)}</span>
+          {task.expectedDeadline && (
+            <span className="flex items-center gap-1 text-slate-600 font-medium">
+              <Clock className="h-2.5 w-2.5 text-slate-400" />
+              <span>Target: {formatDateTime(task.expectedDeadline)}</span>
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
 
       <div className="flex flex-1">
-        {user && <Sidebar role={user.role} department={user.department} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        {user && (
+          <Sidebar
+            role={user.role}
+            department={user.department}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+        )}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full space-y-6">
           {/* ========================================================================= */}
-          {/* VIEW 1: THUMBNAIL OVERVIEW (Default)                                     */}
+          {/* DIFWORKBOARD TOP NAVIGATION & BIGBOARD SWITCHER                           */}
           {/* ========================================================================= */}
-          {!selectedDivision ? (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center font-black shadow-xs">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-lg tracking-tight">
+                    Dif<span className="text-red-600">WorkBoard</span>
+                  </span>
+                  <span className="rounded-full bg-slate-900 text-white text-[9px] font-black px-2 py-0.5 uppercase tracking-wider">
+                    Agile Funnel
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {boardMode === "PERSONAL"
+                    ? "BigBoard Pribadi: Kelola Tugas Mandiri & Delegasi Corong Tim"
+                    : selectedDivision
+                    ? `BigBoard Divisi: Pipeline Kolaborasi ${currentDivisionDef?.label}`
+                    : "BigBoard Divisi: Radar 6 Divisi & Corong Kolaborasi Lintas Tim"}
+                </p>
+              </div>
+            </div>
+
+            {/* Switcher Buttons: BigBoard Divisi vs BigBoard Pribadi */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setBoardMode("DIVISION");
+                  if (typeof window !== "undefined") {
+                    window.history.pushState(
+                      {},
+                      "",
+                      selectedDivision
+                        ? `/dashboard/workspace?card=${selectedDivision}`
+                        : `/dashboard/workspace`
+                    );
+                  }
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  boardMode === "DIVISION"
+                    ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Layers className={`h-4 w-4 ${boardMode === "DIVISION" ? "text-red-600" : "text-slate-400"}`} />
+                <span>BigBoard Divisi</span>
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                  6 Divisi
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBoardMode("PERSONAL");
+                  if (typeof window !== "undefined") {
+                    window.history.pushState({}, "", `/dashboard/workspace?view=personal`);
+                  }
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  boardMode === "PERSONAL"
+                    ? "bg-white text-slate-900 shadow-2xs border border-slate-200"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Users className={`h-4 w-4 ${boardMode === "PERSONAL" ? "text-blue-600" : "text-slate-400"}`} />
+                <span>BigBoard Pribadi</span>
+                {pendingReviewForMeCount > 0 && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                )}
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700">
+                  {myAssignedTasks.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* VIEW MODE 1: BIGBOARD PRIBADI (Tugas Saya & Delegasi Saya)                */}
+          {/* ========================================================================= */}
+          {boardMode === "PERSONAL" ? (
+            <div className="space-y-6">
+              {/* Header & Sub-Tabs */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
+                      BigBoard Pribadi
+                    </span>
+                    <span className="text-slate-400 text-xs">•</span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      {user?.name} ({user?.department || "Difitech"})
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+                    {personalTab === "MY_TASKS" ? "📋 Lembar Tugas Saya (Pengerjaan)" : "🚀 Tugas yang Saya Delegasikan"}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {personalTab === "MY_TASKS"
+                      ? "Tugas yang ditugaskan kepada Anda oleh diri sendiri maupun rekan kerja. Geser stage sesuai progres Anda."
+                      : "Tugas yang Anda delegasikan ke rekan kerja. Pantau penyelesaian dan setujui (ACC / Revisi) hasil kerja mereka."}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Sub-tab Switcher */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setPersonalTab("MY_TASKS")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        personalTab === "MY_TASKS"
+                          ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Tugas Saya</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                        {myAssignedTasks.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPersonalTab("DELEGATED")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        personalTab === "DELEGATED"
+                          ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Share2 className="h-3.5 w-3.5 text-purple-600" />
+                      <span>Delegasi Saya</span>
+                      {pendingReviewForMeCount > 0 ? (
+                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-amber-500 text-white animate-pulse">
+                          {pendingReviewForMeCount} Review!
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                          {myDelegatedTasks.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setTargetCardForNew(undefined);
+                      setCreateModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Buat Tugas Baru</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Personal Kanban Stage Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+                {(personalTab === "MY_TASKS" ? PERSONAL_MY_TASKS_STAGES : PERSONAL_DELEGATED_STAGES).map((col) => {
+                  const Icon = col.icon;
+                  const colTasks = (personalTab === "MY_TASKS" ? myAssignedTasks : myDelegatedTasks).filter((t) => {
+                    if (personalTab === "MY_TASKS") {
+                      if (col.id === "REQUESTED") {
+                        return (
+                          t.status === "REQUESTED" ||
+                          (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id) ||
+                          t.status === "PENDING"
+                        );
+                      }
+                      if (col.id === "IN_PROGRESS") {
+                        return (
+                          t.status === "IN_PROGRESS" &&
+                          t.reviewStatus !== "TO_BE_REVIEWED" &&
+                          t.reviewStatus !== "UNDER_REVIEW"
+                        );
+                      }
+                      if (col.id === "UNDER_REVIEW") {
+                        return (
+                          t.reviewStatus === "TO_BE_REVIEWED" ||
+                          t.reviewStatus === "UNDER_REVIEW" ||
+                          t.reviewStatus === "REVISION_REQUESTED"
+                        );
+                      }
+                      if (col.id === "COMPLETED") {
+                        return t.status === "COMPLETED";
+                      }
+                    } else {
+                      // Delegated
+                      if (col.id === "PENDING") {
+                        return (
+                          (t.status === "PENDING" || t.status === "REQUESTED") &&
+                          t.reviewStatus !== "TO_BE_REVIEWED" &&
+                          t.reviewStatus !== "UNDER_REVIEW"
+                        );
+                      }
+                      if (col.id === "IN_PROGRESS") {
+                        return (
+                          t.status === "IN_PROGRESS" &&
+                          t.reviewStatus !== "TO_BE_REVIEWED" &&
+                          t.reviewStatus !== "UNDER_REVIEW"
+                        );
+                      }
+                      if (col.id === "TO_BE_REVIEWED") {
+                        return (
+                          t.reviewStatus === "TO_BE_REVIEWED" ||
+                          t.reviewStatus === "UNDER_REVIEW" ||
+                          t.reviewStatus === "REVISION_REQUESTED"
+                        );
+                      }
+                      if (col.id === "COMPLETED") {
+                        return t.status === "COMPLETED";
+                      }
+                    }
+                    return false;
+                  });
+
+                  return (
+                    <div
+                      key={col.id}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, col.id)}
+                      className="rounded-3xl border border-slate-200 bg-white shadow-2xs flex flex-col min-h-[520px] overflow-hidden"
+                    >
+                      {/* Column Header */}
+                      <div className="p-3.5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="text-xs font-bold text-slate-900">{col.title}</h3>
+                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full border ${col.badgeColor}`}>
+                                {colTasks.length}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-tight">{col.description}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cards Container */}
+                      <div className="p-3 flex-1 space-y-3 overflow-y-auto max-h-[720px]">
+                        {colTasks.length === 0 ? (
+                          <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                            <Icon className="h-6 w-6 text-slate-300 mb-1" />
+                            <p className="text-xs font-bold text-slate-600">Tidak ada tugas</p>
+                            <p className="text-[10px] text-slate-400">
+                              {col.id === "REQUESTED" ? "Belum ada tugas di antrean" : "Tarik tugas ke kolom ini"}
+                            </p>
+                          </div>
+                        ) : (
+                          colTasks.map((t) => renderCard(t, true, personalTab === "DELEGATED"))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : !selectedDivision ? (
+            /* ========================================================================= */
+            /* VIEW MODE 2: BIGBOARD DIVISI (Thumbnail Overview 6 Card)                  */
+            /* ========================================================================= */
             <div className="space-y-6">
               {/* Header */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -620,11 +1327,11 @@ export default function WorkspaceCardsPage() {
                     </span>
                     <span className="text-slate-400 text-xs">•</span>
                     <span className="text-xs font-semibold text-slate-500">
-                      {isAdmin ? "Divisi Kolaborasi (6 Card)" : "Divisi & Kolaborasi Terkait Anda"}
+                      {isAdmin ? "BigBoard 6 Divisi Kerja" : "Divisi & Kolaborasi Terkait Anda"}
                     </span>
                   </div>
                   <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-                    {isAdmin ? "6 Card Divisi Kerja" : "Divisi Kolaborasi Kerja"}
+                    {isAdmin ? "BigBoard 6 Divisi Kerja" : "BigBoard Divisi Kolaborasi"}
                   </h1>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isAdmin
@@ -678,41 +1385,10 @@ export default function WorkspaceCardsPage() {
                             className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                               viewScope === "RELEVANT"
                                 ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
+                                : "bg-slate-200 text-slate-600"
                             }`}
                           >
-                            {
-                              tasks.filter(
-                                (t) => t.user?.id === user.id || t.creator?.id === user.id
-                              ).length
-                            }
-                          </span>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("DELEGATED")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "DELEGATED"
-                            ? "bg-purple-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-purple-600"
-                        }`}
-                      >
-                        <span>📤 Saya Delegasikan</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "DELEGATED"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              tasks.filter(
-                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
-                              ).length
-                            }
+                            {CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length}
                           </span>
                         )}
                       </button>
@@ -726,408 +1402,332 @@ export default function WorkspaceCardsPage() {
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        🏢 Jelajahi Semua 6 Divisi
+                        Semua 6 Divisi
                       </button>
                     </>
                   ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("ALL")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "ALL"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        🏢 Semua 6 Divisi
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("RELEVANT")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "RELEVANT"
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-blue-600"
-                        }`}
-                      >
-                        <span>🎯 Tugas Terkait Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "RELEVANT"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              tasks.filter(
-                                (t) => t.user?.id === user.id || t.creator?.id === user.id
-                              ).length
-                            }
-                          </span>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("DELEGATED")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "DELEGATED"
-                            ? "bg-purple-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-purple-600"
-                        }`}
-                      >
-                        <span>📤 Saya Delegasikan</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "DELEGATED"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              tasks.filter(
-                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
-                              ).length
-                            }
-                          </span>
-                        )}
-                      </button>
-                    </>
+                    <div className="px-3 py-1 text-xs font-bold text-slate-700">
+                      🏢 Tampilan BigBoard Semua Divisi (Admin/Manager)
+                    </div>
                   )}
                 </div>
 
-                {/* Search & Brand */}
-                <div className="flex items-center gap-2.5 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:w-64">
+                {/* Search & Brand Filter */}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <div className="relative flex-1 sm:w-56">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari tugas / brand / nama..."
+                      placeholder="Cari tugas / brand / PIC..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
                     />
-                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[11px] font-bold text-slate-500 hidden sm:flex items-center gap-1">
-                      <Filter className="h-3 w-3" /> Brand:
-                    </span>
-                    <select
-                      value={selectedBrand}
-                      onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
-                    >
-                      <option value="ALL">Semua Brand</option>
-                      {availableBrands.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => setSelectedBrand(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                  >
+                    <option value="ALL">Semua Brand</option>
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* CARD THUMBNAIL GRID */}
+              {/* 6 Cards Grid Overview */}
               {(() => {
-                const visibleCardDefs = CARDS_DEFINITION.filter((cardDef) => {
-                  if (viewScope === "ALL") return true;
-                  if (viewScope === "DELEGATED") {
-                    return tasks.some(
-                      (t) =>
-                        (t.departmentCard || "").toUpperCase() === cardDef.key &&
-                        t.creator?.id === user?.id &&
-                        t.user?.id !== user?.id
-                    );
-                  }
-                  // viewScope === "RELEVANT" or "MINE"
+                const displayedCards = CARDS_DEFINITION.filter((c) => {
                   if (isAdmin) return true;
-                  return isCardRelevantForEmployee(cardDef.key, user, tasks);
+                  if (viewScope === "ALL") return true;
+                  return isCardRelevantForEmployee(c.key, user, tasks);
                 });
 
-                if (visibleCardDefs.length === 0) {
+                if (displayedCards.length === 0) {
                   return (
-                    <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center text-slate-400 space-y-3">
-                      <CheckSquare className="h-10 w-10 mx-auto text-slate-300" />
-                      <div>
-                        <h3 className="text-base font-bold text-slate-800">
-                          Belum Ada Kolaborasi Lintas Divisi yang Terhubung
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                          Saat rekan dari divisi lain (misal: Sosmed, Marketing, Ads) meminta bantuan Anda, card divisi mereka akan otomatis muncul di sini.
-                        </p>
+                    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center space-y-3">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                        <Inbox className="h-7 w-7" />
                       </div>
+                      <h3 className="text-base font-bold text-slate-800">
+                        Tidak Ada Divisi Terkait Aktif
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Saat ini belum ada tugas atau request kerjaan yang melibatkan Anda di divisi lain.
+                        Klik tombol di bawah untuk melihat seluruh 6 divisi atau buat request baru.
+                      </p>
                       <button
-                        onClick={() => {
-                          setTargetCardForNew(undefined);
-                          setCreateModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+                        onClick={() => setViewScope("ALL")}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
                       >
-                        <Plus className="h-4 w-4" />
-                        <span>Request Tugas Lintas Divisi</span>
+                        Lihat Semua 6 Divisi
                       </button>
                     </div>
                   );
                 }
 
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {visibleCardDefs.map((cardDef) => {
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {displayedCards.map((cardDef) => {
                       const Icon = cardDef.icon;
-                      // All tasks in this division
-                      const cardAllTasks = tasks.filter(
+                      const cardTasks = tasks.filter(
                         (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
                       );
 
-                      // Tasks filtered by viewScope and role
-                      const cardTasks = cardAllTasks.filter((t) => {
-                        if (viewScope === "ALL") return true;
-                        if (viewScope === "DELEGATED") return t.creator?.id === user?.id && t.user?.id !== user?.id;
-                        if (viewScope === "MINE") return t.user?.id === user?.id;
-                        // viewScope === "RELEVANT"
-                        if (!isAdmin) {
-                          return t.user?.id === user?.id || t.creator?.id === user?.id;
-                        }
-                        return true;
-                      });
+                      const total = cardTasks.length;
+                      const runningTasks = cardTasks.filter((t) => t.status === "IN_PROGRESS");
+                      const runningCount = runningTasks.length;
+                      const requestedCount = cardTasks.filter(
+                        (t) =>
+                          t.status === "REQUESTED" ||
+                          (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id)
+                      ).length;
+                      const reviewCount = cardTasks.filter(
+                        (t) =>
+                          t.reviewStatus === "TO_BE_REVIEWED" ||
+                          t.reviewStatus === "REVISION_REQUESTED"
+                      ).length;
+                      const completedCount = cardTasks.filter((t) => t.status === "COMPLETED").length;
 
-                  // Calculations
-                  const total = cardTasks.length;
-                  const runningTasks = cardTasks.filter((t) => t.status === "IN_PROGRESS");
-                  const runningCount = runningTasks.length;
-                  const requestedCount = cardTasks.filter(
-                    (t) => t.status === "REQUESTED" || (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id)
-                  ).length;
-                  const reviewCount = cardTasks.filter(
-                    (t) => t.reviewStatus === "TO_BE_REVIEWED" || t.reviewStatus === "REVISION_REQUESTED"
-                  ).length;
-                  const completedCount = cardTasks.filter((t) => t.status === "COMPLETED").length;
+                      // Active workers map (including multi-assignees)
+                      const activeWorkerMap = new Map<string, { id: string; name: string; avatarUrl?: string | null }>();
+                      cardTasks
+                        .filter((t) => t.status !== "COMPLETED")
+                        .forEach((t) => {
+                          if (t.user?.id) {
+                            activeWorkerMap.set(t.user.id, {
+                              id: t.user.id,
+                              name: t.user.name,
+                              avatarUrl: t.user.avatarUrl,
+                            });
+                          }
+                          if (t.assignees) {
+                            t.assignees.forEach((a) => {
+                              if (a.user?.id) {
+                                activeWorkerMap.set(a.user.id, {
+                                  id: a.user.id,
+                                  name: a.user.name,
+                                  avatarUrl: a.user.avatarUrl,
+                                });
+                              }
+                            });
+                          }
+                        });
+                      const activeWorkers = Array.from(activeWorkerMap.values());
 
-                  // Active workers (people assigned to non-completed tasks)
-                  const activeWorkerMap = new Map<string, { id: string; name: string; avatarUrl?: string | null }>();
-                  cardTasks
-                    .filter((t) => t.status !== "COMPLETED" && t.user?.id)
-                    .forEach((t) => {
-                      activeWorkerMap.set(t.user.id, {
-                        id: t.user.id,
-                        name: t.user.name,
-                        avatarUrl: t.user.avatarUrl,
-                      });
-                    });
-                  const activeWorkers = Array.from(activeWorkerMap.values());
+                      // Cross-Department Collaboration Requests ("Biar Bos Tau")
+                      const crossRequests = cardTasks.filter(
+                        (t) => t.creator?.id && t.creator.id !== t.user?.id && t.status !== "COMPLETED"
+                      );
 
-                  // Cross-Department Collaboration Requests ("Biar Bos Tau")
-                  // Tasks where creator is different from assignee, or creator department is different
-                  const crossRequests = cardTasks.filter(
-                    (t) => t.creator?.id && t.creator.id !== t.user?.id && t.status !== "COMPLETED"
-                  );
-
-                  return (
-                    <div
-                      key={cardDef.key}
-                      onClick={() => openDivisionStage(cardDef.key)}
-                      className={`group rounded-3xl border border-slate-200 bg-white shadow-xs hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer ${cardDef.borderHover}`}
-                    >
-                      {/* Thumbnail Header */}
-                      <div className={`p-4 text-white ${cardDef.headerBg}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-white/20 backdrop-blur-xs text-white">
-                              <Icon className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-base font-black tracking-tight">{cardDef.label}</h3>
-                                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black">
-                                  {total} Tugas
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-white/80 line-clamp-1">{cardDef.sublabel}</p>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTargetCardForNew(cardDef.key);
-                              setCreateModalOpen(true);
-                            }}
-                            title={`Request tugas ke ${cardDef.label}`}
-                            className="rounded-xl bg-white/20 hover:bg-white/30 px-2.5 py-1.5 text-white transition flex items-center gap-1 text-[11px] font-bold cursor-pointer shrink-0"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            <span>Request</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Thumbnail Body */}
-                      <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                        {/* 1. Live Notification & Metrics Bar */}
-                        <div className="grid grid-cols-3 gap-2">
-                          {/* Running Tasks Notification */}
-                          <div className={`p-2.5 rounded-2xl border transition ${
-                            runningCount > 0 
-                              ? "bg-blue-50/80 border-blue-200 text-blue-900 shadow-2xs" 
-                              : "bg-slate-50 border-slate-200/60 text-slate-500"
-                          }`}>
+                      return (
+                        <div
+                          key={cardDef.key}
+                          onClick={() => openDivisionStage(cardDef.key)}
+                          className={`group rounded-3xl border border-slate-200 bg-white shadow-xs hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col cursor-pointer ${cardDef.borderHover}`}
+                        >
+                          {/* Thumbnail Header */}
+                          <div className={`p-4 text-white ${cardDef.headerBg}`}>
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold">Sedang Jalan</span>
-                              {runningCount > 0 && (
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-lg font-black mt-0.5">
-                              {runningCount}{" "}
-                              <span className="text-[10px] font-medium text-slate-500">task</span>
-                            </div>
-                          </div>
-
-                          {/* User Requested */}
-                          <div className={`p-2.5 rounded-2xl border transition ${
-                            requestedCount > 0
-                              ? "bg-purple-50/80 border-purple-200 text-purple-900 shadow-2xs"
-                              : "bg-slate-50 border-slate-200/60 text-slate-500"
-                          }`}>
-                            <span className="text-[10px] font-bold">Request Masuk</span>
-                            <div className="text-lg font-black mt-0.5">
-                              {requestedCount}{" "}
-                              <span className="text-[10px] font-medium text-slate-500">task</span>
-                            </div>
-                          </div>
-
-                          {/* Review Gate Pending */}
-                          <div className={`p-2.5 rounded-2xl border transition ${
-                            reviewCount > 0
-                              ? "bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs"
-                              : "bg-slate-50 border-slate-200/60 text-slate-500"
-                          }`}>
-                            <span className="text-[10px] font-bold">Butuh Review</span>
-                            <div className="text-lg font-black mt-0.5">
-                              {reviewCount}{" "}
-                              <span className="text-[10px] font-medium text-slate-500">task</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 2. Siapa yang Sedang Kerja di Sana */}
-                        <div className="rounded-2xl bg-slate-50/80 border border-slate-200/70 p-3 space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                              <User className="h-3.5 w-3.5 text-slate-500" />
-                              Sedang Bekerja di Sini:
-                            </span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-700">
-                              {activeWorkers.length} Karyawan
-                            </span>
-                          </div>
-
-                          {activeWorkers.length === 0 ? (
-                            <p className="text-[11px] text-slate-400 italic">
-                              Belum ada karyawan aktif yang mengerjakan tugas saat ini.
-                            </p>
-                          ) : (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {activeWorkers.slice(0, 4).map((worker) => (
-                                <span
-                                  key={worker.id}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2 py-0.8 text-[11px] font-bold text-slate-800 shadow-2xs"
-                                >
-                                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                  {worker.name}
-                                </span>
-                              ))}
-                              {activeWorkers.length > 4 && (
-                                <span className="rounded-lg bg-slate-200 px-2 py-0.8 text-[10px] font-bold text-slate-600">
-                                  +{activeWorkers.length - 4} lainnya
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 3. Radar Kolaborasi Lintas Tim ("Biar Bos Tau") */}
-                        <div className="rounded-2xl bg-gradient-to-r from-red-50/40 via-amber-50/30 to-purple-50/40 border border-slate-200/80 p-3 space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
-                              <Share2 className="h-3.5 w-3.5 text-red-600" />
-                              Radar Request Lintas Divisi:
-                            </span>
-                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
-                              {crossRequests.length} Aktif
-                            </span>
-                          </div>
-
-                          {crossRequests.length === 0 ? (
-                            <p className="text-[11px] text-slate-500">
-                              Tidak ada delegasi lintas divisi aktif saat ini.
-                            </p>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {crossRequests.slice(0, 2).map((reqTask) => (
-                                <div
-                                  key={reqTask.id}
-                                  className="rounded-xl bg-white/90 border border-slate-200 p-2 text-[11px] text-slate-700 shadow-2xs"
-                                >
-                                  <div className="flex items-center justify-between gap-1">
-                                    <div className="flex items-center gap-1 truncate font-bold text-slate-900">
-                                      <span className="text-red-700 font-extrabold">{reqTask.creator?.name || "Kolega"}</span>
-                                      <span className="text-slate-400">➔</span>
-                                      <span className="text-blue-700 truncate">{reqTask.user?.name}</span>
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase px-1 rounded bg-slate-100 text-slate-600 shrink-0">
-                                      {reqTask.status === "IN_PROGRESS"
-                                        ? "Sedang Jalan"
-                                        : reqTask.reviewStatus === "TO_BE_REVIEWED"
-                                        ? "Review"
-                                        : "Pending"}
+                              <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-white/20 backdrop-blur-xs text-white">
+                                  <Icon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-black tracking-tight">{cardDef.label}</h3>
+                                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black">
+                                      {total} Tugas
                                     </span>
                                   </div>
-                                  <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
-                                    "{reqTask.title}"
-                                  </p>
+                                  <p className="text-[11px] text-white/80 line-clamp-1">{cardDef.sublabel}</p>
                                 </div>
-                              ))}
-                              {crossRequests.length > 2 && (
-                                <p className="text-[10px] text-red-700 font-bold text-center">
-                                  +{crossRequests.length - 2} request lintas divisi lainnya
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTargetCardForNew(cardDef.key);
+                                  setCreateModalOpen(true);
+                                }}
+                                title={`Request tugas ke ${cardDef.label}`}
+                                className="rounded-xl bg-white/20 hover:bg-white/30 px-2.5 py-1.5 text-white transition flex items-center gap-1 text-[11px] font-bold cursor-pointer shrink-0"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                <span>Request</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Thumbnail Body */}
+                          <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                            {/* Live Notification Bar */}
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* Running Tasks */}
+                              <div
+                                className={`p-2.5 rounded-2xl border transition ${
+                                  runningCount > 0
+                                    ? "bg-blue-50/80 border-blue-200 text-blue-900 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold">Sedang Jalan</span>
+                                  {runningCount > 0 && (
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-lg font-black mt-0.5">
+                                  {runningCount} <span className="text-[10px] font-medium text-slate-500">task</span>
+                                </div>
+                              </div>
+
+                              {/* User Requested */}
+                              <div
+                                className={`p-2.5 rounded-2xl border transition ${
+                                  requestedCount > 0
+                                    ? "bg-purple-50/80 border-purple-200 text-purple-900 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold">Request Masuk</span>
+                                <div className="text-lg font-black mt-0.5">
+                                  {requestedCount} <span className="text-[10px] font-medium text-slate-500">task</span>
+                                </div>
+                              </div>
+
+                              {/* Review Gate Pending */}
+                              <div
+                                className={`p-2.5 rounded-2xl border transition ${
+                                  reviewCount > 0
+                                    ? "bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200/60 text-slate-500"
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold">Butuh Review</span>
+                                <div className="text-lg font-black mt-0.5">
+                                  {reviewCount} <span className="text-[10px] font-medium text-slate-500">task</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Active Workers */}
+                            <div className="rounded-2xl bg-slate-50/80 border border-slate-200/70 p-3 space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                                  <User className="h-3.5 w-3.5 text-slate-500" />
+                                  Sedang Bekerja di Sini:
+                                </span>
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-700">
+                                  {activeWorkers.length} Karyawan
+                                </span>
+                              </div>
+
+                              {activeWorkers.length === 0 ? (
+                                <p className="text-[11px] text-slate-400 italic">
+                                  Belum ada karyawan aktif yang mengerjakan tugas saat ini.
                                 </p>
+                              ) : (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {activeWorkers.slice(0, 4).map((worker) => (
+                                    <span
+                                      key={worker.id}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2 py-0.8 text-[11px] font-bold text-slate-800 shadow-2xs"
+                                    >
+                                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                      {worker.name}
+                                    </span>
+                                  ))}
+                                  {activeWorkers.length > 4 && (
+                                    <span className="rounded-lg bg-slate-200 px-2 py-0.8 text-[10px] font-bold text-slate-600">
+                                      +{activeWorkers.length - 4} lainnya
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          )}
-                        </div>
 
-                        {/* 4. Action Footer Button */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-slate-500">
-                            {completedCount} tuntas dari {total} tugas
-                          </span>
-                          <div className="inline-flex items-center gap-1.5 text-xs font-black text-red-600 group-hover:text-red-700 group-hover:translate-x-0.5 transition">
-                            <span>Buka Stage Divisi</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
+                            {/* Radar Request Lintas Divisi */}
+                            <div className="rounded-2xl bg-gradient-to-r from-red-50/40 via-amber-50/30 to-purple-50/40 border border-slate-200/80 p-3 space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[11px] font-black text-slate-800 flex items-center gap-1.5">
+                                  <Share2 className="h-3.5 w-3.5 text-red-600" />
+                                  Radar Request Lintas Divisi:
+                                </span>
+                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
+                                  {crossRequests.length} Aktif
+                                </span>
+                              </div>
+
+                              {crossRequests.length === 0 ? (
+                                <p className="text-[11px] text-slate-500">
+                                  Tidak ada delegasi lintas divisi aktif saat ini.
+                                </p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {crossRequests.slice(0, 2).map((reqTask) => (
+                                    <div
+                                      key={reqTask.id}
+                                      className="rounded-xl bg-white/90 border border-slate-200 p-2 text-[11px] text-slate-700 shadow-2xs"
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <div className="flex items-center gap-1 truncate font-bold text-slate-900">
+                                          <span className="text-red-700 font-extrabold">{reqTask.creator?.name || "Kolega"}</span>
+                                          <span className="text-slate-400">➔</span>
+                                          <span className="text-blue-700 truncate">{reqTask.user?.name}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase px-1 rounded bg-slate-100 text-slate-600 shrink-0">
+                                          {reqTask.status === "IN_PROGRESS"
+                                            ? "Sedang Jalan"
+                                            : reqTask.reviewStatus === "TO_BE_REVIEWED"
+                                            ? "Review"
+                                            : "Pending"}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
+                                        "{reqTask.title}"
+                                      </p>
+                                    </div>
+                                  ))}
+                                  {crossRequests.length > 2 && (
+                                    <p className="text-[10px] text-red-700 font-bold text-center">
+                                      +{crossRequests.length - 2} request lintas divisi lainnya
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Footer */}
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {completedCount} tuntas dari {total} tugas
+                              </span>
+                              <div className="inline-flex items-center gap-1.5 text-xs font-black text-red-600 group-hover:text-red-700 group-hover:translate-x-0.5 transition">
+                                <span>Buka BigBoard {cardDef.label}</span>
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           ) : (
             /* ========================================================================= */
-            /* VIEW 2: STAGE KANBAN VIEW ("Seperti Tugas Pribadi")                       */
+            /* VIEW MODE 3: BIGBOARD DIVISI STAGE KANBAN                                 */
             /* ========================================================================= */
             <div className="space-y-5">
               {/* Top Navigation & Breadcrumb */}
@@ -1151,7 +1751,7 @@ export default function WorkspaceCardsPage() {
                     )}
                     <div>
                       <h2 className="text-lg font-black text-slate-900 leading-tight">
-                        Lembar Kerja Divisi {currentDivisionDef?.label}
+                        BigBoard Divisi {currentDivisionDef?.label}
                       </h2>
                       <p className="text-[11px] text-slate-500">
                         {currentDivisionDef?.sublabel} • Tampilan Stage Kanban Lintas Tim
@@ -1203,49 +1803,31 @@ export default function WorkspaceCardsPage() {
                             : "text-slate-600 hover:text-blue-600"
                         }`}
                       >
-                        <span>🎯 Pipeline Terkait Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "RELEVANT"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              divisionTasks.filter(
-                                (t) => t.user?.id === user.id || t.creator?.id === user.id
-                              ).length
-                            }
-                          </span>
-                        )}
+                        <span>Terkait Saya</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("MINE")}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                          viewScope === "MINE"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Tugas Saya
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setViewScope("DELEGATED")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
                           viewScope === "DELEGATED"
-                            ? "bg-purple-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-purple-600"
+                            ? "bg-white text-slate-900 shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        <span>📤 Delegasi Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "DELEGATED"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              divisionTasks.filter(
-                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
-                              ).length
-                            }
-                          </span>
-                        )}
+                        Delegasi Saya
                       </button>
 
                       <button
@@ -1257,167 +1839,95 @@ export default function WorkspaceCardsPage() {
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        🏢 Semua Tugas Divisi ({divisionTasks.length})
+                        Semua Tugas Divisi
                       </button>
                     </>
                   ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("ALL")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "ALL"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        🏢 Semua Tugas ({divisionTasks.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("RELEVANT")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "RELEVANT"
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-blue-600"
-                        }`}
-                      >
-                        <span>🎯 Tugas Terkait Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "RELEVANT"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              divisionTasks.filter(
-                                (t) => t.user?.id === user.id || t.creator?.id === user.id
-                              ).length
-                            }
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("DELEGATED")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "DELEGATED"
-                            ? "bg-purple-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-purple-600"
-                        }`}
-                      >
-                        <span>📤 Delegasi Saya</span>
-                        {user && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              viewScope === "DELEGATED"
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {
-                              divisionTasks.filter(
-                                (t) => t.creator?.id === user.id && t.user?.id !== user.id
-                              ).length
-                            }
-                          </span>
-                        )}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => setViewScope("ALL")}
+                      className="px-3 py-1 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-2xs"
+                    >
+                      Semua Tugas Divisi (Admin/Manager)
+                    </button>
                   )}
                 </div>
 
                 {/* Member, Brand, and Search Filters */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Member Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">Pengerja:</span>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {/* Filter Member */}
+                  <div className="relative">
                     <select
                       value={selectedMember}
                       onChange={(e) => setSelectedMember(e.target.value)}
-                      className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
                     >
-                      <option value="ALL">Semua Karyawan</option>
+                      <option value="ALL">Semua Anggota</option>
                       {divisionMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name}
+                          {m.name} {m.id === user?.id ? "(Saya)" : ""}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Brand Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">Brand:</span>
-                    <select
-                      value={selectedBrand}
-                      onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
-                    >
-                      <option value="ALL">Semua Brand</option>
-                      {availableBrands.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Filter Brand */}
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => setSelectedBrand(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                  >
+                    <option value="ALL">Semua Brand</option>
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
 
                   {/* Search */}
                   <div className="relative w-44 sm:w-56">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari tugas di divisi ini..."
+                      placeholder="Cari tugas..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
                     />
-                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                   </div>
                 </div>
               </div>
 
-              {/* Employee Mode Indicator in Stage View */}
-              {!isAdmin && viewScope === "RELEVANT" && (
-                <div className="rounded-xl bg-blue-50 border border-blue-200/80 px-3.5 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-900 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0"></span>
-                    <span className="font-bold">Mode Karyawan:</span>
-                    <span>Hanya menampilkan pipeline stage yang bersangkutan dengan Anda ({filteredDivisionTasks.length} tugas).</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("ALL")}
-                    className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline text-left sm:text-right cursor-pointer"
-                  >
-                    Buka semua tugas divisi ({divisionTasks.length}) →
-                  </button>
-                </div>
-              )}
-
-              {/* 5-COLUMN KANBAN BOARD */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start pb-8">
-                {STAGE_COLUMNS.map((col) => {
+              {/* 4 Stage Kanban Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+                {DIVISION_STAGE_COLUMNS.map((col) => {
                   const Icon = col.icon;
-                  // Filter tasks into columns
                   const colTasks = filteredDivisionTasks.filter((t) => {
                     if (col.id === "REQUESTED") {
                       return (
                         t.status === "REQUESTED" ||
-                        (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id)
+                        (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id) ||
+                        t.status === "PENDING"
                       );
                     }
-                    if (col.id === "PENDING") {
+                    if (col.id === "IN_PROGRESS") {
                       return (
-                        t.status === "PENDING" &&
-                        (!t.creator?.id || t.creator.id === t.user?.id)
+                        t.status === "IN_PROGRESS" &&
+                        t.reviewStatus !== "TO_BE_REVIEWED" &&
+                        t.reviewStatus !== "UNDER_REVIEW"
                       );
                     }
-                    if (col.id === "IN_PROGRESS") return t.status === "IN_PROGRESS";
-                    if (col.id === "COMPLETED") return t.status === "COMPLETED";
-                    if (col.id === "BLOCKED") return t.status === "BLOCKED";
+                    if (col.id === "UNDER_REVIEW") {
+                      return (
+                        t.reviewStatus === "TO_BE_REVIEWED" ||
+                        t.reviewStatus === "UNDER_REVIEW" ||
+                        t.reviewStatus === "REVISION_REQUESTED"
+                      );
+                    }
+                    if (col.id === "COMPLETED") {
+                      return t.status === "COMPLETED";
+                    }
                     return false;
                   });
 
@@ -1426,12 +1936,12 @@ export default function WorkspaceCardsPage() {
                       key={col.id}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, col.id)}
-                      className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xs flex flex-col min-h-[500px] shadow-2xs overflow-hidden"
+                      className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur-xs shadow-2xs flex flex-col min-h-[520px] overflow-hidden"
                     >
                       {/* Column Header */}
-                      <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                      <div className="p-3.5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="p-1 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                          <div className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
@@ -1445,21 +1955,7 @@ export default function WorkspaceCardsPage() {
                           </div>
                         </div>
 
-                        {/* Tombol tambah tugas internal di PENDING: hanya untuk anggota divisi ini atau Admin */}
-                        {col.id === "PENDING" && (isHomeCard(selectedDivision, user?.department) || isAdmin) && (
-                          <button
-                            onClick={() => {
-                              setTargetCardForNew(selectedDivision || undefined);
-                              setCreateModalOpen(true);
-                            }}
-                            title={`Tambah tugas internal ${currentDivisionDef?.label}`}
-                            className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-
-                        {/* Tombol kirim request di REQUESTED: untuk siapa saja yang ingin request ke divisi ini */}
+                        {/* Add Task Button */}
                         {col.id === "REQUESTED" && (
                           <button
                             onClick={() => {
@@ -1467,256 +1963,23 @@ export default function WorkspaceCardsPage() {
                               setCreateModalOpen(true);
                             }}
                             title={`Request kerjaan ke tim ${currentDivisionDef?.label}`}
-                            className="p-1 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100 transition cursor-pointer"
+                            className="p-1.5 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100 transition cursor-pointer"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Plus className="h-4 w-4" />
                           </button>
                         )}
                       </div>
 
-                      {/* Column Task Cards */}
-                      <div className="p-2.5 flex-1 space-y-2.5 overflow-y-auto max-h-[700px]">
+                      {/* Cards Container */}
+                      <div className="p-3 flex-1 space-y-3 overflow-y-auto max-h-[720px]">
                         {colTasks.length === 0 ? (
-                          <div className="h-40 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                          <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                             <Icon className="h-6 w-6 text-slate-300 mb-1" />
-                            <p className="text-[11px] font-medium text-slate-500">Kosong</p>
-                            <p className="text-[9px] text-slate-400">Tarik tugas ke sini</p>
+                            <p className="text-xs font-bold text-slate-600">Kosong</p>
+                            <p className="text-[10px] text-slate-400">Tarik tugas ke kolom ini</p>
                           </div>
                         ) : (
-                          colTasks.map((task) => {
-                            const isRunning = Boolean(task.timerStartedAt);
-                            const elapsed = activeTimers[task.id] || 0;
-                            const isMyTask = task.user?.id === user?.id;
-                            const isCreator = task.creator?.id === user?.id;
-
-                            return (
-                              <div
-                                key={task.id}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, task.id)}
-                                onClick={() => setSelectedTaskForDetail(task)}
-                                className={`rounded-xl border bg-white p-3 shadow-2xs transition-all duration-150 space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-slate-300 ${
-                                  task.priority === "URGENT"
-                                    ? "border-red-200"
-                                    : task.reviewStatus === "TO_BE_REVIEWED"
-                                    ? "border-amber-300 bg-amber-50/20"
-                                    : "border-slate-200"
-                                }`}
-                              >
-                                {/* Top Badge Row */}
-                                <div className="flex items-center justify-between gap-1 flex-wrap">
-                                  <div className="flex items-center gap-1 flex-wrap">
-                                    {task.brandName && (
-                                      <span className="rounded-md bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.2 flex items-center gap-1">
-                                        <Tag className="h-2.5 w-2.5" />
-                                        {task.brandName}
-                                      </span>
-                                    )}
-                                    <span className={`rounded-md border font-bold text-[9px] px-1.5 py-0.2 ${getPriorityBadge(task.priority)}`}>
-                                      {task.priority}
-                                    </span>
-                                  </div>
-
-                                  {/* Follow Up Button */}
-                                  <div onClick={(e) => e.stopPropagation()}>
-                                    <FollowUpButton
-                                      taskId={task.id}
-                                      taskTitle={task.title}
-                                      initialFollowUps={task.followUps}
-                                      onFollowUpSuccess={fetchTasks}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Title & Snippet */}
-                                <div>
-                                  <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 hover:text-red-600 transition">
-                                    {task.title}
-                                  </h4>
-                                  {task.description && (
-                                    <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
-                                      {task.description.replace(/<[^>]*>?/gm, "").trim()}
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* People Info: Creator & Assignee */}
-                                <div className="rounded-lg bg-slate-50 p-2 text-[10px] text-slate-600 border border-slate-100 space-y-1">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-slate-500 font-medium">Penerima:</span>
-                                    <span className="font-bold text-slate-900 truncate max-w-[130px]">
-                                      {isMyTask ? (
-                                        <span className="text-blue-700 font-black">Saya Sendiri</span>
-                                      ) : (
-                                        task.user?.name || "Belum ada"
-                                      )}
-                                    </span>
-                                  </div>
-                                  {task.creator?.id && task.creator.id !== task.user?.id && (
-                                    <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                                      <span className="text-slate-500 font-medium">Pemberi:</span>
-                                      <span className="font-bold text-purple-700 truncate max-w-[130px]">
-                                        {isCreator ? "Saya" : task.creator.name}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Review Gate Alert Banners */}
-                                {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW" || (Boolean(task.deliverableUrl) && task.status !== "COMPLETED")) && (
-                                  <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[10px] space-y-1.5"
-                                  >
-                                    <div className="flex items-center justify-between font-black">
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3 text-amber-600" />
-                                        {task.reviewStatus === "UNDER_REVIEW" ? "👀 SEDANG DI-REVIEW" : "⏳ MENUNGGU REVIEW"}
-                                      </span>
-                                      {isCreator && (
-                                        <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.2 rounded font-bold">
-                                          Pemberi Tugas
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {!isCreator && (
-                                      <p className="text-[9px] text-amber-700">
-                                        {task.reviewStatus === "UNDER_REVIEW"
-                                          ? `Sedang di-review oleh ${task.creator?.name || "pemberi tugas"}.`
-                                          : `Menunggu review dari ${task.creator?.name || "pemberi tugas"}.`}
-                                      </p>
-                                    )}
-
-                                    {/* Action buttons for creator / manager */}
-                                    {(isCreator || user?.role === "ADMIN" || user?.role === "MANAGER") ? (
-                                      <div className="flex items-center gap-1.5 pt-1 border-t border-amber-200/70">
-                                        {task.reviewStatus === "TO_BE_REVIEWED" && (
-                                          <button
-                                            onClick={() => handleStartReview(task.id)}
-                                            className="flex-1 py-1 rounded-lg bg-white border border-amber-400 text-amber-800 text-[9px] font-bold hover:bg-amber-100 transition text-center cursor-pointer"
-                                          >
-                                            Review
-                                          </button>
-                                        )}
-                                        <button
-                                          onClick={() => setRevisionModalTask(task)}
-                                          className="flex-1 py-1 rounded-lg bg-white border border-rose-300 text-rose-700 text-[9px] font-bold hover:bg-rose-50 transition text-center cursor-pointer"
-                                        >
-                                          Revisi
-                                        </button>
-                                        <button
-                                          onClick={() => handleApproveTask(task.id)}
-                                          className="flex-1 py-1 rounded-lg bg-emerald-600 text-white text-[9px] font-black hover:bg-emerald-700 transition text-center cursor-pointer shadow-2xs"
-                                        >
-                                          ACC / Done !
-                                        </button>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                )}
-
-                                {task.reviewStatus === "REVISION_REQUESTED" && (
-                                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[10px] space-y-1.5">
-                                    <div className="flex items-center justify-between font-black">
-                                      <span className="flex items-center gap-1">
-                                        ⚠️ PERLU REVISI
-                                      </span>
-                                      <span className="text-[9px] bg-rose-200 text-rose-900 px-1.5 py-0.2 rounded font-bold">
-                                        Catatan Tersedia
-                                      </span>
-                                    </div>
-                                    {isMyTask && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeliverableModalTask(task);
-                                        }}
-                                        className="w-full mt-1 py-1 rounded-lg bg-rose-600 text-white text-[9px] font-black hover:bg-rose-700 transition text-center cursor-pointer shadow-2xs"
-                                      >
-                                        Submit Revisi & Bukti Baru
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-
-                                {task.deliverableUrl && (
-                                  <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="rounded-lg bg-emerald-50 border border-emerald-200 p-1.5 text-[10px] flex items-center justify-between"
-                                  >
-                                    <span className="text-emerald-800 font-bold flex items-center gap-1">
-                                      <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Hasil Kerja
-                                    </span>
-                                    <a
-                                      href={task.deliverableUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-emerald-700 font-black hover:underline flex items-center gap-1 text-[10px]"
-                                    >
-                                      Buka Link <ExternalLink className="h-2.5 w-2.5" />
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* Card Footer: Timer & Status Selector */}
-                                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                                  {/* Live Timer if applicable */}
-                                  <div className="flex items-center gap-1">
-                                    {isMyTask && task.status !== "COMPLETED" ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleToggleTimer(task);
-                                        }}
-                                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
-                                          isRunning
-                                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200 animate-pulse"
-                                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                        }`}
-                                      >
-                                        {isRunning ? (
-                                          <>
-                                            <PauseCircle className="h-3 w-3 text-amber-700" />
-                                            <span>{formatTimerSeconds(elapsed)}</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <PlayCircle className="h-3 w-3 text-slate-600" />
-                                            <span>Mulai</span>
-                                          </>
-                                        )}
-                                      </button>
-                                    ) : elapsed > 0 ? (
-                                      <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                                        <Timer className="h-3 w-3" />
-                                        {formatTimerSeconds(elapsed)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[9px] text-slate-400 font-mono">
-                                        {formatDateTime(task.expectedDeadline)}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Quick Status Dropdown */}
-                                  <div onClick={(e) => e.stopPropagation()}>
-                                    <select
-                                      value={task.status}
-                                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                                      className="rounded border border-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer outline-none"
-                                    >
-                                      <option value="REQUESTED">📥 Requested</option>
-                                      <option value="PENDING">🕒 Belum</option>
-                                      <option value="IN_PROGRESS">▶️ Berjalan</option>
-                                      <option value="COMPLETED">✅ Selesai</option>
-                                      <option value="BLOCKED">🛑 Terkendala</option>
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
+                          colTasks.map((t) => renderCard(t, false, false))
                         )}
                       </div>
                     </div>
@@ -1731,22 +1994,26 @@ export default function WorkspaceCardsPage() {
       {/* Modals */}
       <CreateTaskModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        initialDepartment={targetCardForNew}
-        initialIsContentProduction={false}
+        onClose={() => {
+          setCreateModalOpen(false);
+          setTargetCardForNew(undefined);
+        }}
         onSuccess={fetchTasks}
+        initialDepartment={targetCardForNew}
       />
 
-      <TaskDetailModal
-        isOpen={Boolean(selectedTaskForDetail)}
-        onClose={() => setSelectedTaskForDetail(null)}
-        task={selectedTaskForDetail}
-        currentUser={user}
-        onUpdate={fetchTasks}
-        onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
-        onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
-        onOpenRevisionModal={(t) => setRevisionModalTask(t)}
-      />
+      {selectedTaskForDetail && (
+        <TaskDetailModal
+          isOpen={Boolean(selectedTaskForDetail)}
+          onClose={() => setSelectedTaskForDetail(null)}
+          task={selectedTaskForDetail}
+          currentUser={user}
+          onUpdate={fetchTasks}
+          onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
+          onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
+          onOpenRevisionModal={(t) => setRevisionModalTask(t)}
+        />
+      )}
 
       {deadlineModalTask && (
         <DeadlineSuggestionModal
@@ -1776,6 +2043,7 @@ export default function WorkspaceCardsPage() {
           onClose={() => setDeliverableModalTask(null)}
           taskId={deliverableModalTask.id}
           taskTitle={deliverableModalTask.title}
+          isApprovalAction={deliverableModalTask.reviewStatus === "REVISION_REQUESTED"}
           onSuccess={fetchTasks}
         />
       )}

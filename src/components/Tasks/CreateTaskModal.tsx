@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Sparkles,
+  Users,
+  Check,
 } from "lucide-react";
 import RichTextEditor from "./RichTextEditor";
 
@@ -75,7 +77,8 @@ export default function CreateTaskModal({
     initialIsContentProduction ? "SOSMED" : initialDepartment || "SOSMED"
   );
   const [brandName, setBrandName] = useState(initialBrand || "");
-  const [assigneeId, setAssigneeId] = useState("");
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
+  const [assigneeSearch, setAssigneeSearch] = useState("");
   const [expectedDeadline, setExpectedDeadline] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [estimatedHours, setEstimatedHours] = useState(2.0);
@@ -125,18 +128,34 @@ export default function CreateTaskModal({
         if (!brandName && data.brands && data.brands.length > 0) {
           setBrandName(data.brands[0]);
         }
-        if (!assigneeId) {
+        if (selectedAssigneeIds.length === 0) {
           if (defaultToSelf && userObj) {
-            setAssigneeId(userObj.id);
+            setSelectedAssigneeIds([userObj.id]);
           } else if (userObj) {
-            setAssigneeId(userObj.id);
+            setSelectedAssigneeIds([userObj.id]);
           } else if (data.employees && data.employees.length > 0) {
-            setAssigneeId(data.employees[0].id);
+            setSelectedAssigneeIds([data.employees[0].id]);
           }
         }
       }
     } catch (err) {
       console.error("Failed to fetch metadata:", err);
+    }
+  };
+
+  const toggleAssignee = (id: string) => {
+    if (selectedAssigneeIds.includes(id)) {
+      if (selectedAssigneeIds.length > 1) {
+        setSelectedAssigneeIds(selectedAssigneeIds.filter((x) => x !== id));
+      }
+    } else {
+      setSelectedAssigneeIds([...selectedAssigneeIds, id]);
+    }
+  };
+
+  const selectOnlySelf = () => {
+    if (currentUser) {
+      setSelectedAssigneeIds([currentUser.id]);
     }
   };
 
@@ -152,8 +171,8 @@ export default function CreateTaskModal({
       setErrorMsg("Nama Brand wajib diisi.");
       return;
     }
-    if (!assigneeId) {
-      setErrorMsg("Pilih penerima tugas (Assignee).");
+    if (selectedAssigneeIds.length === 0) {
+      setErrorMsg("Pilih minimal satu penerima tugas (Assignee).");
       return;
     }
 
@@ -167,7 +186,8 @@ export default function CreateTaskModal({
           description,
           departmentCard,
           brandName,
-          assigneeId,
+          assigneeIds: selectedAssigneeIds,
+          assigneeId: selectedAssigneeIds[0],
           expectedDeadline: expectedDeadline || null,
           priority,
           estimatedHours,
@@ -197,8 +217,20 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   const currentDeptConfig = DEPARTMENTS.find((d) => d.key === departmentCard) || DEPARTMENTS[0];
-  const isSelfAssigned = currentUser && assigneeId === currentUser.id;
-  const selectedAssignee = employees.find((e) => e.id === assigneeId);
+  const isSelfOnly =
+    currentUser &&
+    selectedAssigneeIds.length === 1 &&
+    selectedAssigneeIds[0] === currentUser.id;
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+    (emp.department && emp.department.toLowerCase().includes(assigneeSearch.toLowerCase()))
+  );
+  const assignedNamesSummary = selectedAssigneeIds
+    .map((id) => employees.find((e) => e.id === id)?.name || (currentUser?.id === id ? currentUser.name : ""))
+    .filter(Boolean)
+    .join(", ");
+  const isSelfAssigned = isSelfOnly;
+  const selectedAssignee = employees.find((e) => e.id === selectedAssigneeIds[0]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
@@ -378,50 +410,113 @@ export default function CreateTaskModal({
                   </span>
                 </div>
 
-                {/* 1. Penerima Tugas: Dropdown Otomatis 1-Klik */}
+                {/* 1. Penerima Tugas: Multi-Assignee Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                    <span>
-                      {isContentProduction
-                        ? "Penerima Tugas / PIC Konten (Editor/Desainer/Sosmed)"
-                        : "Penerima Tugas (Assignee)"} <span className="text-red-500">*</span>
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      required
-                      value={assigneeId}
-                      onChange={(e) => setAssigneeId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none appearance-none bg-white font-medium"
-                    >
-                      <option value="" disabled>Pilih Penerima Tugas...</option>
-                      {currentUser && (
-                        <option value={currentUser.id}>
-                          👤 Saya Sendiri ({currentUser.name})
-                        </option>
-                      )}
-                      <optgroup label="Rekan Kerja / Anggota Tim">
-                        {employees
-                          .filter((emp) => !currentUser || emp.id !== currentUser.id)
-                          .map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name} — {emp.jobTitle || emp.department || "Karyawan"}
-                            </option>
-                          ))}
-                      </optgroup>
-                    </select>
-                    <User className="absolute left-2.5 top-3 h-3.5 w-3.5 text-slate-400" />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-slate-500" />
+                      <span>{isContentProduction ? "Tim Konten / PIC (Bisa >1 Orang)" : "Penerima Tugas (Bisa >1 Orang)"}</span>
+                      <span className="text-red-500">*</span>
+                    </label>
+                    {currentUser && (
+                      <button
+                        type="button"
+                        onClick={selectOnlySelf}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer"
+                      >
+                        Pilih Saya Sendiri
+                      </button>
+                    )}
                   </div>
 
-                  {/* Reactive indicator */}
-                  <div className="mt-1.5 text-[10px]">
-                    {isSelfAssigned ? (
+                  {/* Selected Assignees Chips */}
+                  <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-white rounded-xl border border-slate-200 min-h-[42px] items-center">
+                    {selectedAssigneeIds.map((id) => {
+                      const emp = employees.find((e) => e.id === id) || (currentUser?.id === id ? currentUser : null);
+                      const isSelf = currentUser?.id === id;
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-slate-200 text-[10px] font-bold flex items-center justify-center overflow-hidden">
+                            {emp?.avatarUrl ? (
+                              <img src={emp.avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                            ) : (
+                              (emp?.name || "?").charAt(0)
+                            )}
+                          </span>
+                          <span>{isSelf ? `${emp?.name || "Saya"} (Saya)` : emp?.name || "Anggota"}</span>
+                          {selectedAssigneeIds.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleAssignee(id)}
+                              className="text-slate-400 hover:text-red-500 text-xs font-bold ml-0.5 cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Search filter for team members */}
+                  <div className="relative mb-1.5">
+                    <input
+                      type="text"
+                      placeholder="Cari anggota tim (klik untuk tambah/kurang)..."
+                      value={assigneeSearch}
+                      onChange={(e) => setAssigneeSearch(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-1.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
+                    />
+                    <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  </div>
+
+                  {/* Scrollable Members List */}
+                  <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-white p-1.5">
+                    {filteredEmployees.map((emp) => {
+                      const isChecked = selectedAssigneeIds.includes(emp.id);
+                      const isMe = currentUser?.id === emp.id;
+                      return (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => toggleAssignee(emp.id)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition text-left cursor-pointer ${
+                            isChecked
+                              ? "bg-slate-900 text-white font-medium"
+                              : "hover:bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              isChecked ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                            }`}>
+                              {emp.name.charAt(0)}
+                            </span>
+                            <span className="truncate">
+                              {emp.name} {isMe ? "(Saya)" : ""}
+                            </span>
+                            <span className={`text-[10px] truncate ${isChecked ? "text-slate-300" : "text-slate-400"}`}>
+                              • {emp.jobTitle || emp.department || "Karyawan"}
+                            </span>
+                          </div>
+                          {isChecked && <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Corong Funnel Explainer */}
+                  <div className="mt-2 text-[10px]">
+                    {isSelfOnly ? (
                       <p className="text-blue-700 bg-blue-50/80 border border-blue-200/80 p-2 rounded-lg leading-relaxed">
-                        ✨ <strong>Tugas Pribadi:</strong> Otomatis masuk ke menu <strong>Tugas Pribadi</strong> Anda dan terpajang di {isContentProduction ? "Kanban Konten" : `Card ${departmentCard}`}.
+                        ✨ <strong>Tugas Pribadi:</strong> Masuk ke <strong>BigBoard Pribadi Anda</strong> dan terpajang di <strong>BigBoard Divisi {currentDeptConfig.label}</strong>.
                       </p>
                     ) : (
                       <p className="text-purple-700 bg-purple-50/80 border border-purple-200/80 p-2 rounded-lg leading-relaxed">
-                        📤 <strong>Delegasi Tim:</strong> Ditugaskan ke <strong>{selectedAssignee?.name || "Rekan Tim"}</strong>. Notifikasi otomatis akan dikirim ke akunnya.
+                        🌪️ <strong>Corong Tim:</strong> Otomatis terpajang di <strong>BigBoard Divisi {currentDeptConfig.label}</strong> dan masuk ke <strong>BigBoard Pribadi {assignedNamesSummary}</strong>. Anda dapat memantau & mereview hasilnya di tab <strong>Delegasi Saya</strong>.
                       </p>
                     )}
                   </div>

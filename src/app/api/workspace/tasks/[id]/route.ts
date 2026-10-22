@@ -19,6 +19,11 @@ export async function GET(
       include: {
         user: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
         creator: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
+          },
+        },
         followUps: {
           include: { sender: { select: { id: true, name: true, department: true, avatarUrl: true } } },
           orderBy: { createdAt: "desc" },
@@ -54,6 +59,7 @@ export async function PATCH(
       include: {
         creator: true,
         user: true,
+        assignees: true,
       },
     });
 
@@ -431,9 +437,33 @@ export async function PATCH(
     if (estimatedHours !== undefined) updatedData.estimatedHours = parseFloat(estimatedHours);
     if (actualHours !== undefined) updatedData.actualHours = parseFloat(actualHours);
 
+    if (Array.isArray(body.assigneeIds) && body.assigneeIds.length > 0) {
+      const validIds: string[] = Array.from(new Set(body.assigneeIds.filter(Boolean)));
+      if (validIds.length > 0) {
+        updatedData.userId = validIds[0];
+        await prisma.taskAssignee.deleteMany({ where: { taskId: params.id } });
+        await prisma.taskAssignee.createMany({
+          data: validIds.map((uid, index) => ({
+            taskId: params.id,
+            userId: uid,
+            role: index === 0 ? "PIC" : "MEMBER",
+          })),
+        });
+      }
+    }
+
     const updated = await prisma.task.update({
       where: { id: params.id },
       data: updatedData,
+      include: {
+        user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+        creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+          },
+        },
+      },
     });
 
     return NextResponse.json({ success: true, task: updated });

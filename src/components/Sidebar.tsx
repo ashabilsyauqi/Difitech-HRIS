@@ -61,23 +61,25 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
     deptLower.includes("desain") ||
     deptLower.includes("design");
 
-  const employeeLinks = [
-    { href: "/dashboard", label: "Presensi Harian", icon: Clock },
-    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
-    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
+  const difWorkBoardLinks = [
+    { href: "/dashboard/workspace", label: "BigBoard Divisi (6 Card)", icon: Layers },
+    { href: "/dashboard/workspace?view=personal", label: "BigBoard Pribadi", icon: Users },
     ...(isSosmedMember
       ? [{ href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard }]
       : []),
+  ];
+
+  const employeeHrisLinks = [
+    { href: "/dashboard", label: "Presensi Harian", icon: Clock },
+    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];
 
-  const managerLinks = [
+  const managerHrisLinks = [
     { href: "/manager", label: "Ringkasan Tim & Radar", icon: LayoutDashboard },
     { href: "/manager/task-radar", label: "Radar Tugas CEO & HR", icon: ActivitySquare },
     { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
-    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
-    { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
     { href: "/manager/employees", label: "Manajemen Karyawan", icon: UserCheck },
     { href: "/manager/live-map", label: "Peta Presensi Live", icon: MapPin },
     { href: "/manager/attendance", label: "Log & Audit Presensi", icon: CalendarCheck },
@@ -87,7 +89,7 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
     { href: "/manager/settings", label: "Pengaturan Kantor & Shift", icon: Settings },
   ];
 
-  const links = isManagerOrAdmin ? managerLinks : employeeLinks;
+  const hrisLinks = isManagerOrAdmin ? managerHrisLinks : employeeHrisLinks;
 
   return (
     <>
@@ -100,19 +102,27 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
       )}
 
       <aside
-        className={`fixed top-16 bottom-0 left-0 z-40 w-64 border-r border-slate-200 bg-white p-4 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xs flex flex-col justify-between ${
+        className={`fixed top-16 bottom-0 left-0 z-40 w-64 border-r border-slate-200 bg-white p-4 transition-transform duration-200 lg:static lg:translate-x-0 shadow-xs flex flex-col justify-between overflow-y-auto ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div>
-          <div className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            {isManagerOrAdmin ? "Menu Manajemen" : "Menu Karyawan"}
+          {/* DifWorkBoard Header & Navigation */}
+          <div className="mb-2 px-3 text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-red-600"></span>
+              DifWorkBoard
+            </span>
+            <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.2 rounded font-bold">
+              Board
+            </span>
           </div>
 
-          <nav className="space-y-1">
-            {links.map((item) => {
+          <nav className="space-y-1 mb-5">
+            {difWorkBoardLinks.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href.split("?")[0] && 
+                (!item.href.includes("?view=personal") || typeof window === "undefined" || window.location.search.includes("view=personal"));
               return (
                 <Link
                   key={item.href}
@@ -125,6 +135,33 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
                   }`}
                 >
                   <Icon className={`h-4 w-4 ${isActive ? "text-red-600" : "text-slate-400"}`} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* HRIS Section */}
+          <div className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            {isManagerOrAdmin ? "HRIS & Presensi (Manajemen)" : "HRIS & Presensi"}
+          </div>
+
+          <nav className="space-y-1">
+            {hrisLinks.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer ${
+                    isActive
+                      ? "bg-slate-100 text-slate-900 border border-slate-200 shadow-2xs font-bold"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? "text-slate-900" : "text-slate-400"}`} />
                   <span>{item.label}</span>
                 </Link>
               );

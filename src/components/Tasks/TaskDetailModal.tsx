@@ -73,7 +73,14 @@ export default function TaskDetailModal({
     color: "bg-slate-100 text-slate-700 border-slate-200",
   };
 
-  const isAssignee = currentUser && task.user?.id === currentUser.id;
+  const isAssignee = Boolean(
+    currentUser &&
+      (task.user?.id === currentUser.id ||
+        task.userId === currentUser.id ||
+        task.assignees?.some(
+          (a: any) => (a.user?.id || a.userId) === currentUser.id
+        ))
+  );
   const isCreator = currentUser && task.creator?.id === currentUser.id;
   const isCreatorOrManager = Boolean(isCreator || currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER");
   const hasDeliverable = Boolean(task.deliverableUrl || task.deliverableAttachment);
@@ -451,22 +458,57 @@ export default function TaskDetailModal({
               <span className="text-xs font-bold text-slate-800">Properti Lembar Kerja</span>
             </div>
 
-            {/* Assignee */}
+            {/* Assignee / Tim Pelaksana */}
             <div className="text-xs space-y-1">
-              <span className="text-slate-500 font-semibold block text-[11px]">Penerima Tugas:</span>
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200">
-                <div className="h-7 w-7 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-xs">
-                  {task.user?.name ? task.user.name.charAt(0).toUpperCase() : "U"}
+              <span className="text-slate-500 font-semibold block text-[11px]">
+                {task.assignees && task.assignees.length > 1
+                  ? `Tim Penerima (${task.assignees.length} Orang):`
+                  : "Penerima Tugas:"}
+              </span>
+              {task.assignees && task.assignees.length > 0 ? (
+                <div className="space-y-1.5">
+                  {task.assignees.map((asgn: any) => {
+                    const u = asgn.user || task.user;
+                    const isMe = u?.id === currentUser?.id;
+                    return (
+                      <div
+                        key={asgn.id || u?.id}
+                        className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200"
+                      >
+                        <div className="h-6 w-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-[10px] overflow-hidden shrink-0">
+                          {u?.avatarUrl ? (
+                            <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                          ) : (
+                            (u?.name || "?").charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="truncate flex-1">
+                          <div className="font-bold text-slate-900 text-xs truncate">
+                            {isMe ? `${u?.name} (Saya)` : u?.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {u?.department || "Anggota Tim"} {asgn.role === "PIC" ? "• PIC" : ""}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div>
-                  <div className="font-bold text-slate-900 text-xs">
-                    {task.user?.id === currentUser?.id ? `${task.user?.name} (Saya)` : task.user?.name}
+              ) : (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200">
+                  <div className="h-7 w-7 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-xs">
+                    {task.user?.name ? task.user.name.charAt(0).toUpperCase() : "U"}
                   </div>
-                  <div className="text-[10px] text-slate-500">
-                    {task.user?.department || "Anggota Tim"}
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs">
+                      {task.user?.id === currentUser?.id ? `${task.user?.name} (Saya)` : task.user?.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {task.user?.department || "Anggota Tim"}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Creator */}

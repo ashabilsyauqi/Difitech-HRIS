@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { ShieldCheck, LogOut, Clock, User } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -21,6 +21,7 @@ interface NavbarProps {
 
 export default function Navbar({ user, onMenuToggle }: NavbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [timeStr, setTimeStr] = useState<string>("");
 
   useEffect(() => {
@@ -78,11 +79,22 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
           <div>
             <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
               <span className="text-red-600">Difitech</span>
-              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                HRIS CamStamp
-              </span>
+              {pathname?.includes("workspace") || pathname?.includes("content-production") ? (
+                <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[10px] font-bold text-white border border-slate-800 flex items-center gap-1 shadow-2xs">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                  DifWorkBoard
+                </span>
+              ) : (
+                <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                  HRIS CamStamp
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block">Sistem Presensi & SDM Modern</p>
+            <p className="text-[11px] text-slate-500 hidden sm:block">
+              {pathname?.includes("workspace") || pathname?.includes("content-production")
+                ? "BigBoard & Corong Kolaborasi"
+                : "Sistem Presensi & SDM Modern"}
+            </p>
           </div>
         </Link>
       </div>

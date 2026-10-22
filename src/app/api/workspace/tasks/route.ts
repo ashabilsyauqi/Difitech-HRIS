@@ -16,19 +16,31 @@ export async function GET(req: NextRequest) {
     const brandName = searchParams.get("brandName");
     const myTasksTab = searchParams.get("myTasksTab"); // INBOX | IN_PROGRESS | COMPLETED | ALL
     const myTasks = searchParams.get("myTasks");
+    const viewScope = searchParams.get("viewScope"); // MINE | DELEGATED | ALL
     const isContentProduction = searchParams.get("isContentProduction");
     const kanbanStage = searchParams.get("kanbanStage");
     const search = searchParams.get("search");
 
     const whereClause: any = {};
 
-    // 1. Filter Tab / Papan "Tugas Pribadi"
-    if (myTasks === "true" || myTasksTab === "ALL") {
-      whereClause.userId = authUser.userId;
+    // 1. Filter Corong & BigBoard (Personal vs Delegated vs Division)
+    if (viewScope === "DELEGATED") {
+      whereClause.creatorId = authUser.userId;
+      whereClause.NOT = {
+        userId: authUser.userId,
+      };
+    } else if (viewScope === "MINE" || myTasks === "true" || myTasksTab === "ALL") {
+      whereClause.OR = [
+        { userId: authUser.userId },
+        { assignees: { some: { userId: authUser.userId } } },
+      ];
     } else if (myTasksTab) {
-      whereClause.userId = authUser.userId;
+      whereClause.OR = [
+        { userId: authUser.userId },
+        { assignees: { some: { userId: authUser.userId } } },
+      ];
       if (myTasksTab === "INBOX") {
-        whereClause.status = "PENDING";
+        whereClause.status = { in: ["PENDING", "REQUESTED"] };
       } else if (myTasksTab === "IN_PROGRESS") {
         whereClause.status = "IN_PROGRESS";
       } else if (myTasksTab === "COMPLETED") {
@@ -46,7 +58,7 @@ export async function GET(req: NextRequest) {
       whereClause.brandName = brandName;
     }
 
-    // 4. Filter Kanban Content Production
+    // 4. Filter Kanban Content Production (Sosmed)
     if (isContentProduction !== null && isContentProduction !== undefined && isContentProduction !== "") {
       whereClause.isContentProduction = isContentProduction === "true";
     }
@@ -59,11 +71,22 @@ export async function GET(req: NextRequest) {
     // 6. Search Query
     if (search && search.trim() !== "") {
       const q = search.trim();
-      whereClause.OR = [
+      const searchConditions = [
         { title: { contains: q } },
         { description: { contains: q } },
         { brandName: { contains: q } },
       ];
+
+      if (whereClause.OR) {
+        // Gabungkan existing personal OR dengan search condition
+        whereClause.AND = [
+          { OR: whereClause.OR },
+          { OR: searchConditions },
+        ];
+        delete whereClause.OR;
+      } else {
+        whereClause.OR = searchConditions;
+      }
     }
 
     const tasks = await prisma.task.findMany({
@@ -89,6 +112,21 @@ export async function GET(req: NextRequest) {
             department: true,
             jobTitle: true,
             avatarUrl: true,
+          },
+        },
+        assignees: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                department: true,
+                jobTitle: true,
+                avatarUrl: true,
+              },
+            },
           },
         },
         followUps: {
@@ -130,12 +168,26 @@ export async function GET(req: NextRequest) {
       ],
     });
 
-    // Ringkasan Counter Tugas Pribadi untuk badge
-    const [inboxCount, inProgressCount, completedCount, pendingReviewCount] = await Promise.all([
-      prisma.task.count({ where: { userId: authUser.userId, status: "PENDING" } }),
-      prisma.task.count({ where: { userId: authUser.userId, status: "IN_PROGRESS" } }),
-      prisma.task.count({ where: { userId: authUser.userId, status: "COMPLETED" } }),
+    // Hitung counter untuk Personal BigBoard
+    const personalFilter = {
+      OR: [
+        { userId: authUser.userId },
+        { assignees: { some: { userId: authUser.userId } } },
+      ],
+    };
+
+    const [inboxCount, inProgressCount, completedCount, pendingReviewCount, delegatedCount] = await Promise.all([
+      prisma.task.count({ where: { ...personalFilter, status: { in: ["PENDING", "REQUESTED"] } } }),
+      prisma.task.count({ where: { ...personalFilter, status: "IN_PROGRESS" } }),
+      prisma.task.count({ where: { ...personalFilter, status: "COMPLETED" } }),
       prisma.task.count({ where: { creatorId: authUser.userId, reviewStatus: "TO_BE_REVIEWED" } }),
+      prisma.task.count({
+        where: {
+          creatorId: authUser.userId,
+          NOT: { userId: authUser.userId },
+          status: { not: "COMPLETED" },
+        },
+      }),
     ]);
 
     return NextResponse.json({
@@ -145,6 +197,7 @@ export async function GET(req: NextRequest) {
         inProgress: inProgressCount,
         completed: completedCount,
         pendingReview: pendingReviewCount,
+        delegated: delegatedCount,
       },
     });
   } catch (error) {
@@ -167,6 +220,7 @@ export async function POST(req: NextRequest) {
       departmentCard,
       brandName,
       assigneeId,
+      assigneeIds,
       expectedDeadline,
       priority,
       estimatedHours,
@@ -182,10 +236,21 @@ export async function POST(req: NextRequest) {
     if (!brandName || !brandName.trim()) {
       return NextResponse.json({ error: "Nama Brand wajib diisi" }, { status: 400 });
     }
-    if (!assigneeId) {
-      return NextResponse.json({ error: "Pilih penerima tugas (Assignee)" }, { status: 400 });
+
+    // Kumpulkan target assignees (support single atau multi-assignee)
+    let finalAssigneeIds: string[] = [];
+    if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+      finalAssigneeIds = Array.from(new Set(assigneeIds.filter(Boolean)));
+    } else if (assigneeId) {
+      finalAssigneeIds = [assigneeId];
     }
 
+    if (finalAssigneeIds.length === 0) {
+      return NextResponse.json({ error: "Pilih minimal satu penerima tugas (Assignee)" }, { status: 400 });
+    }
+
+    const primaryAssigneeId = finalAssigneeIds[0];
+    const isSelfTask = finalAssigneeIds.length === 1 && primaryAssigneeId === authUser.userId;
     const normalizedDepartmentCard = departmentCard.toUpperCase();
 
     // Auto flag ke Kanban Content Production jika divisi Sosmed dan opsi diaktifkan
@@ -197,34 +262,47 @@ export async function POST(req: NextRequest) {
         description: description ? description.trim() : null,
         departmentCard: normalizedDepartmentCard,
         brandName: brandName.trim(),
-        userId: assigneeId,
+        userId: primaryAssigneeId,
         creatorId: authUser.userId,
         expectedDeadline: expectedDeadline ? new Date(expectedDeadline) : null,
         priority: priority || "MEDIUM",
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : 1.0,
-        status: assigneeId === authUser.userId ? "PENDING" : "REQUESTED",
+        status: isSelfTask ? "PENDING" : "REQUESTED",
         isContentProduction: isSosmedProduction,
         kanbanStage: isSosmedProduction ? "CONTENT_BRIEF" : null,
         category: normalizedDepartmentCard,
+        assignees: {
+          create: finalAssigneeIds.map((uid, index) => ({
+            userId: uid,
+            role: index === 0 ? "PIC" : "MEMBER",
+          })),
+        },
       },
       include: {
-        user: { select: { id: true, name: true, department: true } },
-        creator: { select: { id: true, name: true, department: true } },
+        user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+        creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+        assignees: {
+          include: {
+            user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+          },
+        },
       },
     });
 
-    // Kirim notifikasi in-app kepada penerima tugas
-    if (assigneeId !== authUser.userId) {
-      await prisma.notification.create({
-        data: {
-          userId: assigneeId,
-          title: `Tugas Baru dari ${authUser.name} (${authUser.department || "Rekan"})`,
-          message: `Tugas [${normalizedDepartmentCard} - ${brandName}]: "${title}". Harap tinjau di stage User Requested pada Lembar Tugas Anda.`,
-          type: "TASK_ASSIGNED",
-          link: "/dashboard/tasks",
-          taskId: newTask.id,
-        },
-      });
+    // Kirim notifikasi in-app kepada semua penerima tugas (selain pembuat)
+    for (const targetUserId of finalAssigneeIds) {
+      if (targetUserId !== authUser.userId) {
+        await prisma.notification.create({
+          data: {
+            userId: targetUserId,
+            title: `Tugas Baru dari ${authUser.name} (${authUser.department || "Rekan"})`,
+            message: `Tugas [${normalizedDepartmentCard} - ${brandName}]: "${title}". Harap tinjau di stage User Requested pada Lembar Tugas Anda.`,
+            type: "TASK_ASSIGNED",
+            link: "/dashboard/workspace",
+            taskId: newTask.id,
+          },
+        });
+      }
     }
 
     return NextResponse.json({ success: true, task: newTask });

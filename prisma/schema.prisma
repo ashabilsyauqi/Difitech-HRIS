@@ -30,6 +30,7 @@ model User {
   attendances             Attendance[]
   tasks                   Task[]
   createdTasks            Task[]          @relation("CreatedTasks")
+  taskAssignments         TaskAssignee[]  @relation("TaskAssigneeUser")
   taskFollowUpsSent       TaskFollowUp[]  @relation("FollowUpSender")
   taskFollowUpsReceived   TaskFollowUp[]  @relation("FollowUpRecipient")
   notifications           Notification[]
@@ -175,6 +176,21 @@ model Task {
   updatedAt             DateTime        @updatedAt
 
   followUps             TaskFollowUp[]
+  assignees             TaskAssignee[]
+}
+
+model TaskAssignee {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation("TaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("MEMBER") // PIC, MEMBER
+  assignedAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
 }
 
 model TaskFollowUp {
