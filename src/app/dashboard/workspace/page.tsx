@@ -1179,7 +1179,11 @@ export default function WorkspaceCardsPage() {
                     className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Tambah Tugas di {currentDivisionDef?.label}</span>
+                    <span>
+                      {isHomeCard(selectedDivision, user?.department) || isAdmin
+                        ? `Tambah Tugas di ${currentDivisionDef?.label}`
+                        : `Request Kerjaan ke Tim ${currentDivisionDef?.label}`}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1441,14 +1445,29 @@ export default function WorkspaceCardsPage() {
                           </div>
                         </div>
 
-                        {col.id === "PENDING" && (
+                        {/* Tombol tambah tugas internal di PENDING: hanya untuk anggota divisi ini atau Admin */}
+                        {col.id === "PENDING" && (isHomeCard(selectedDivision, user?.department) || isAdmin) && (
                           <button
                             onClick={() => {
                               setTargetCardForNew(selectedDivision || undefined);
                               setCreateModalOpen(true);
                             }}
-                            title="Tambah tugas"
+                            title={`Tambah tugas internal ${currentDivisionDef?.label}`}
                             className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
+                        {/* Tombol kirim request di REQUESTED: untuk siapa saja yang ingin request ke divisi ini */}
+                        {col.id === "REQUESTED" && (
+                          <button
+                            onClick={() => {
+                              setTargetCardForNew(selectedDivision || undefined);
+                              setCreateModalOpen(true);
+                            }}
+                            title={`Request kerjaan ke tim ${currentDivisionDef?.label}`}
+                            className="p-1 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100 transition cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" />
                           </button>
@@ -1544,7 +1563,7 @@ export default function WorkspaceCardsPage() {
                                 </div>
 
                                 {/* Review Gate Alert Banners */}
-                                {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW") && (
+                                {(task.reviewStatus === "TO_BE_REVIEWED" || task.reviewStatus === "UNDER_REVIEW" || (Boolean(task.deliverableUrl) && task.status !== "COMPLETED")) && (
                                   <div
                                     onClick={(e) => e.stopPropagation()}
                                     className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[10px] space-y-1.5"

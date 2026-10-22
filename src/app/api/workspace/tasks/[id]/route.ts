@@ -146,28 +146,46 @@ export async function PATCH(
     // 4. Update Kanban Stage (di Kanban Content Production)
     if (body.updateKanbanStage) {
       const { stage, deliverableUrl, completionNote } = body.updateKanbanStage;
-      const isApproved = stage === "APPROVAL";
+      const isApprovalStage = stage === "APPROVAL";
+      const isRevisionStage = stage === "REVISION";
+      const isSelfAssigned = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
+
+      let nextStatus = existingTask.status;
+      let nextReviewStatus = existingTask.reviewStatus;
+
+      if (isApprovalStage) {
+        if (isSelfAssigned) {
+          nextStatus = "COMPLETED";
+          nextReviewStatus = "APPROVED";
+        } else {
+          nextStatus = "IN_PROGRESS"; // Menunggu review & ACC dari pemberi tugas
+          nextReviewStatus = "TO_BE_REVIEWED";
+        }
+      } else if (isRevisionStage) {
+        nextStatus = "IN_PROGRESS";
+        nextReviewStatus = "REVISION_REQUESTED";
+      }
 
       const updated = await prisma.task.update({
         where: { id: params.id },
         data: {
           kanbanStage: stage,
-          status: isApproved ? "COMPLETED" : "IN_PROGRESS",
+          status: nextStatus,
+          reviewStatus: nextReviewStatus,
           ...(deliverableUrl ? { deliverableUrl } : {}),
           ...(completionNote ? { completionNote } : {}),
         },
       });
 
-      // Jika stage mencapai APPROVAL -> auto sync deliverable & selesai ke Card Besar asal
-      if (isApproved) {
-        // Notifikasi ke pembuat tugas asal (misal Tim Ads/Marketing yang request)
+      // Jika stage mencapai APPROVAL -> kirim notifikasi ke pembuat tugas asal
+      if (isApprovalStage) {
         if (existingTask.creatorId && existingTask.creatorId !== authUser.userId) {
           await prisma.notification.create({
             data: {
               userId: existingTask.creatorId,
-              title: `Konten Selesai (Approved): ${existingTask.title}`,
-              message: `Tim Sosmed telah menyelesaikan produksi konten untuk ${existingTask.brandName || "proyek"}. Hasil akhir otomatis terarsip selesai di Card Besar.`,
-              type: "APPROVAL_COMPLETED",
+              title: `Hasil Konten Siap Direview: ${existingTask.title}`,
+              message: `${authUser.name} telah menyelesaikan produksi konten untuk [${existingTask.departmentCard || "Sosmed"} - ${existingTask.brandName || "Proyek"}]. Harap review hasil kerja (Pilih Revisi atau ACC / Selesai).`,
+              type: "TO_BE_REVIEWED",
               link: "/dashboard/workspace",
               taskId: existingTask.id,
             },

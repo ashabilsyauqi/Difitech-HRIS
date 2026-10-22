@@ -212,7 +212,11 @@ export default function CreateTaskModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 text-base">
-                  {isContentProduction ? "Lembar Kerja: Request Konten Baru" : "Lembar Kerja Tugas Baru"}
+                  {isContentProduction
+                    ? "Lembar Kerja: Request Konten Baru (Sosmed)"
+                    : !isSelfAssigned
+                    ? `Request Kerjaan ke Tim ${currentDeptConfig.label}`
+                    : "Lembar Kerja Tugas Baru"}
                 </h3>
                 <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                   isContentProduction
@@ -503,8 +507,16 @@ export default function CreateTaskModal({
               {isContentProduction ? <Clapperboard className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
               <span>
                 {isLoading
-                  ? isContentProduction ? "Menyimpan Request Konten..." : "Menyimpan Lembar Kerja..."
-                  : isContentProduction ? "🎬 Submit Request Konten ke Kanban" : "Posting Lembar Kerja Tugas"}
+                  ? isContentProduction
+                    ? "Menyimpan Request Konten..."
+                    : !isSelfAssigned
+                    ? "Mengirim Request Kerjaan..."
+                    : "Menyimpan Lembar Kerja..."
+                  : isContentProduction
+                  ? "🎬 Submit Request Konten ke Kanban"
+                  : !isSelfAssigned
+                  ? `Kirim Request Kerjaan ke ${selectedAssignee?.name || currentDeptConfig.label}`
+                  : "Posting Lembar Kerja Tugas"}
               </span>
             </button>
           </div>
