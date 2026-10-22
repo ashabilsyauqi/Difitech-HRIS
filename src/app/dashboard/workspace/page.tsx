@@ -281,6 +281,7 @@ export default function WorkspaceCardsPage() {
   const [selectedMember, setSelectedMember] = useState("ALL");
   const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   // Drag and Drop & Timers
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
