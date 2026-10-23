@@ -57,6 +57,9 @@ import {
   ChevronUp,
   Minimize2,
   Maximize2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 interface TaskItem {
@@ -363,6 +366,9 @@ const getCleanDescriptionSnippet = (desc?: string | null) => {
   return text;
 };
 
+type SortField = "TITLE" | "PRIORITY" | "STAGE" | "DEADLINE" | "CREATED_AT" | "ASSIGNEE" | "CREATOR" | "BRAND";
+type SortDirection = "ASC" | "DESC";
+
 function WorkspaceCardsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -398,6 +404,9 @@ function WorkspaceCardsPageContent() {
   ]);
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
   const [showCustomizeMenu, setShowCustomizeMenu] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("DEADLINE");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("ASC");
+  const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
 
   useEffect(() => {
     try {
@@ -1283,6 +1292,901 @@ function WorkspaceCardsPageContent() {
     );
   };
 
+  // Personal Tasks filtered by search
+  const personalDisplayTasks = useMemo(() => {
+    const base = personalTab === "MY_TASKS" ? myAssignedTasks : myDelegatedTasks;
+    if (!searchQuery.trim()) return base;
+    const q = searchQuery.toLowerCase();
+    return base.filter((t) => {
+      const titleMatch = (t.title || "").toLowerCase().includes(q);
+      const descMatch = (t.description || "").toLowerCase().includes(q);
+      const userMatch = (t.user?.name || "").toLowerCase().includes(q);
+      const brandMatch = (t.brandName || "").toLowerCase().includes(q);
+      const deptMatch = (t.departmentCard || "").toLowerCase().includes(q);
+      return titleMatch || descMatch || userMatch || brandMatch || deptMatch;
+    });
+  }, [personalTab, myAssignedTasks, myDelegatedTasks, searchQuery]);
+
+  const priorityWeight: Record<string, number> = {
+    URGENT: 4,
+    HIGH: 3,
+    MEDIUM: 2,
+    LOW: 1,
+  };
+
+  const stageWeight: Record<string, number> = {
+    NOT_STARTED: 1,
+    ON_PROGRESS: 2,
+    SUBMIT_TO_REVIEW: 3,
+    REVISION: 4,
+    DONE: 5,
+  };
+
+  const sortTasks = (items: TaskItem[], field: SortField, direction: SortDirection): TaskItem[] => {
+    return [...items].sort((a, b) => {
+      let diff = 0;
+      if (field === "TITLE") {
+        diff = (a.title || "").localeCompare(b.title || "", "id", { sensitivity: "base" });
+      } else if (field === "PRIORITY") {
+        const wA = priorityWeight[a.priority?.toUpperCase() || ""] || 0;
+        const wB = priorityWeight[b.priority?.toUpperCase() || ""] || 0;
+        diff = wA - wB;
+      } else if (field === "STAGE") {
+        const sA = stageWeight[getTaskStageKey(a)] || 0;
+        const sB = stageWeight[getTaskStageKey(b)] || 0;
+        diff = sA - sB;
+      } else if (field === "DEADLINE") {
+        const timeA = a.expectedDeadline ? new Date(a.expectedDeadline).getTime() : null;
+        const timeB = b.expectedDeadline ? new Date(b.expectedDeadline).getTime() : null;
+        if (timeA === null && timeB === null) return 0;
+        if (timeA === null) return 1;
+        if (timeB === null) return -1;
+        return direction === "ASC" ? timeA - timeB : timeB - timeA;
+      } else if (field === "CREATED_AT") {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        diff = timeA - timeB;
+      } else if (field === "ASSIGNEE") {
+        const nameA = a.user?.name || "";
+        const nameB = b.user?.name || "";
+        diff = nameA.localeCompare(nameB, "id", { sensitivity: "base" });
+      } else if (field === "CREATOR") {
+        const nameA = a.creator?.name || "";
+        const nameB = b.creator?.name || "";
+        diff = nameA.localeCompare(nameB, "id", { sensitivity: "base" });
+      } else if (field === "BRAND") {
+        const strA = `${a.departmentCard || ""} ${a.brandName || ""}`.trim();
+        const strB = `${b.departmentCard || ""} ${b.brandName || ""}`.trim();
+        diff = strA.localeCompare(strB, "id", { sensitivity: "base" });
+      }
+      return direction === "ASC" ? diff : -diff;
+    });
+  };
+
+  const applyPriorityFilter = (items: TaskItem[]): TaskItem[] => {
+    if (priorityFilter === "ALL") return items;
+    if (priorityFilter === "URGENT") return items.filter((t) => t.priority === "URGENT");
+    if (priorityFilter === "HIGH") return items.filter((t) => t.priority === "HIGH");
+    if (priorityFilter === "NORMAL") {
+      return items.filter(
+        (t) => !t.priority || t.priority === "MEDIUM" || t.priority === "LOW" || t.priority === "NORMAL"
+      );
+    }
+    return items;
+  };
+
+  const filterAndSortTasks = (rawTasks: TaskItem[]): TaskItem[] => {
+    const filtered = applyPriorityFilter(rawTasks);
+    return sortTasks(filtered, sortField, sortDirection);
+  };
+
+  const handleSortClick = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "ASC" ? "DESC" : "ASC"));
+    } else {
+      setSortField(field);
+      if (field === "PRIORITY" || field === "CREATED_AT") {
+        setSortDirection("DESC");
+      } else {
+        setSortDirection("ASC");
+      }
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField === field) {
+      return sortDirection === "ASC" ? (
+        <ArrowUp className="h-3 w-3 text-blue-600 inline ml-1 shrink-0" />
+      ) : (
+        <ArrowDown className="h-3 w-3 text-blue-600 inline ml-1 shrink-0" />
+      );
+    }
+    return <ArrowUpDown className="h-3 w-3 text-slate-300 group-hover:text-slate-500 inline ml-1 shrink-0" />;
+  };
+
+  const getCurrentSortValue = (): string => {
+    if (sortField === "DEADLINE" && sortDirection === "ASC") return "DEADLINE_ASC";
+    if (sortField === "DEADLINE" && sortDirection === "DESC") return "DEADLINE_DESC";
+    if (sortField === "PRIORITY" && sortDirection === "DESC") return "PRIORITY_DESC";
+    if (sortField === "PRIORITY" && sortDirection === "ASC") return "PRIORITY_ASC";
+    if (sortField === "CREATED_AT" && sortDirection === "DESC") return "CREATED_AT_DESC";
+    if (sortField === "CREATED_AT" && sortDirection === "ASC") return "CREATED_AT_ASC";
+    if (sortField === "TITLE" && sortDirection === "ASC") return "TITLE_ASC";
+    if (sortField === "TITLE" && sortDirection === "DESC") return "TITLE_DESC";
+    if (sortField === "STAGE" && sortDirection === "ASC") return "STAGE_ASC";
+    return "CUSTOM";
+  };
+
+  const handleSortSelectChange = (value: string) => {
+    if (value === "DEADLINE_ASC") {
+      setSortField("DEADLINE");
+      setSortDirection("ASC");
+    } else if (value === "DEADLINE_DESC") {
+      setSortField("DEADLINE");
+      setSortDirection("DESC");
+    } else if (value === "PRIORITY_DESC") {
+      setSortField("PRIORITY");
+      setSortDirection("DESC");
+    } else if (value === "PRIORITY_ASC") {
+      setSortField("PRIORITY");
+      setSortDirection("ASC");
+    } else if (value === "CREATED_AT_DESC") {
+      setSortField("CREATED_AT");
+      setSortDirection("DESC");
+    } else if (value === "CREATED_AT_ASC") {
+      setSortField("CREATED_AT");
+      setSortDirection("ASC");
+    } else if (value === "TITLE_ASC") {
+      setSortField("TITLE");
+      setSortDirection("ASC");
+    } else if (value === "TITLE_DESC") {
+      setSortField("TITLE");
+      setSortDirection("DESC");
+    } else if (value === "STAGE_ASC") {
+      setSortField("STAGE");
+      setSortDirection("ASC");
+    }
+  };
+
+  const renderViewModeSwitcher = () => (
+    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+      <button
+        type="button"
+        onClick={() => handleSetViewMode("CARD")}
+        title="Tampilan Papan Tulis (Card Grid)"
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+          currentViewMode === "CARD"
+            ? "bg-white text-slate-900 shadow-2xs"
+            : "text-slate-600 hover:text-slate-900"
+        }`}
+      >
+        <LayoutGrid className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Card</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => handleSetViewMode("KANBAN")}
+        title="Tampilan Kanban Columns (Stage Pipeline)"
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+          currentViewMode === "KANBAN"
+            ? "bg-white text-slate-900 shadow-2xs"
+            : "text-slate-600 hover:text-slate-900"
+        }`}
+      >
+        <Kanban className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Kanban</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => handleSetViewMode("LIST")}
+        title="Tampilan Daftar / Tabel Kompak"
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+          currentViewMode === "LIST"
+            ? "bg-white text-slate-900 shadow-2xs"
+            : "text-slate-600 hover:text-slate-900"
+        }`}
+      >
+        <List className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">List</span>
+      </button>
+    </div>
+  );
+
+  const renderStageCustomizer = () => (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowCustomizeMenu(!showCustomizeMenu)}
+        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+          showCustomizeMenu || visibleStages.length < WORKBOARD_STAGES.length
+            ? "bg-blue-50 border-blue-300 text-blue-700"
+            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white"
+        }`}
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        <span>Stage</span>
+        {visibleStages.length < WORKBOARD_STAGES.length && (
+          <span className="rounded-full bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2">
+            {visibleStages.length}/5
+          </span>
+        )}
+      </button>
+
+      {showCustomizeMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-3.5 z-40 space-y-3 animate-in fade-in zoom-in-95"
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span className="text-xs font-bold text-slate-900">Kustomisasi Stage</span>
+            <button
+              type="button"
+              onClick={() => setShowCustomizeMenu(false)}
+              className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Preset Cepat:
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setVisibleStages(WORKBOARD_STAGES.map((s) => s.key))}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Semua (5)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleStages(["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION"])
+                }
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
+              >
+                Fokus Aktif
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibleStages(["SUBMIT_TO_REVIEW", "REVISION"])}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition cursor-pointer"
+              >
+                Perlu Tindakan
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-1 border-t border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Pilih Tahap Ditampilkan:
+            </span>
+            {WORKBOARD_STAGES.map((s) => {
+              const isChecked = visibleStages.includes(s.key);
+              return (
+                <label
+                  key={s.key}
+                  className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setVisibleStages([...visibleStages, s.key]);
+                        } else {
+                          if (visibleStages.length > 1) {
+                            setVisibleStages(visibleStages.filter((k) => k !== s.key));
+                          }
+                        }
+                      }}
+                      className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
+                    />
+                    <span
+                      className={`font-bold ${
+                        isChecked ? "text-slate-800" : "text-slate-400 line-through"
+                      }`}
+                    >
+                      {s.step}. {s.label}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPriorityAndSortControls = () => (
+    <>
+      <select
+        value={priorityFilter}
+        onChange={(e) => setPriorityFilter(e.target.value)}
+        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
+      >
+        <option value="ALL">Semua Prioritas</option>
+        <option value="URGENT">🔥 Urgent</option>
+        <option value="HIGH">⚡ Tinggi</option>
+        <option value="NORMAL">Normal / Rendah</option>
+      </select>
+
+      <select
+        value={getCurrentSortValue()}
+        onChange={(e) => handleSortSelectChange(e.target.value)}
+        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
+      >
+        <option value="DEADLINE_ASC">📅 Deadline Terdekat</option>
+        <option value="DEADLINE_DESC">📅 Deadline Terjauh</option>
+        <option value="PRIORITY_DESC">🔥 Prioritas Tertinggi</option>
+        <option value="PRIORITY_ASC">Prioritas Terendah</option>
+        <option value="CREATED_AT_DESC">🕐 Terbaru Dibuat</option>
+        <option value="CREATED_AT_ASC">🕐 Terlama Dibuat</option>
+        <option value="TITLE_ASC">🔤 Judul (A-Z)</option>
+        <option value="TITLE_DESC">🔤 Judul (Z-A)</option>
+        <option value="STAGE_ASC">Stage (1 ➔ 5)</option>
+        {getCurrentSortValue() === "CUSTOM" && (
+          <option value="CUSTOM" disabled>
+            Kustom ({sortField} {sortDirection})
+          </option>
+        )}
+      </select>
+    </>
+  );
+
+  const renderMultiViewContainer = ({
+    tasks: inputTasks,
+    isPersonalBoard = false,
+    isDelegatedView = false,
+    emptyContextText = "di papan ini",
+    defaultCardKey,
+  }: {
+    tasks: TaskItem[];
+    isPersonalBoard?: boolean;
+    isDelegatedView?: boolean;
+    emptyContextText?: string;
+    defaultCardKey?: string;
+  }) => {
+    const processedTasks = filterAndSortTasks(inputTasks);
+    const tasksInVisibleStages = processedTasks.filter((t) =>
+      visibleStages.includes(getTaskStageKey(t))
+    );
+
+    const countNotStarted = processedTasks.filter(
+      (t) => getTaskStageKey(t) === "NOT_STARTED"
+    ).length;
+    const countOnProgress = processedTasks.filter(
+      (t) => getTaskStageKey(t) === "ON_PROGRESS"
+    ).length;
+    const countReview = processedTasks.filter(
+      (t) => getTaskStageKey(t) === "SUBMIT_TO_REVIEW"
+    ).length;
+    const countRevision = processedTasks.filter(
+      (t) => getTaskStageKey(t) === "REVISION"
+    ).length;
+    const countDone = processedTasks.filter(
+      (t) => getTaskStageKey(t) === "DONE"
+    ).length;
+
+    const displayTasks =
+      whiteboardStageFilter === "ALL"
+        ? tasksInVisibleStages
+        : tasksInVisibleStages.filter(
+            (t) => getTaskStageKey(t) === whiteboardStageFilter
+          );
+
+    const stageFilterTabs = [
+      { id: "ALL", label: "Semua", count: tasksInVisibleStages.length, badgeStyle: "bg-slate-100 text-slate-700" },
+      { id: "NOT_STARTED", label: "1. Not Started", count: countNotStarted, badgeStyle: "bg-slate-100 text-slate-700" },
+      { id: "ON_PROGRESS", label: "2. On Progress", count: countOnProgress, badgeStyle: "bg-blue-100 text-blue-800" },
+      { id: "SUBMIT_TO_REVIEW", label: "3. Review", count: countReview, badgeStyle: "bg-amber-100 text-amber-800" },
+      { id: "REVISION", label: "4. Revisi", count: countRevision, badgeStyle: "bg-rose-100 text-rose-800" },
+      { id: "DONE", label: "5. Done", count: countDone, badgeStyle: "bg-emerald-100 text-emerald-800" },
+    ].filter((tab) => tab.id === "ALL" || visibleStages.includes(tab.id));
+
+    return (
+      <div className="space-y-4">
+        {/* VIEW 1: CARD VIEW (WHITEBOARD STICKY NOTES GRID) */}
+        {currentViewMode === "CARD" && (
+          <div className="rounded-3xl border border-slate-200/90 bg-white/70 backdrop-blur-xs p-5 shadow-xs space-y-4 min-h-[580px]">
+            <div className="flex items-center justify-between gap-3 flex-wrap pb-3.5 border-b border-slate-200/80">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+                  Filter Stage:
+                </span>
+                {stageFilterTabs.map((filter) => {
+                  const isActive = whiteboardStageFilter === filter.id;
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setWhiteboardStageFilter(filter.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-2xs"
+                          : "bg-white text-slate-600 border border-slate-200/90 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>{filter.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                          isActive ? "bg-white/20 text-white" : filter.badgeStyle
+                        }`}
+                      >
+                        {filter.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="text-xs text-slate-400 font-medium">
+                Menampilkan <span className="font-bold text-slate-700">{displayTasks.length}</span> kartu kerja
+              </div>
+            </div>
+
+            {displayTasks.length === 0 ? (
+              <div className="h-72 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 border border-dashed border-slate-200 rounded-3xl">
+                <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs mb-2">
+                  <StickyNote className="h-6 w-6 text-slate-400" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-800">Papan Tulis Kosong</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  Belum ada kartu kerja {emptyContextText}
+                  {whiteboardStageFilter !== "ALL" ? " untuk filter stage ini." : "."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetCardForNew(defaultCardKey);
+                    setCreateModalOpen(true);
+                  }}
+                  className="mt-4 flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Tambah Kartu Kerja Baru</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 items-start">
+                {displayTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 2: KANBAN VIEW (STAGE COLUMNS ALA TRELLO) */}
+        {currentViewMode === "KANBAN" && (
+          <div className="rounded-3xl border border-slate-200/90 bg-slate-100/60 p-4 shadow-xs overflow-x-auto min-h-[620px]">
+            <div className="flex items-start gap-4 min-w-[1000px] pb-2">
+              {WORKBOARD_STAGES.filter((s) => visibleStages.includes(s.key)).map((stage) => {
+                const isCollapsed = Boolean(collapsedStages[stage.key]);
+                const colTasks = processedTasks.filter(
+                  (t) => getTaskStageKey(t) === stage.key
+                );
+                const isRevision = stage.key === "REVISION";
+
+                if (isCollapsed) {
+                  return (
+                    <div
+                      key={stage.key}
+                      onClick={() => toggleCollapseStage(stage.key)}
+                      title={`Klik untuk membuka kolom ${stage.label}`}
+                      className="w-12 h-[580px] rounded-2xl border border-slate-200 bg-white/90 shadow-2xs hover:bg-blue-50/40 hover:border-blue-300 transition-all flex flex-col items-center justify-between py-4 px-1 cursor-pointer select-none group shrink-0"
+                    >
+                      <div className="p-1 rounded-lg bg-slate-100 group-hover:bg-blue-100 text-slate-500 group-hover:text-blue-700 transition">
+                        <ChevronRight className="h-4 w-4" />
+                      </div>
+
+                      <div className="[writing-mode:vertical-rl] rotate-180 flex items-center gap-2 text-xs font-black text-slate-700 tracking-wider">
+                        <span>
+                          {stage.step}. {stage.label}
+                        </span>
+                      </div>
+
+                      <span className="h-6 w-6 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center border border-slate-200">
+                        {colTasks.length}
+                      </span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={stage.key}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDropToStage(e, stage.key)}
+                    className={`flex-1 min-w-[280px] max-w-[340px] rounded-3xl border shadow-2xs flex flex-col min-h-[580px] max-h-[820px] overflow-hidden transition-all ${
+                      stage.key === "DONE"
+                        ? "bg-emerald-50/30 border-emerald-200/70"
+                        : isRevision
+                        ? "bg-rose-50/30 border-rose-200/70"
+                        : stage.key === "SUBMIT_TO_REVIEW"
+                        ? "bg-amber-50/30 border-amber-200/70"
+                        : stage.key === "ON_PROGRESS"
+                        ? "bg-blue-50/30 border-blue-200/70"
+                        : "bg-white/90 border-slate-200"
+                    }`}
+                  >
+                    <div className="p-3.5 border-b border-slate-200/80 bg-white/80 backdrop-blur-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`h-6 w-6 rounded-full text-white text-[11px] font-black flex items-center justify-center shadow-xs shrink-0 ${
+                            stage.key === "DONE"
+                              ? "bg-emerald-600"
+                              : isRevision
+                              ? "bg-rose-600"
+                              : stage.key === "SUBMIT_TO_REVIEW"
+                              ? "bg-amber-500"
+                              : stage.key === "ON_PROGRESS"
+                              ? "bg-blue-600"
+                              : "bg-slate-700"
+                          }`}
+                        >
+                          {stage.step}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="text-xs font-bold text-slate-900">{stage.label}</h3>
+                            <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                              {colTasks.length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetCardForNew(defaultCardKey);
+                            setCreateModalOpen(true);
+                          }}
+                          title={`Tambah tugas di ${stage.label}`}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleCollapseStage(stage.key)}
+                          title="Ciutkan kolom ini"
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                        >
+                          <Minimize2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-3 flex-1 space-y-3 overflow-y-auto">
+                      {colTasks.length === 0 ? (
+                        <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-300/80 rounded-2xl bg-white/40">
+                          <p className="text-xs font-bold text-slate-600">Kosong</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Tarik kartu tugas ke sini</p>
+                        </div>
+                      ) : (
+                        colTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 3: LIST VIEW (TABEL / DAFTAR BARIS KOMPAK ALA NOTION / CLICKUP) */}
+        {currentViewMode === "LIST" && (() => {
+          const tableTasks = processedTasks.filter((t) =>
+            visibleStages.includes(getTaskStageKey(t))
+          );
+
+          return (
+            <div className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden min-h-[580px]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-black text-slate-500 uppercase tracking-wider select-none">
+                      <th
+                        onClick={() => handleSortClick("TITLE")}
+                        className="py-3.5 px-4 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "TITLE" ? "text-blue-700 font-black" : ""}>
+                            Tugas / Judul
+                          </span>
+                          {renderSortIcon("TITLE")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("BRAND")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "BRAND" ? "text-blue-700 font-black" : ""}>
+                            Divisi & Brand
+                          </span>
+                          {renderSortIcon("BRAND")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("STAGE")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "STAGE" ? "text-blue-700 font-black" : ""}>
+                            Stage
+                          </span>
+                          {renderSortIcon("STAGE")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("PRIORITY")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "PRIORITY" ? "text-blue-700 font-black" : ""}>
+                            Prioritas
+                          </span>
+                          {renderSortIcon("PRIORITY")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("ASSIGNEE")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "ASSIGNEE" ? "text-blue-700 font-black" : ""}>
+                            Tim Pelaksana
+                          </span>
+                          {renderSortIcon("ASSIGNEE")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("CREATOR")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "CREATOR" ? "text-blue-700 font-black" : ""}>
+                            Pemberi
+                          </span>
+                          {renderSortIcon("CREATOR")}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSortClick("DEADLINE")}
+                        className="py-3.5 px-3 cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={sortField === "DEADLINE" ? "text-blue-700 font-black" : ""}>
+                            Target Deadline
+                          </span>
+                          {renderSortIcon("DEADLINE")}
+                        </div>
+                      </th>
+                      <th className="py-3.5 px-4 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                    {tableTasks.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-20 text-center text-slate-400">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <List className="h-8 w-8 text-slate-300" />
+                            <p className="font-bold text-slate-600">Tidak ada tugas ditemukan</p>
+                            <p className="text-xs text-slate-400">Coba ubah filter atau kustomisasi stage.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      tableTasks.map((task) => {
+                        const stageKey = getTaskStageKey(task);
+                        const stageInfo =
+                          WORKBOARD_STAGES.find((s) => s.key === stageKey) || WORKBOARD_STAGES[0];
+                        const isMyTask =
+                          task.user?.id === user?.id ||
+                          task.assignees?.some((a) => a.user?.id === user?.id);
+                        const isCreatorOrMgr =
+                          task.creator?.id === user?.id ||
+                          user?.role === "ADMIN" ||
+                          user?.role === "MANAGER";
+
+                        return (
+                          <tr
+                            key={task.id}
+                            onClick={() => setSelectedTaskForDetail(task)}
+                            className="hover:bg-blue-50/40 transition cursor-pointer group"
+                          >
+                            <td className="py-3 px-4 max-w-xs">
+                              <div className="font-bold text-slate-900 group-hover:text-red-600 transition truncate">
+                                {task.title}
+                              </div>
+                              {task.description && (
+                                <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                                  {task.description.replace(/<[^>]*>?/gm, "").trim()}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                                  {task.departmentCard || "UMUM"}
+                                </span>
+                                {task.brandName && (
+                                  <span className="text-[10px] font-semibold text-slate-500">
+                                    {task.brandName}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                                  stageKey === "DONE"
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    : stageKey === "REVISION"
+                                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                                    : stageKey === "SUBMIT_TO_REVIEW"
+                                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                                    : stageKey === "ON_PROGRESS"
+                                    ? "bg-blue-50 text-blue-800 border-blue-200"
+                                    : "bg-slate-100 text-slate-700 border-slate-200"
+                                }`}
+                              >
+                                <span>
+                                  {stageInfo.step}. {stageInfo.label}
+                                </span>
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              {task.priority === "URGENT" ? (
+                                <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-2 py-0.5 shadow-2xs">
+                                  Urgent
+                                </span>
+                              ) : task.priority === "HIGH" ? (
+                                <span className="rounded-full bg-orange-100 text-orange-800 border border-orange-200 text-[9px] font-bold px-2 py-0.5">
+                                  Tinggi
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-medium text-slate-400">Normal</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-6 w-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-white">
+                                  {task.user?.avatarUrl ? (
+                                    <img
+                                      src={task.user.avatarUrl}
+                                      alt={task.user.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    (task.user?.name || "?").charAt(0)
+                                  )}
+                                </span>
+                                <span className="text-xs font-semibold text-slate-800 truncate max-w-[100px]">
+                                  {task.user?.id === user?.id ? "Saya Sendiri" : task.user?.name || "Belum ada PIC"}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap text-xs text-slate-600">
+                              {task.creator?.name ? (
+                                <span className="font-semibold text-purple-700">
+                                  {task.creator.id === user?.id ? "Saya" : task.creator.name}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                              {task.expectedDeadline ? formatDateTime(task.expectedDeadline) : "Fleksibel"}
+                            </td>
+
+                            <td
+                              className="py-3 px-4 text-right whitespace-nowrap"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {stageKey === "NOT_STARTED" && isMyTask ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartTask(task.id)}
+                                  className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs cursor-pointer"
+                                >
+                                  <Play className="h-3 w-3" />
+                                  <span>Mulai &rarr;</span>
+                                </button>
+                              ) : stageKey === "ON_PROGRESS" && isMyTask ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliverableModalTask(task)}
+                                  className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs cursor-pointer"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  <span>Submit &rarr;</span>
+                                </button>
+                              ) : (stageKey === "SUBMIT_TO_REVIEW" || task.reviewStatus === "UNDER_REVIEW") ? (
+                                <div className="inline-flex items-center gap-1.5 justify-end">
+                                  {task.deliverableUrl && (
+                                    <a
+                                      href={task.deliverableUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="p-1.5 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition border border-amber-200"
+                                      title="Lihat Link Hasil Kerja"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  )}
+                                  {isCreatorOrMgr && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setRevisionModalTask(task)}
+                                        className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 font-bold text-[11px] cursor-pointer"
+                                      >
+                                        Revisi
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveTask(task.id)}
+                                        className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[11px] cursor-pointer shadow-2xs"
+                                      >
+                                        ACC ✓
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : stageKey === "REVISION" && isMyTask ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeliverableModalTask(task)}
+                                  className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                  <span>Submit Revisi &rarr;</span>
+                                </button>
+                              ) : stageKey === "DONE" ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Selesai
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedTaskForDetail(task)}
+                                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  };
+
   return (
     <div className="h-screen bg-slate-100 flex flex-col overflow-hidden">
       {user && <Navbar user={user} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />}
@@ -1387,109 +2291,39 @@ function WorkspaceCardsPageContent() {
                 </div>
               </div>
 
-              {/* Personal Kanban Stage Columns */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-                {(personalTab === "MY_TASKS" ? PERSONAL_MY_TASKS_STAGES : PERSONAL_DELEGATED_STAGES).map((col) => {
-                  const Icon = col.icon;
-                  const colTasks = (personalTab === "MY_TASKS" ? myAssignedTasks : myDelegatedTasks).filter((t) => {
-                    if (personalTab === "MY_TASKS") {
-                      if (col.id === "REQUESTED") {
-                        return (
-                          t.status === "REQUESTED" ||
-                          (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id) ||
-                          t.status === "PENDING"
-                        );
-                      }
-                      if (col.id === "IN_PROGRESS") {
-                        return (
-                          t.status === "IN_PROGRESS" &&
-                          t.reviewStatus !== "TO_BE_REVIEWED" &&
-                          t.reviewStatus !== "UNDER_REVIEW"
-                        );
-                      }
-                      if (col.id === "UNDER_REVIEW") {
-                        return (
-                          t.reviewStatus === "TO_BE_REVIEWED" ||
-                          t.reviewStatus === "UNDER_REVIEW" ||
-                          t.reviewStatus === "REVISION_REQUESTED"
-                        );
-                      }
-                      if (col.id === "COMPLETED") {
-                        return t.status === "COMPLETED";
-                      }
-                    } else {
-                      // Delegated
-                      if (col.id === "PENDING") {
-                        return (
-                          (t.status === "PENDING" || t.status === "REQUESTED") &&
-                          t.reviewStatus !== "TO_BE_REVIEWED" &&
-                          t.reviewStatus !== "UNDER_REVIEW"
-                        );
-                      }
-                      if (col.id === "IN_PROGRESS") {
-                        return (
-                          t.status === "IN_PROGRESS" &&
-                          t.reviewStatus !== "TO_BE_REVIEWED" &&
-                          t.reviewStatus !== "UNDER_REVIEW"
-                        );
-                      }
-                      if (col.id === "TO_BE_REVIEWED") {
-                        return (
-                          t.reviewStatus === "TO_BE_REVIEWED" ||
-                          t.reviewStatus === "UNDER_REVIEW" ||
-                          t.reviewStatus === "REVISION_REQUESTED"
-                        );
-                      }
-                      if (col.id === "COMPLETED") {
-                        return t.status === "COMPLETED";
-                      }
-                    }
-                    return false;
-                  });
+              {/* Sub-Filters / Toolbar for Personal BigBoard */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+                {/* Left: View Mode Switcher + Customize Stage */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {renderViewModeSwitcher()}
+                  {renderStageCustomizer()}
+                </div>
 
-                  return (
-                    <div
-                      key={col.id}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, col.id)}
-                      className="rounded-3xl border border-slate-200 bg-white shadow-2xs flex flex-col min-h-[520px] overflow-hidden"
-                    >
-                      {/* Column Header */}
-                      <div className="p-3.5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="text-xs font-bold text-slate-900">{col.title}</h3>
-                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full border ${col.badgeColor}`}>
-                                {colTasks.length}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-tight">{col.description}</p>
-                          </div>
-                        </div>
-                      </div>
+                {/* Right: Priority Filter, Sort Dropdown & Search */}
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {renderPriorityAndSortControls()}
 
-                      {/* Cards Container */}
-                      <div className="p-3 flex-1 space-y-3 overflow-y-auto max-h-[720px]">
-                        {colTasks.length === 0 ? (
-                          <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-                            <Icon className="h-6 w-6 text-slate-300 mb-1" />
-                            <p className="text-xs font-bold text-slate-600">Tidak ada tugas</p>
-                            <p className="text-[10px] text-slate-400">
-                              {col.id === "REQUESTED" ? "Belum ada tugas di antrean" : "Tarik tugas ke kolom ini"}
-                            </p>
-                          </div>
-                        ) : (
-                          colTasks.map((t) => renderCard(t, true, personalTab === "DELEGATED"))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                  {/* Search Input */}
+                  <div className="relative w-40 sm:w-52">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari tugas pribadi..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Multi-View Container for Personal Board */}
+              {renderMultiViewContainer({
+                tasks: personalDisplayTasks,
+                isPersonalBoard: true,
+                isDelegatedView: personalTab === "DELEGATED",
+                emptyContextText: personalTab === "MY_TASKS" ? "di tugas pribadi Anda" : "di delegasi Anda",
+              })}
             </div>
           ) : !selectedDivision ? (
             /* ========================================================================= */
@@ -1596,8 +2430,9 @@ function WorkspaceCardsPageContent() {
                   </div>
                 </div>
 
-                {/* Right Controls: Search, Brand & + Request Button */}
+                {/* Right Controls: Priority, Sort, Search, Brand & + Request Button */}
                 <div className="flex items-center gap-2 justify-end flex-wrap sm:flex-nowrap">
+                  {renderPriorityAndSortControls()}
                   <div className="relative flex-1 sm:w-44">
                     <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                     <input
@@ -1676,19 +2511,21 @@ function WorkspaceCardsPageContent() {
                       const allDivTasks = tasks.filter(
                         (t) => (t.departmentCard || "").toUpperCase() === cardDef.key
                       );
-                      const cardTasks = allDivTasks.filter((t) => {
-                        if (statusFilter === "ALL") return true;
-                        if (statusFilter === "IN_PROGRESS") return t.status === "IN_PROGRESS";
-                        if (statusFilter === "REVIEW") {
-                          return (
-                            t.reviewStatus === "TO_BE_REVIEWED" ||
-                            t.reviewStatus === "UNDER_REVIEW" ||
-                            t.reviewStatus === "REVISION_REQUESTED"
-                          );
-                        }
-                        if (statusFilter === "COMPLETED") return t.status === "COMPLETED";
-                        return true;
-                      });
+                      const cardTasks = filterAndSortTasks(
+                        allDivTasks.filter((t) => {
+                          if (statusFilter === "ALL") return true;
+                          if (statusFilter === "IN_PROGRESS") return t.status === "IN_PROGRESS";
+                          if (statusFilter === "REVIEW") {
+                            return (
+                              t.reviewStatus === "TO_BE_REVIEWED" ||
+                              t.reviewStatus === "UNDER_REVIEW" ||
+                              t.reviewStatus === "REVISION_REQUESTED"
+                            );
+                          }
+                          if (statusFilter === "COMPLETED") return t.status === "COMPLETED";
+                          return true;
+                        })
+                      );
 
                       const runningCount = allDivTasks.filter((t) => t.status === "IN_PROGRESS").length;
                       const reviewCount = allDivTasks.filter(
@@ -2138,163 +2975,11 @@ function WorkspaceCardsPageContent() {
                   )}
                 </div>
 
-                {/* View Switcher, Stage Customizer, Member, Brand, and Search Filters */}
+                {/* View Switcher, Stage Customizer, Priority, Sort, Member, Brand, and Search Filters */}
                 <div className="flex items-center gap-2 flex-wrap justify-end">
-                  {/* View Mode Switcher Segmented Control */}
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => handleSetViewMode("CARD")}
-                      title="Tampilan Papan Tulis (Card Grid)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        currentViewMode === "CARD"
-                          ? "bg-white text-slate-900 shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Card</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSetViewMode("KANBAN")}
-                      title="Tampilan Kanban Columns (Stage Pipeline ala Trello)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        currentViewMode === "KANBAN"
-                          ? "bg-white text-slate-900 shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <Kanban className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Kanban</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSetViewMode("LIST")}
-                      title="Tampilan Daftar / Tabel Kompak (ala Notion)"
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        currentViewMode === "LIST"
-                          ? "bg-white text-slate-900 shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <List className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">List</span>
-                    </button>
-                  </div>
-
-                  {/* Customize Stage Dropdown Menu */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomizeMenu(!showCustomizeMenu)}
-                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                        showCustomizeMenu || visibleStages.length < WORKBOARD_STAGES.length
-                          ? "bg-blue-50 border-blue-300 text-blue-700"
-                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white"
-                      }`}
-                    >
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      <span>Stage</span>
-                      {visibleStages.length < WORKBOARD_STAGES.length && (
-                        <span className="rounded-full bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2">
-                          {visibleStages.length}/5
-                        </span>
-                      )}
-                    </button>
-
-                    {showCustomizeMenu && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-3.5 z-40 space-y-3 animate-in fade-in zoom-in-95"
-                      >
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                          <span className="text-xs font-bold text-slate-900">Kustomisasi Stage</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowCustomizeMenu(false)}
-                            className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        {/* Quick Presets */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Preset Cepat:
-                          </span>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => setVisibleStages(WORKBOARD_STAGES.map((s) => s.key))}
-                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
-                            >
-                              Semua (5)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setVisibleStages(["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION"])
-                              }
-                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
-                            >
-                              Fokus Aktif
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVisibleStages(["SUBMIT_TO_REVIEW", "REVISION"])}
-                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition cursor-pointer"
-                            >
-                              Perlu Tindakan
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Stage Checklist */}
-                        <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Pilih Tahap Ditampilkan:
-                          </span>
-                          {WORKBOARD_STAGES.map((s) => {
-                            const isChecked = visibleStages.includes(s.key);
-                            return (
-                              <label
-                                key={s.key}
-                                className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setVisibleStages([...visibleStages, s.key]);
-                                      } else {
-                                        if (visibleStages.length > 1) {
-                                          setVisibleStages(visibleStages.filter((k) => k !== s.key));
-                                        }
-                                      }
-                                    }}
-                                    className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
-                                  />
-                                  <span
-                                    className={`font-bold ${
-                                      isChecked ? "text-slate-800" : "text-slate-400 line-through"
-                                    }`}
-                                  >
-                                    {s.step}. {s.label}
-                                  </span>
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {renderViewModeSwitcher()}
+                  {renderStageCustomizer()}
+                  {renderPriorityAndSortControls()}
 
                   {/* Filter Member */}
                   <div className="relative">
@@ -2313,18 +2998,20 @@ function WorkspaceCardsPageContent() {
                   </div>
 
                   {/* Filter Brand */}
-                  <select
-                    value={selectedBrand}
-                    onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
-                  >
-                    <option value="ALL">Semua Brand</option>
-                    {availableBrands.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
-                  </select>
+                  {availableBrands.length > 0 && (
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => setSelectedBrand(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                    >
+                      <option value="ALL">Semua Brand</option>
+                      {availableBrands.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
                   {/* Search */}
                   <div className="relative w-40 sm:w-52">
@@ -2340,458 +3027,14 @@ function WorkspaceCardsPageContent() {
                 </div>
               </div>
 
-              {/* VIEW 1: CARD VIEW (WHITEBOARD STICKY NOTES GRID) */}
-              {currentViewMode === "CARD" && (() => {
-                const tasksInVisibleStages = filteredDivisionTasks.filter((t) =>
-                  visibleStages.includes(getTaskStageKey(t))
-                );
-
-                const countNotStarted = tasksInVisibleStages.filter(
-                  (t) => getTaskStageKey(t) === "NOT_STARTED"
-                ).length;
-                const countOnProgress = tasksInVisibleStages.filter(
-                  (t) => getTaskStageKey(t) === "ON_PROGRESS"
-                ).length;
-                const countReview = tasksInVisibleStages.filter(
-                  (t) => getTaskStageKey(t) === "SUBMIT_TO_REVIEW"
-                ).length;
-                const countRevision = tasksInVisibleStages.filter(
-                  (t) => getTaskStageKey(t) === "REVISION"
-                ).length;
-                const countDone = tasksInVisibleStages.filter(
-                  (t) => getTaskStageKey(t) === "DONE"
-                ).length;
-
-                const displayTasks =
-                  whiteboardStageFilter === "ALL"
-                    ? tasksInVisibleStages
-                    : tasksInVisibleStages.filter(
-                        (t) => getTaskStageKey(t) === whiteboardStageFilter
-                      );
-
-                const stageFilterTabs = [
-                  { id: "ALL", label: "Semua", count: tasksInVisibleStages.length, badgeStyle: "bg-slate-100 text-slate-700" },
-                  { id: "NOT_STARTED", label: "1. Not Started", count: countNotStarted, badgeStyle: "bg-slate-100 text-slate-700" },
-                  { id: "ON_PROGRESS", label: "2. On Progress", count: countOnProgress, badgeStyle: "bg-blue-100 text-blue-800" },
-                  { id: "SUBMIT_TO_REVIEW", label: "3. Review", count: countReview, badgeStyle: "bg-amber-100 text-amber-800" },
-                  { id: "REVISION", label: "4. Revisi", count: countRevision, badgeStyle: "bg-rose-100 text-rose-800" },
-                  { id: "DONE", label: "5. Done", count: countDone, badgeStyle: "bg-emerald-100 text-emerald-800" },
-                ].filter((tab) => tab.id === "ALL" || visibleStages.includes(tab.id));
-
-                return (
-                  <div className="rounded-3xl border border-slate-200/90 bg-white/70 backdrop-blur-xs p-5 shadow-xs space-y-4 min-h-[580px]">
-                    {/* Whiteboard Header: Sticky Notes Stage Filter Bar */}
-                    <div className="flex items-center justify-between gap-3 flex-wrap pb-3.5 border-b border-slate-200/80">
-                      <div className="flex items-center gap-1.5 overflow-x-auto">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
-                          Filter Stage:
-                        </span>
-                        {stageFilterTabs.map((filter) => {
-                          const isActive = whiteboardStageFilter === filter.id;
-                          return (
-                            <button
-                              key={filter.id}
-                              type="button"
-                              onClick={() => setWhiteboardStageFilter(filter.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
-                                isActive
-                                  ? "bg-slate-900 text-white shadow-2xs"
-                                  : "bg-white text-slate-600 border border-slate-200/90 hover:bg-slate-50 hover:text-slate-900"
-                              }`}
-                            >
-                              <span>{filter.label}</span>
-                              <span
-                                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                                  isActive ? "bg-white/20 text-white" : filter.badgeStyle
-                                }`}
-                              >
-                                {filter.count}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="text-xs text-slate-400 font-medium">
-                        Menampilkan <span className="font-bold text-slate-700">{displayTasks.length}</span> kartu kerja
-                      </div>
-                    </div>
-
-                    {/* Whiteboard Cards Grid (Sticky Notes Layout) */}
-                    {displayTasks.length === 0 ? (
-                      <div className="h-72 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 border border-dashed border-slate-200 rounded-3xl">
-                        <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs mb-2">
-                          <StickyNote className="h-6 w-6 text-slate-400" />
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-800">Papan Tulis Kosong</h4>
-                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                          Belum ada kartu kerja di papan tulis divisi {currentDivisionDef?.label}
-                          {whiteboardStageFilter !== "ALL" ? " untuk filter stage ini." : "."}
-                        </p>
-                        <button
-                          onClick={() => {
-                            setTargetCardForNew(selectedDivision || undefined);
-                            setCreateModalOpen(true);
-                          }}
-                          className="mt-4 flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          <span>Tambah Kartu Kerja Baru</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 items-start">
-                        {displayTasks.map((t) => renderCard(t, false, false))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* VIEW 2: KANBAN VIEW (STAGE COLUMNS ALA TRELLO) */}
-              {currentViewMode === "KANBAN" && (
-                <div className="rounded-3xl border border-slate-200/90 bg-slate-100/60 p-4 shadow-xs overflow-x-auto min-h-[620px]">
-                  <div className="flex items-start gap-4 min-w-[1000px] pb-2">
-                    {WORKBOARD_STAGES.filter((s) => visibleStages.includes(s.key)).map((stage) => {
-                      const isCollapsed = Boolean(collapsedStages[stage.key]);
-                      const colTasks = filteredDivisionTasks.filter(
-                        (t) => getTaskStageKey(t) === stage.key
-                      );
-                      const isRevision = stage.key === "REVISION";
-
-                      if (isCollapsed) {
-                        return (
-                          <div
-                            key={stage.key}
-                            onClick={() => toggleCollapseStage(stage.key)}
-                            title={`Klik untuk membuka kolom ${stage.label}`}
-                            className="w-12 h-[580px] rounded-2xl border border-slate-200 bg-white/90 shadow-2xs hover:bg-blue-50/40 hover:border-blue-300 transition-all flex flex-col items-center justify-between py-4 px-1 cursor-pointer select-none group shrink-0"
-                          >
-                            <div className="p-1 rounded-lg bg-slate-100 group-hover:bg-blue-100 text-slate-500 group-hover:text-blue-700 transition">
-                              <ChevronRight className="h-4 w-4" />
-                            </div>
-
-                            <div className="[writing-mode:vertical-rl] rotate-180 flex items-center gap-2 text-xs font-black text-slate-700 tracking-wider">
-                              <span>
-                                {stage.step}. {stage.label}
-                              </span>
-                            </div>
-
-                            <span className="h-6 w-6 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black flex items-center justify-center border border-slate-200">
-                              {colTasks.length}
-                            </span>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={stage.key}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDropToStage(e, stage.key)}
-                          className={`flex-1 min-w-[280px] max-w-[340px] rounded-3xl border shadow-2xs flex flex-col min-h-[580px] max-h-[820px] overflow-hidden transition-all ${
-                            stage.key === "DONE"
-                              ? "bg-emerald-50/30 border-emerald-200/70"
-                              : isRevision
-                              ? "bg-rose-50/30 border-rose-200/70"
-                              : stage.key === "SUBMIT_TO_REVIEW"
-                              ? "bg-amber-50/30 border-amber-200/70"
-                              : stage.key === "ON_PROGRESS"
-                              ? "bg-blue-50/30 border-blue-200/70"
-                              : "bg-white/90 border-slate-200"
-                          }`}
-                        >
-                          {/* Column Header */}
-                          <div className="p-3.5 border-b border-slate-200/80 bg-white/80 backdrop-blur-xs flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`h-6 w-6 rounded-full text-white text-[11px] font-black flex items-center justify-center shadow-xs shrink-0 ${
-                                  stage.key === "DONE"
-                                    ? "bg-emerald-600"
-                                    : isRevision
-                                    ? "bg-rose-600"
-                                    : stage.key === "SUBMIT_TO_REVIEW"
-                                    ? "bg-amber-500"
-                                    : stage.key === "ON_PROGRESS"
-                                    ? "bg-blue-600"
-                                    : "bg-slate-700"
-                                }`}
-                              >
-                                {stage.step}
-                              </span>
-                              <div>
-                                <div className="flex items-center gap-1.5">
-                                  <h3 className="text-xs font-bold text-slate-900">{stage.label}</h3>
-                                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                                    {colTasks.length}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              {/* Add Task button for this stage */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTargetCardForNew(selectedDivision || undefined);
-                                  setCreateModalOpen(true);
-                                }}
-                                title={`Tambah tugas di ${stage.label}`}
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-
-                              {/* Collapse column button */}
-                              <button
-                                type="button"
-                                onClick={() => toggleCollapseStage(stage.key)}
-                                title="Ciutkan kolom ini"
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                              >
-                                <Minimize2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Column Body / Cards Container */}
-                          <div className="p-3 flex-1 space-y-3 overflow-y-auto">
-                            {colTasks.length === 0 ? (
-                              <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-300/80 rounded-2xl bg-white/40">
-                                <p className="text-xs font-bold text-slate-600">Kosong</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">Tarik kartu tugas ke sini</p>
-                              </div>
-                            ) : (
-                              colTasks.map((t) => renderCard(t, false, false))
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* VIEW 3: LIST VIEW (TABEL / DAFTAR BARIS KOMPAK ALA NOTION / CLICKUP) */}
-              {currentViewMode === "LIST" && (() => {
-                const displayTasks = filteredDivisionTasks.filter((t) =>
-                  visibleStages.includes(getTaskStageKey(t))
-                );
-
-                return (
-                  <div className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden min-h-[580px]">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                            <th className="py-3.5 px-4">Tugas / Judul</th>
-                            <th className="py-3.5 px-3">Divisi & Brand</th>
-                            <th className="py-3.5 px-3">Stage</th>
-                            <th className="py-3.5 px-3">Prioritas</th>
-                            <th className="py-3.5 px-3">Tim Pelaksana</th>
-                            <th className="py-3.5 px-3">Pemberi</th>
-                            <th className="py-3.5 px-3">Target Deadline</th>
-                            <th className="py-3.5 px-4 text-right">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                          {displayTasks.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="py-20 text-center text-slate-400">
-                                <div className="flex flex-col items-center justify-center gap-2">
-                                  <List className="h-8 w-8 text-slate-300" />
-                                  <p className="font-bold text-slate-600">Tidak ada tugas ditemukan</p>
-                                  <p className="text-xs text-slate-400">Coba ubah filter atau kustomisasi stage.</p>
-                                </div>
-                              </td>
-                            </tr>
-                          ) : (
-                            displayTasks.map((task) => {
-                              const stageKey = getTaskStageKey(task);
-                              const stageInfo =
-                                WORKBOARD_STAGES.find((s) => s.key === stageKey) || WORKBOARD_STAGES[0];
-                              const isMyTask =
-                                task.user?.id === user?.id ||
-                                task.assignees?.some((a) => a.user?.id === user?.id);
-                              const isCreatorOrMgr =
-                                task.creator?.id === user?.id ||
-                                user?.role === "ADMIN" ||
-                                user?.role === "MANAGER";
-
-                              return (
-                                <tr
-                                  key={task.id}
-                                  onClick={() => setSelectedTaskForDetail(task)}
-                                  className="hover:bg-blue-50/40 transition cursor-pointer group"
-                                >
-                                  {/* 1. Judul & Snippet */}
-                                  <td className="py-3 px-4 max-w-xs">
-                                    <div className="font-bold text-slate-900 group-hover:text-red-600 transition truncate">
-                                      {task.title}
-                                    </div>
-                                    {task.description && (
-                                      <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                                        {task.description.replace(/<[^>]*>?/gm, "").trim()}
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* 2. Divisi & Brand */}
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
-                                        {task.departmentCard}
-                                      </span>
-                                      {task.brandName && (
-                                        <span className="text-[10px] font-semibold text-slate-500">
-                                          {task.brandName}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* 3. Stage Badge */}
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    <span
-                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
-                                        stageKey === "DONE"
-                                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                          : stageKey === "REVISION"
-                                          ? "bg-rose-50 text-rose-800 border-rose-200"
-                                          : stageKey === "SUBMIT_TO_REVIEW"
-                                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                                          : stageKey === "ON_PROGRESS"
-                                          ? "bg-blue-50 text-blue-800 border-blue-200"
-                                          : "bg-slate-100 text-slate-700 border-slate-200"
-                                      }`}
-                                    >
-                                      <span>
-                                        {stageInfo.step}. {stageInfo.label}
-                                      </span>
-                                    </span>
-                                  </td>
-
-                                  {/* 4. Prioritas */}
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    {task.priority === "URGENT" ? (
-                                      <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-2 py-0.5 shadow-2xs">
-                                        Urgent
-                                      </span>
-                                    ) : task.priority === "HIGH" ? (
-                                      <span className="rounded-full bg-orange-100 text-orange-800 border border-orange-200 text-[9px] font-bold px-2 py-0.5">
-                                        Tinggi
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] font-medium text-slate-400">Normal</span>
-                                    )}
-                                  </td>
-
-                                  {/* 5. Tim Pelaksana */}
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="h-6 w-6 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-white">
-                                        {task.user?.avatarUrl ? (
-                                          <img
-                                            src={task.user.avatarUrl}
-                                            alt={task.user.name}
-                                            className="h-full w-full object-cover"
-                                          />
-                                        ) : (
-                                          (task.user?.name || "?").charAt(0)
-                                        )}
-                                      </span>
-                                      <span className="text-xs font-semibold text-slate-800 truncate max-w-[100px]">
-                                        {isMyTask ? "Saya Sendiri" : task.user?.name}
-                                      </span>
-                                    </div>
-                                  </td>
-
-                                  {/* 6. Pemberi */}
-                                  <td className="py-3 px-3 whitespace-nowrap text-xs text-slate-600">
-                                    {task.creator?.name ? (
-                                      <span className="font-semibold text-purple-700">
-                                        {task.creator.id === user?.id ? "Saya" : task.creator.name}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-400">-</span>
-                                    )}
-                                  </td>
-
-                                  {/* 7. Target Deadline */}
-                                  <td className="py-3 px-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
-                                    {task.expectedDeadline ? formatDateTime(task.expectedDeadline) : "Fleksibel"}
-                                  </td>
-
-                                  {/* 8. Aksi */}
-                                  <td
-                                    className="py-3 px-4 text-right whitespace-nowrap"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {stageKey === "NOT_STARTED" && isMyTask ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleStartTask(task.id)}
-                                        className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs cursor-pointer"
-                                      >
-                                        <Play className="h-3 w-3" />
-                                        <span>Mulai &rarr;</span>
-                                      </button>
-                                    ) : stageKey === "ON_PROGRESS" && isMyTask ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => setDeliverableModalTask(task)}
-                                        className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs cursor-pointer"
-                                      >
-                                        <CheckCircle2 className="h-3 w-3" />
-                                        <span>Submit &rarr;</span>
-                                      </button>
-                                    ) : stageKey === "SUBMIT_TO_REVIEW" && isCreatorOrMgr ? (
-                                      <div className="inline-flex items-center gap-1.5 justify-end">
-                                        <button
-                                          type="button"
-                                          onClick={() => setRevisionModalTask(task)}
-                                          className="rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
-                                        >
-                                          Revisi
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleApproveTask(task.id)}
-                                          className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-black text-white hover:bg-emerald-700 transition cursor-pointer shadow-2xs"
-                                        >
-                                          ACC Done
-                                        </button>
-                                      </div>
-                                    ) : stageKey === "REVISION" && isMyTask ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => setDeliverableModalTask(task)}
-                                        className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
-                                      >
-                                        <RefreshCw className="h-3 w-3" />
-                                        <span>Submit Revisi &rarr;</span>
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedTaskForDetail(task)}
-                                        className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                                      >
-                                        Detail &rarr;
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Unified Multi-View Container for Division Stage View */}
+              {renderMultiViewContainer({
+                tasks: filteredDivisionTasks,
+                isPersonalBoard: false,
+                isDelegatedView: false,
+                emptyContextText: `di papan tulis divisi ${currentDivisionDef?.label || ""}`,
+                defaultCardKey: selectedDivision || undefined,
+              })}
             </div>
           )}
         </main>
