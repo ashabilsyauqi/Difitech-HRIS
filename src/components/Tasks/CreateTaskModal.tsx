@@ -247,8 +247,8 @@ export default function CreateTaskModal({
                   {isContentProduction
                     ? "Lembar Kerja: Request Konten Baru (Sosmed)"
                     : !isSelfAssigned
-                    ? `Request Kerjaan ke Tim ${currentDeptConfig.label}`
-                    : "Lembar Kerja Tugas Baru"}
+                    ? `Tambah / Delegasikan Tugas ke Tim ${currentDeptConfig.label}`
+                    : "Lembar Kerja Tambah Tugas"}
                 </h3>
                 <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                   isContentProduction
@@ -605,13 +605,13 @@ export default function CreateTaskModal({
                   ? isContentProduction
                     ? "Menyimpan Request Konten..."
                     : !isSelfAssigned
-                    ? "Mengirim Request Kerjaan..."
-                    : "Menyimpan Lembar Kerja..."
+                    ? "Menyimpan & Mengirim Tugas..."
+                    : "Menyimpan Tugas..."
                   : isContentProduction
                   ? "🎬 Submit Request Konten ke Kanban"
                   : !isSelfAssigned
-                  ? `Kirim Request Kerjaan ke ${selectedAssignee?.name || currentDeptConfig.label}`
-                  : "Posting Lembar Kerja Tugas"}
+                  ? `Simpan & Kirim Tugas ke ${selectedAssignee?.name || currentDeptConfig.label}`
+                  : "Posting Tugas Baru"}
               </span>
             </button>
           </div>

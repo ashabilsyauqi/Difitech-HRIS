@@ -1451,10 +1451,10 @@ function WorkspaceCardsPageContent() {
                       setTargetCardForNew(undefined);
                       setCreateModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer shrink-0 whitespace-nowrap"
+                    className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Request Tugas</span>
+                    <span>Tambah Tugas</span>
                   </button>
                 </div>
               </div>
@@ -1522,7 +1522,7 @@ function WorkspaceCardsPageContent() {
                       return (
                         <div
                           key={cardDef.key}
-                          className="w-[290px] sm:w-[315px] shrink-0 h-full flex flex-col bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden"
+                          className="flex-1 min-w-[260px] h-full flex flex-col bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden"
                         >
                           {/* Column Header */}
                           <div className={`p-3 text-white ${cardDef.headerBg} shrink-0`}>
@@ -1563,7 +1563,7 @@ function WorkspaceCardsPageContent() {
 
                                 <button
                                   type="button"
-                                  title={`Tambah Kartu Kerja di ${cardDef.label}`}
+                                  title={`Tambah tugas di ${cardDef.label}`}
                                   onClick={() => {
                                     setTargetCardForNew(cardDef.key);
                                     setCreateModalOpen(true);
@@ -1587,6 +1587,21 @@ function WorkspaceCardsPageContent() {
                                 </span>
                               )}
                             </div>
+                          </div>
+
+                          {/* Column Top Action: Tambah Tugas (Ditaruh di atas) */}
+                          <div className="p-2 bg-white/90 border-b border-slate-200/90 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetCardForNew(cardDef.key);
+                                setCreateModalOpen(true);
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-slate-700 bg-white hover:text-red-600 hover:bg-red-50/50 rounded-xl transition border border-dashed border-slate-300 hover:border-red-300 shadow-2xs cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5 text-red-600" />
+                              <span>Tambah Tugas</span>
+                            </button>
                           </div>
 
                           {/* Sticky Notes Scrollable Body */}
@@ -1806,21 +1821,6 @@ function WorkspaceCardsPageContent() {
                               ))
                             )}
                           </div>
-
-                          {/* Column Bottom Action */}
-                          <div className="p-2 bg-white/80 border-t border-slate-200/80 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTargetCardForNew(cardDef.key);
-                                setCreateModalOpen(true);
-                              }}
-                              className="w-full flex items-center justify-center gap-1 py-1.5 text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-white rounded-xl transition border border-dashed border-slate-300 hover:border-red-300 shadow-2xs cursor-pointer"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              <span>Tambah Kartu Kerja</span>
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
@@ -1889,11 +1889,7 @@ function WorkspaceCardsPageContent() {
                     className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>
-                      {isHomeCard(selectedDivision, user?.department) || isAdmin
-                        ? `Tambah Tugas di ${currentDivisionDef?.label}`
-                        : `Request Kerjaan ke Tim ${currentDivisionDef?.label}`}
-                    </span>
+                    <span>Tambah Tugas di {currentDivisionDef?.label}</span>
                   </button>
                 </div>
               </div>
@@ -2072,7 +2068,7 @@ function WorkspaceCardsPageContent() {
                               setTargetCardForNew(selectedDivision || undefined);
                               setCreateModalOpen(true);
                             }}
-                            title={`Request kerjaan ke tim ${currentDivisionDef?.label}`}
+                            title={`Tambah tugas ke tim ${currentDivisionDef?.label}`}
                             className="p-1.5 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100 transition cursor-pointer"
                           >
                             <Plus className="h-4 w-4" />
