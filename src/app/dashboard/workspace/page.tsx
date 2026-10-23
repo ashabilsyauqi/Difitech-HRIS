@@ -60,6 +60,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  UserCheck,
+  FolderKanban,
 } from "lucide-react";
 
 interface TaskItem {
@@ -2275,7 +2277,7 @@ function WorkspaceCardsPageContent() {
 
         <main
           className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col ${
-            boardMode === "PERSONAL" ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
+            boardMode === "PERSONAL" || selectedDivision ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
           }`}
         >
 
@@ -2865,125 +2867,116 @@ function WorkspaceCardsPageContent() {
             /* ========================================================================= */
             /* VIEW MODE 3: BIGBOARD DIVISI STAGE KANBAN                                 */
             /* ========================================================================= */
-            <div className="space-y-5">
-              {/* Top Navigation & Breadcrumb */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={backToOverview}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition shadow-2xs cursor-pointer"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Semua Divisi</span>
-                  </button>
-
-                  <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-
-                  <div className="flex items-center gap-2">
-                    {currentDivisionDef && (
-                      <span className={`rounded-xl px-2.5 py-1 text-xs font-black border ${currentDivisionDef.badgeColor}`}>
-                        {currentDivisionDef.label}
+            <div className="space-y-6">
+              {/* Header & Division Scope Tabs */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
+                      BigBoard Divisi
+                    </span>
+                    <span className="text-slate-400 text-xs">•</span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      {currentDivisionDef?.label || selectedDivision} ({currentDivisionDef?.sublabel || "Divisi"})
+                    </span>
+                    {isHomeCard(selectedDivision, user?.department) && (
+                      <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0">
+                        Divisi Saya
                       </span>
                     )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-black text-slate-900 leading-tight">
-                          BigBoard Divisi {currentDivisionDef?.label}
-                        </h2>
-                        {isHomeCard(selectedDivision, user?.department) && !isAdmin && (
-                          <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0">
-                            Divisi Saya
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        {currentDivisionDef?.sublabel} • Pipeline Kerja Tim {currentDivisionDef?.label}
-                      </p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={backToOverview}
+                      className="text-xs font-bold text-slate-400 hover:text-slate-700 hover:underline flex items-center gap-1 transition ml-1 cursor-pointer"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      <span>Semua Divisi</span>
+                    </button>
                   </div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+                    📋 Lembar Tugas Divisi {currentDivisionDef?.label || selectedDivision}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Papan kerja kolaboratif dan pipeline pengerjaan tim {currentDivisionDef?.label}. Pantau tugas divisi, progres tim, dan serahkan hasil kerja.
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {currentDivisionDef?.isContentHub && isSosmedUser && (
-                    <Link
-                      href="/dashboard/content-production"
-                      className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Division Scope Switcher */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setViewScope("ALL")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        viewScope === "ALL"
+                          ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
                     >
-                      <Clapperboard className="h-3.5 w-3.5 text-pink-600" />
-                      <span>Pipeline Konten 6-Tahap</span>
-                    </Link>
-                  )}
+                      <FolderKanban className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Semua Tugas</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                        {divisionTasks.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewScope("RELEVANT")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                        viewScope === "RELEVANT"
+                          ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Terkait Saya</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
+                        {
+                          divisionTasks.filter(
+                            (t) =>
+                              t.user?.id === user?.id ||
+                              t.assignees?.some((a) => a.user?.id === user?.id) ||
+                              t.creator?.id === user?.id
+                          ).length
+                        }
+                      </span>
+                    </button>
+
+                    {currentDivisionDef?.isContentHub && isSosmedUser && (
+                      <Link
+                        href="/dashboard/content-production"
+                        className="flex items-center gap-1.5 rounded-lg border border-pink-200 bg-pink-50 px-2.5 py-1 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs ml-1"
+                      >
+                        <Clapperboard className="h-3.5 w-3.5 text-pink-600" />
+                        <span>Pipeline Konten</span>
+                      </Link>
+                    )}
+                  </div>
 
                   <button
                     onClick={() => {
                       setTargetCardForNew(selectedDivision || undefined);
                       setCreateModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
+                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Tambah Tugas di {currentDivisionDef?.label}</span>
+                    <Plus className="h-4 w-4" />
+                    <span>Buat Tugas Baru</span>
                   </button>
                 </div>
               </div>
 
-              {/* Sub-Filters for Stage View */}
-              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                {/* View Scope Filter */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("ALL")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                      viewScope === "ALL"
-                        ? "bg-white text-slate-900 shadow-2xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Semua Tugas Divisi
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("RELEVANT")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                      viewScope === "RELEVANT"
-                        ? "bg-blue-600 text-white shadow-2xs font-black"
-                        : "text-slate-600 hover:text-blue-600"
-                    }`}
-                  >
-                    <span>Terkait Saya</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("MINE")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                      viewScope === "MINE"
-                        ? "bg-white text-slate-900 shadow-2xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Tugas Saya
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewScope("DELEGATED")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                      viewScope === "DELEGATED"
-                        ? "bg-white text-slate-900 shadow-2xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Delegasi Saya
-                  </button>
-                </div>
-
-                {/* View Switcher, Stage Customizer, Priority, Sort, Member, Brand, and Search Filters */}
-                <div className="flex items-center gap-2 flex-wrap justify-end">
+              {/* Sub-Filters / Toolbar for Division BigBoard */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs">
+                {/* Left: View Mode Switcher + Customize Stage */}
+                <div className="flex items-center gap-2 flex-wrap">
                   {renderViewModeSwitcher()}
                   {renderStageCustomizer()}
+                </div>
+
+                {/* Right: Priority Filter, Sort Dropdown, Member Filter, Brand Filter & Search */}
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                   {renderPriorityAndSortControls()}
 
                   {/* Filter Member */}
@@ -2991,7 +2984,7 @@ function WorkspaceCardsPageContent() {
                     <select
                       value={selectedMember}
                       onChange={(e) => setSelectedMember(e.target.value)}
-                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
                     >
                       <option value="ALL">Semua Anggota</option>
                       {divisionMembers.map((m) => (
@@ -3007,7 +3000,7 @@ function WorkspaceCardsPageContent() {
                     <select
                       value={selectedBrand}
                       onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
                     >
                       <option value="ALL">Semua Brand</option>
                       {availableBrands.map((b) => (
@@ -3018,12 +3011,12 @@ function WorkspaceCardsPageContent() {
                     </select>
                   )}
 
-                  {/* Search */}
+                  {/* Search Input */}
                   <div className="relative w-40 sm:w-52">
                     <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari tugas..."
+                      placeholder={`Cari tugas ${currentDivisionDef?.label || "divisi"}...`}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
@@ -3032,12 +3025,12 @@ function WorkspaceCardsPageContent() {
                 </div>
               </div>
 
-              {/* Unified Multi-View Container for Division Stage View */}
+              {/* Multi-View Container for Division Board */}
               {renderMultiViewContainer({
                 tasks: filteredDivisionTasks,
                 isPersonalBoard: false,
                 isDelegatedView: false,
-                emptyContextText: `di papan tulis divisi ${currentDivisionDef?.label || ""}`,
+                emptyContextText: `di divisi ${currentDivisionDef?.label || ""}`,
                 defaultCardKey: selectedDivision || undefined,
               })}
             </div>
