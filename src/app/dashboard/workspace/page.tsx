@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
@@ -348,8 +348,9 @@ const getCleanDescriptionSnippet = (desc?: string | null) => {
   return text;
 };
 
-export default function WorkspaceCardsPage() {
+function WorkspaceCardsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -478,22 +479,37 @@ export default function WorkspaceCardsPage() {
       document.title = "DifWorkBoard - BigBoard 6 Divisi & Kolaborasi";
     }
 
-    // Check URL parameters for board mode or card
-    if (typeof window !== "undefined") {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get("view") === "personal") {
-        setBoardMode("PERSONAL");
-      }
-      const cardParam = searchParams.get("card");
-      if (cardParam) {
-        const found = CARDS_DEFINITION.find((c) => c.key.toLowerCase() === cardParam.toLowerCase());
-        if (found) {
-          setBoardMode("DIVISION");
-          setSelectedDivision(found.key);
-        }
-      }
-    }
   }, []);
+
+  // Sync state reactively with searchParams from URL
+  useEffect(() => {
+    if (!searchParams) return;
+    const viewParam = searchParams.get("view");
+    const cardParam = searchParams.get("card");
+    const tabParam = searchParams.get("tab");
+
+    if (viewParam === "personal") {
+      setBoardMode("PERSONAL");
+      setSelectedDivision(null);
+      if (tabParam === "delegated") {
+        setPersonalTab("DELEGATED");
+      } else {
+        setPersonalTab("MY_TASKS");
+      }
+    } else if (cardParam) {
+      const found = CARDS_DEFINITION.find((c) => c.key.toLowerCase() === cardParam.toLowerCase());
+      if (found) {
+        setBoardMode("DIVISION");
+        setSelectedDivision(found.key);
+      } else {
+        setBoardMode("DIVISION");
+        setSelectedDivision(null);
+      }
+    } else {
+      setBoardMode("DIVISION");
+      setSelectedDivision(null);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchTasks();
@@ -501,21 +517,14 @@ export default function WorkspaceCardsPage() {
 
   // Navigate to division stage view
   const openDivisionStage = (divisionKey: string) => {
-    setBoardMode("DIVISION");
-    setSelectedDivision(divisionKey);
     setSelectedMember("ALL");
-    if (typeof window !== "undefined") {
-      window.history.pushState({}, "", `/dashboard/workspace?card=${divisionKey}`);
-    }
+    router.push(`/dashboard/workspace?card=${divisionKey}`);
   };
 
   // Back to thumbnail overview
   const backToOverview = () => {
-    setSelectedDivision(null);
     setSelectedMember("ALL");
-    if (typeof window !== "undefined") {
-      window.history.pushState({}, "", `/dashboard/workspace`);
-    }
+    router.push(`/dashboard/workspace`);
   };
 
   // Timer Toggle (Mulai / Jeda)
@@ -782,27 +791,40 @@ export default function WorkspaceCardsPage() {
         }`}
       >
         {/* Top Badge Row */}
-        <div className="flex items-center justify-between gap-1 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center justify-between gap-1.5 whitespace-nowrap overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+            {/* Priority: only if URGENT or HIGH */}
+            {task.priority === "URGENT" && (
+              <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs shrink-0 whitespace-nowrap">
+                <Flame className="h-2.5 w-2.5" />
+                Urgent
+              </span>
+            )}
+            {task.priority === "HIGH" && (
+              <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-1.5 py-0.5 border border-orange-200 shrink-0 whitespace-nowrap">
+                Tinggi
+              </span>
+            )}
+
             {/* Division Badge */}
             {task.departmentCard && (
-              <span className="rounded-md bg-slate-900 text-white font-black text-[9px] px-1.5 py-0.2 tracking-wide uppercase">
+              <span className="rounded-md bg-slate-100 text-slate-700 font-bold text-[9px] px-1.5 py-0.5 border border-slate-200 shrink-0 whitespace-nowrap">
                 {task.departmentCard}
               </span>
             )}
-            {task.brandName && (
-              <span className="rounded-md bg-red-50 text-red-700 border border-red-200 font-bold text-[9px] px-1.5 py-0.2 flex items-center gap-1">
-                <Tag className="h-2.5 w-2.5" />
-                {task.brandName}
-              </span>
+
+            {/* Brand: only if real client brand */}
+            {task.brandName &&
+              task.brandName !== "Difitech HRIS" &&
+              task.brandName !== "Internal Difitech" && (
+                <span className="text-[9px] font-semibold text-slate-500 truncate max-w-[80px]">
+                  {task.brandName}
+                </span>
             )}
-            <span className={`rounded-md border font-bold text-[9px] px-1.5 py-0.2 ${getPriorityBadge(task.priority)}`}>
-              {task.priority}
-            </span>
           </div>
 
           {/* Follow Up Button */}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
             <FollowUpButton
               taskId={task.id}
               taskTitle={task.title}
@@ -1065,107 +1087,7 @@ export default function WorkspaceCardsPage() {
             boardMode === "PERSONAL" ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
           }`}
         >
-          {/* ========================================================================= */}
-          {/* DIFWORKBOARD TOP NAVIGATION & BIGBOARD SWITCHER                           */}
-          {/* ========================================================================= */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200 shadow-2xs shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
-                    Dif<span className="text-red-600">WorkBoard</span>
-                  </span>
-                  <span className="rounded-full bg-slate-900 text-white text-[9px] font-black px-2 py-0.5 uppercase tracking-wider">
-                    Agile Funnel
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 line-clamp-1">
-                  {boardMode === "PERSONAL"
-                    ? "BigBoard Pribadi: Kelola Tugas Mandiri & Delegasi Corong Tim"
-                    : "Papan kerja kolaboratif non-stage. Setiap kolom mewakili divisi dan tugas berbentuk kartu kerja (sticky notes)."}
-                </p>
-              </div>
-            </div>
 
-            {/* Switcher Buttons & Quick Actions */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBoardMode("DIVISION");
-                    setSelectedDivision(null);
-                    if (typeof window !== "undefined") {
-                      window.history.pushState({}, "", "/dashboard/workspace");
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                    boardMode === "DIVISION"
-                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200 font-black"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Layers className={`h-3.5 w-3.5 ${boardMode === "DIVISION" ? "text-red-600" : "text-slate-400"}`} />
-                  <span>BigBoard Divisi</span>
-                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700">
-                    6 Divisi
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBoardMode("PERSONAL");
-                    if (typeof window !== "undefined") {
-                      window.history.pushState({}, "", "/dashboard/workspace?view=personal");
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                    boardMode === "PERSONAL"
-                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200 font-black"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <Users className={`h-3.5 w-3.5 ${boardMode === "PERSONAL" ? "text-blue-600" : "text-slate-400"}`} />
-                  <span>BigBoard Pribadi</span>
-                  {pendingReviewForMeCount > 0 && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                  )}
-                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700">
-                    {myAssignedTasks.length}
-                  </span>
-                </button>
-              </div>
-
-              {isSosmedUser && (
-                <Link
-                  href="/dashboard/content-production"
-                  className="flex items-center gap-1.5 rounded-xl border border-pink-300 bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-700 hover:bg-pink-100 transition shadow-2xs"
-                >
-                  <Clapperboard className="h-3.5 w-3.5 text-pink-600" />
-                  <span className="hidden md:inline">Kanban Konten</span>
-                </Link>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setTargetCardForNew(undefined);
-                  setCreateModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer shrink-0"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>+ Request Tugas</span>
-              </button>
-            </div>
-          </div>
 
           {/* ========================================================================= */}
           {/* VIEW MODE 1: BIGBOARD PRIBADI (Tugas Saya & Delegasi Saya)                */}
@@ -1358,73 +1280,71 @@ export default function WorkspaceCardsPage() {
             /* VIEW MODE 2: BIGBOARD DIVISI (Full Height Kanban 6 Divisi)               */
             /* ========================================================================= */
             <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
-              {/* Toolbar & Filter Bar (Compact shrink-0) */}
+              {/* Unified Header & Filter Bar */}
               <div className="shrink-0 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                {/* Left Controls: Scope & Status Tabs */}
+                {/* Left: Title & Scope/Status */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Scope Selector */}
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
-                    {!isAdmin ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setViewScope("RELEVANT")}
-                          className={`px-3 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                            viewScope === "RELEVANT"
-                              ? "bg-blue-600 text-white shadow-2xs"
-                              : "text-slate-600 hover:text-blue-600"
-                          }`}
-                        >
-                          <span>🎯 Divisi Terkait Saya</span>
-                          {user && (
-                            <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                                viewScope === "RELEVANT"
-                                  ? "bg-white/20 text-white"
-                                  : "bg-slate-200 text-slate-600"
-                              }`}
-                            >
-                              {CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length}
-                            </span>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setViewScope("ALL")}
-                          className={`px-3 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                            viewScope === "ALL"
-                              ? "bg-white text-slate-900 shadow-2xs font-black"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          Semua 6 Divisi
-                        </button>
-                      </>
-                    ) : (
-                      <div className="px-3 py-1 text-xs font-bold text-slate-700">
-                        🏢 Semua 6 Divisi
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2 mr-1">
+                    <div className="h-8 w-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black shadow-2xs shrink-0">
+                      <Layers className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h1 className="text-sm font-black text-slate-900 leading-none whitespace-nowrap">
+                        BigBoard Difitech
+                      </h1>
+                      <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap mt-0.5">
+                        Overview 6 Divisi
+                      </p>
+                    </div>
                   </div>
 
+                  <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+
+                  {/* Scope Selector */}
+                  {!isAdmin && (
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("RELEVANT")}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap ${
+                          viewScope === "RELEVANT"
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-blue-600"
+                        }`}
+                      >
+                        Terkait Saya ({CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope("ALL")}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap ${
+                          viewScope === "ALL"
+                            ? "bg-white text-slate-900 shadow-2xs font-black"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Semua 6 Divisi
+                      </button>
+                    </div>
+                  )}
+
                   {/* Status Filter Tabs */}
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 overflow-x-auto">
                     <button
                       type="button"
                       onClick={() => setStatusFilter("ALL")}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap ${
                         statusFilter === "ALL"
                           ? "bg-white text-slate-900 shadow-2xs font-black"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      Semua Kartu
+                      Semua
                     </button>
                     <button
                       type="button"
                       onClick={() => setStatusFilter("IN_PROGRESS")}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                      className={`px-2 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap flex items-center gap-1 ${
                         statusFilter === "IN_PROGRESS"
                           ? "bg-blue-600 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-blue-600"
@@ -1436,7 +1356,7 @@ export default function WorkspaceCardsPage() {
                     <button
                       type="button"
                       onClick={() => setStatusFilter("REVIEW")}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                      className={`px-2 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap flex items-center gap-1 ${
                         statusFilter === "REVIEW"
                           ? "bg-amber-500 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-amber-600"
@@ -1448,7 +1368,7 @@ export default function WorkspaceCardsPage() {
                     <button
                       type="button"
                       onClick={() => setStatusFilter("COMPLETED")}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                      className={`px-2 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap flex items-center gap-1 ${
                         statusFilter === "COMPLETED"
                           ? "bg-emerald-600 text-white shadow-2xs font-black"
                           : "text-slate-600 hover:text-emerald-600"
@@ -1460,31 +1380,45 @@ export default function WorkspaceCardsPage() {
                   </div>
                 </div>
 
-                {/* Right Controls: Search & Brand Filter */}
-                <div className="flex items-center gap-2 justify-end">
-                  <div className="relative flex-1 md:w-56">
-                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                {/* Right Controls: Search, Brand & + Request Button */}
+                <div className="flex items-center gap-2 justify-end flex-wrap sm:flex-nowrap">
+                  <div className="relative flex-1 sm:w-44">
+                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Cari kartu kerja..."
+                      placeholder="Cari kartu..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1 text-xs text-slate-800 placeholder-slate-400 focus:border-red-500 focus:bg-white focus:outline-none transition"
                     />
                   </div>
 
-                  <select
-                    value={selectedBrand}
-                    onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer"
+                  {availableBrands.length > 0 && (
+                    <select
+                      value={selectedBrand}
+                      onChange={(e) => setSelectedBrand(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
+                    >
+                      <option value="ALL">Semua Brand</option>
+                      {availableBrands.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetCardForNew(undefined);
+                      setCreateModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer shrink-0 whitespace-nowrap"
                   >
-                    <option value="ALL">Semua Brand</option>
-                    {availableBrands.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
-                  </select>
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Request Tugas</span>
+                  </button>
                 </div>
               </div>
 
@@ -1652,80 +1586,72 @@ export default function WorkspaceCardsPage() {
 
                                   <div>
                                     {/* Tags Row: Priority + Status */}
-                                    <div className="flex items-center justify-between gap-1 flex-wrap">
-                                      <div className="flex items-center gap-1">
+                                    <div className="flex items-center justify-between gap-1.5 whitespace-nowrap overflow-hidden">
+                                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
                                         {task.priority === "URGENT" && (
-                                          <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs">
+                                          <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs shrink-0 whitespace-nowrap">
                                             <Flame className="h-2.5 w-2.5" />
                                             Urgent
                                           </span>
                                         )}
                                         {task.priority === "HIGH" && (
-                                          <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-1.5 py-0.5 border border-orange-200">
+                                          <span className="rounded-full bg-orange-100 text-orange-800 text-[9px] font-bold px-1.5 py-0.5 border border-orange-200 shrink-0 whitespace-nowrap">
                                             Tinggi
                                           </span>
                                         )}
-                                        {task.priority === "NORMAL" && (
-                                          <span className="rounded-full bg-slate-100 text-slate-600 text-[9px] font-medium px-1.5 py-0.5">
-                                            Normal
-                                          </span>
-                                        )}
 
-                                        {task.brandName && (
-                                          <span className="rounded-full bg-slate-100 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 border border-slate-200 truncate max-w-[85px]">
-                                            {task.brandName}
-                                          </span>
+                                        {task.brandName &&
+                                          task.brandName !== "Difitech HRIS" &&
+                                          task.brandName !== "Internal Difitech" && (
+                                            <span className="text-[9px] font-semibold text-slate-500 truncate max-w-[75px]">
+                                              {task.brandName}
+                                            </span>
                                         )}
                                       </div>
 
-                                      {/* Stage Badge */}
+                                      {/* Stage Badge: Only when relevant */}
                                       {(() => {
                                         if (task.reviewStatus === "TO_BE_REVIEWED") {
                                           return (
-                                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1 animate-pulse">
+                                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1 shrink-0 whitespace-nowrap">
                                               <Clock className="h-2.5 w-2.5 text-amber-700" />
-                                              Menunggu Review
+                                              Butuh Review
                                             </span>
                                           );
                                         }
                                         if (task.reviewStatus === "UNDER_REVIEW") {
                                           return (
-                                            <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1 shrink-0 whitespace-nowrap">
                                               <Eye className="h-2.5 w-2.5 text-amber-600" />
-                                              Sedang Review
+                                              Reviewing
                                             </span>
                                           );
                                         }
                                         if (task.reviewStatus === "REVISION_REQUESTED") {
                                           return (
-                                            <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[9px] font-black px-1.5 py-0.5 flex items-center gap-1 shrink-0 whitespace-nowrap">
                                               <AlertCircle className="h-2.5 w-2.5 text-rose-600" />
-                                              Perlu Revisi
+                                              Revisi
                                             </span>
                                           );
                                         }
                                         if (task.status === "COMPLETED") {
                                           return (
-                                            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1 shrink-0 whitespace-nowrap">
                                               <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
-                                              ✓ Selesai
+                                              Selesai
                                             </span>
                                           );
                                         }
                                         if (task.status === "IN_PROGRESS") {
                                           return (
-                                            <span className="rounded-full bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
+                                            <span className="rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-semibold px-1.5 py-0.5 flex items-center gap-1 shrink-0 whitespace-nowrap">
                                               <PlayCircle className="h-2.5 w-2.5 text-blue-600" />
                                               Dikerjakan
                                             </span>
                                           );
                                         }
-                                        return (
-                                          <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-1">
-                                            <Inbox className="h-2.5 w-2.5 text-purple-600" />
-                                            Request Masuk
-                                          </span>
-                                        );
+                                        return null;
                                       })()}
                                     </div>
 
@@ -1756,7 +1682,7 @@ export default function WorkspaceCardsPage() {
 
                                     {/* Corong / Request Delegation Tag */}
                                     {task.creator?.id && task.creator.id !== task.user?.id && (
-                                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 bg-slate-50 p-1.5 rounded-lg border border-slate-100 whitespace-nowrap overflow-hidden">
                                         <Share2 className="h-3 w-3 text-red-500 shrink-0" />
                                         <span className="truncate">
                                           <span className="font-bold text-slate-900">{task.creator.name}</span>
@@ -1772,9 +1698,9 @@ export default function WorkspaceCardsPage() {
 
                                     {/* Deliverable preview badge */}
                                     {task.deliverableUrl && (
-                                      <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
-                                        <ExternalLink className="h-3 w-3 text-emerald-600" />
-                                        <span>Bukti Hasil Siap Di-review</span>
+                                      <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200 whitespace-nowrap">
+                                        <ExternalLink className="h-3 w-3 text-emerald-600 shrink-0" />
+                                        <span className="truncate">Bukti Siap Di-review</span>
                                       </div>
                                     )}
                                   </div>
@@ -2174,5 +2100,20 @@ export default function WorkspaceCardsPage() {
         />
       )}
     </div>
+  );
+}
+
+
+export default function WorkspaceCardsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-red-600 border-t-transparent" />
+        </div>
+      }
+    >
+      <WorkspaceCardsPageContent />
+    </Suspense>
   );
 }
