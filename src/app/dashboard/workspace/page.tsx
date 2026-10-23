@@ -1338,6 +1338,16 @@ function WorkspaceCardsPageContent() {
 
   const sortTasks = (items: TaskItem[], field: SortField, direction: SortDirection): TaskItem[] => {
     return [...items].sort((a, b) => {
+      // For standard sorts (Deadline, Priority, CreatedAt, Title, Brand, Assignee, Creator),
+      // Active tasks ALWAYS come first, and Done/Completed tasks ALWAYS go to the bottom!
+      if (field !== "STAGE" && field !== "ACTION") {
+        const isDoneA = getTaskStageKey(a) === "DONE";
+        const isDoneB = getTaskStageKey(b) === "DONE";
+        if (isDoneA !== isDoneB) {
+          return isDoneA ? 1 : -1;
+        }
+      }
+
       let diff = 0;
       if (field === "TITLE") {
         diff = (a.title || "").localeCompare(b.title || "", "id", { sensitivity: "base" });
@@ -1383,12 +1393,19 @@ function WorkspaceCardsPageContent() {
         diff = strA.localeCompare(strB, "id", { sensitivity: "base" });
       }
 
-      // If tie on primary sort field, apply secondary tie-breaker by stage & newest
+      // If tie on primary sort field, apply secondary tie-breaker by action rank, deadline, and newest
       if (diff === 0) {
-        const sA = stageWeight[getTaskStageKey(a)] || 0;
-        const sB = stageWeight[getTaskStageKey(b)] || 0;
-        const sDiff = sA - sB;
-        if (sDiff !== 0) return sDiff;
+        const rA = getTaskActionRank(a);
+        const rB = getTaskActionRank(b);
+        const rDiff = rA - rB;
+        if (rDiff !== 0) return rDiff;
+
+        const timeA = a.expectedDeadline ? new Date(a.expectedDeadline).getTime() : null;
+        const timeB = b.expectedDeadline ? new Date(b.expectedDeadline).getTime() : null;
+        if (timeA !== null && timeB !== null && timeA !== timeB) {
+          return timeA - timeB;
+        }
+
         const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return tB - tA;
