@@ -391,7 +391,7 @@ function WorkspaceCardsPageContent() {
   const [selectedMember, setSelectedMember] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [whiteboardStageFilter, setWhiteboardStageFilter] = useState<string>("ALL");
-  const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
+  const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("ALL");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   // Multi-View Customizer: "CARD" | "KANBAN" | "LIST"
   const [currentViewMode, setCurrentViewMode] = useState<"CARD" | "KANBAN" | "LIST">("CARD");
@@ -455,12 +455,7 @@ function WorkspaceCardsPageContent() {
       }
       const data = await res.json();
       setUser(data.user);
-      const isAdm = data.user?.role === "ADMIN" || data.user?.role === "MANAGER";
-      if (isAdm) {
-        setViewScope("ALL");
-      } else {
-        setViewScope("RELEVANT");
-      }
+      setViewScope("ALL");
     } catch {
       router.push("/login");
     }
@@ -2426,33 +2421,6 @@ function WorkspaceCardsPageContent() {
 
                   <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
-                  {/* Scope Selector */}
-                  {!isAdmin && (
-                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("RELEVANT")}
-                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap ${
-                          viewScope === "RELEVANT"
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-blue-600"
-                        }`}
-                      >
-                        Terkait Saya ({CARDS_DEFINITION.filter((c) => isCardRelevantForEmployee(c.key, user, tasks)).length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("ALL")}
-                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition shrink-0 cursor-pointer whitespace-nowrap ${
-                          viewScope === "ALL"
-                            ? "bg-white text-slate-900 shadow-2xs font-black"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Semua 6 Divisi
-                      </button>
-                    </div>
-                  )}
 
                   {/* Status Filter Tabs */}
                   <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 overflow-x-auto">
@@ -2551,34 +2519,7 @@ function WorkspaceCardsPageContent() {
 
               {/* 6 Columns Kanban Container */}
               {(() => {
-                const displayedCards = CARDS_DEFINITION.filter((c) => {
-                  if (isAdmin) return true;
-                  if (viewScope === "ALL") return true;
-                  return isCardRelevantForEmployee(c.key, user, tasks);
-                });
-
-                if (displayedCards.length === 0) {
-                  return (
-                    <div className="flex-1 rounded-2xl border border-dashed border-slate-300 bg-white p-10 flex flex-col items-center justify-center text-center space-y-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                        <Inbox className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-sm font-bold text-slate-800">
-                        Tidak Ada Divisi Terkait Aktif
-                      </h3>
-                      <p className="text-xs text-slate-500 max-w-md">
-                        Saat ini belum ada tugas atau request kerjaan yang melibatkan Anda di divisi lain.
-                        Klik tombol di bawah untuk melihat seluruh 6 divisi.
-                      </p>
-                      <button
-                        onClick={() => setViewScope("ALL")}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer"
-                      >
-                        Lihat Semua 6 Divisi
-                      </button>
-                    </div>
-                  );
-                }
+                const displayedCards = CARDS_DEFINITION;
 
                 return (
                   <div className="flex-1 min-h-0 w-full flex flex-row items-stretch gap-3.5 sm:gap-4 overflow-x-auto pb-2 kanban-scroll">
@@ -2990,65 +2931,53 @@ function WorkspaceCardsPageContent() {
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                 {/* View Scope Filter */}
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
-                  {!isAdmin ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("RELEVANT")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                          viewScope === "RELEVANT"
-                            ? "bg-blue-600 text-white shadow-2xs"
-                            : "text-slate-600 hover:text-blue-600"
-                        }`}
-                      >
-                        <span>Terkait Saya</span>
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewScope("ALL")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                      viewScope === "ALL"
+                        ? "bg-white text-slate-900 shadow-2xs font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Semua Tugas Divisi
+                  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("MINE")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "MINE"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Tugas Saya
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewScope("RELEVANT")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      viewScope === "RELEVANT"
+                        ? "bg-blue-600 text-white shadow-2xs font-black"
+                        : "text-slate-600 hover:text-blue-600"
+                    }`}
+                  >
+                    <span>Terkait Saya</span>
+                  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("DELEGATED")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "DELEGATED"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Delegasi Saya
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewScope("MINE")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                      viewScope === "MINE"
+                        ? "bg-white text-slate-900 shadow-2xs font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Tugas Saya
+                  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setViewScope("ALL")}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
-                          viewScope === "ALL"
-                            ? "bg-white text-slate-900 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Semua Tugas Divisi
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setViewScope("ALL")}
-                      className="px-3 py-1 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-2xs"
-                    >
-                      Semua Tugas Divisi (Admin/Manager)
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewScope("DELEGATED")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition shrink-0 cursor-pointer ${
+                      viewScope === "DELEGATED"
+                        ? "bg-white text-slate-900 shadow-2xs font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Delegasi Saya
+                  </button>
                 </div>
 
                 {/* View Switcher, Stage Customizer, Priority, Sort, Member, Brand, and Search Filters */}
