@@ -761,6 +761,14 @@ function WorkspaceCardsPageContent() {
     ).length;
   }, [myDelegatedTasks]);
 
+  // Relevant division keys for this user (home division + divisions with user's tasks)
+  const relevantDivisionKeys = useMemo(() => {
+    if (!user) return [];
+    return CARDS_DEFINITION
+      .filter((c) => isCardRelevantForEmployee(c.key, user, tasks))
+      .map((c) => c.key);
+  }, [user, tasks]);
+
   // Helper to render individual task cards with multi-assignee avatars and Corong indicators
   const renderCard = (task: TaskItem, isPersonalBoard: boolean = false, isDelegatedView: boolean = false) => {
     const isRunning = Boolean(task.timerStartedAt);
@@ -1079,6 +1087,7 @@ function WorkspaceCardsPageContent() {
             department={user.department}
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
+            relevantDivisionKeys={relevantDivisionKeys}
           />
         )}
 
@@ -1499,11 +1508,16 @@ function WorkspaceCardsPageContent() {
                                   <Icon className="h-4 w-4" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <h3 className="text-sm font-black tracking-tight truncate group-hover/title:underline">{cardDef.label}</h3>
                                     <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-black shrink-0">
                                       {cardTasks.length}
                                     </span>
+                                    {isHomeCard(cardDef.key, user?.department) && !isAdmin && (
+                                      <span className="rounded-md bg-white text-slate-900 px-1.5 py-0.2 text-[9px] font-black shrink-0 shadow-2xs">
+                                        Divisi Saya
+                                      </span>
+                                    )}
                                   </div>
                                   <p className="text-[10px] text-white/80 truncate">{cardDef.sublabel}</p>
                                 </div>
@@ -1802,11 +1816,18 @@ function WorkspaceCardsPageContent() {
                       </span>
                     )}
                     <div>
-                      <h2 className="text-lg font-black text-slate-900 leading-tight">
-                        BigBoard Divisi {currentDivisionDef?.label}
-                      </h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-black text-slate-900 leading-tight">
+                          BigBoard Divisi {currentDivisionDef?.label}
+                        </h2>
+                        {isHomeCard(selectedDivision, user?.department) && !isAdmin && (
+                          <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0">
+                            Divisi Saya
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-slate-500">
-                        {currentDivisionDef?.sublabel} • Tampilan Stage Kanban Lintas Tim
+                        {currentDivisionDef?.sublabel} • Pipeline Kerja Tim {currentDivisionDef?.label}
                       </p>
                     </div>
                   </div>

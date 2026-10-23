@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   X,
   ChevronRight,
+  FolderKanban,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -23,6 +24,7 @@ interface SidebarProps {
   department?: string | null;
   isOpen?: boolean;
   onClose?: () => void;
+  relevantDivisionKeys?: string[];
 }
 
 const DIVISION_BOARDS = [
@@ -34,7 +36,73 @@ const DIVISION_BOARDS = [
   { key: "HR", label: "HR", icon: Users, color: "text-slate-700 bg-slate-100 border-slate-300" },
 ];
 
-function SidebarInner({ role, department, isOpen, onClose }: SidebarProps) {
+const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
+  if (!cardKey) return false;
+  const key = cardKey.toUpperCase();
+  const dept = (userDept || "").toLowerCase();
+  if (
+    key === "WEB" &&
+    (dept.includes("engineer") ||
+      dept.includes("web") ||
+      dept.includes("it") ||
+      dept.includes("tech") ||
+      dept.includes("dev") ||
+      dept.includes("software"))
+  ) {
+    return true;
+  }
+  if (
+    key === "SOSMED" &&
+    (dept.includes("sosmed") ||
+      dept.includes("konten") ||
+      dept.includes("content") ||
+      dept.includes("creat") ||
+      dept.includes("desain") ||
+      dept.includes("design") ||
+      dept.includes("marketing"))
+  ) {
+    return true;
+  }
+  if (
+    key === "ADS" &&
+    (dept.includes("ads") ||
+      dept.includes("advert") ||
+      dept.includes("traffic") ||
+      dept.includes("media buying"))
+  ) {
+    return true;
+  }
+  if (
+    key === "SEO" &&
+    (dept.includes("seo") ||
+      dept.includes("organ") ||
+      dept.includes("artik") ||
+      dept.includes("writer"))
+  ) {
+    return true;
+  }
+  if (
+    key === "MARKETPLACE" &&
+    (dept.includes("market") ||
+      dept.includes("toko") ||
+      dept.includes("ecom"))
+  ) {
+    return true;
+  }
+  if (
+    key === "HR" &&
+    (dept.includes("hr") ||
+      dept.includes("human") ||
+      dept.includes("people") ||
+      dept.includes("ops") ||
+      dept.includes("operas"))
+  ) {
+    return true;
+  }
+  return false;
+};
+
+function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [userDept, setUserDept] = useState<string | null>(department || null);
@@ -77,6 +145,22 @@ function SidebarInner({ role, department, isOpen, onClose }: SidebarProps) {
   const isDelegatedActive = isWorkspace && currentView === "personal" && currentTab === "delegated";
   const isContentActive = pathname.startsWith("/dashboard/content-production");
   const isEmployeesActive = pathname.startsWith("/manager/employees");
+
+  // Filter divisions to display based on user role & department
+  const visibleDivisions = useMemo(() => {
+    if (isManagerOrAdmin) {
+      return DIVISION_BOARDS;
+    }
+    // For regular employee: only show their home division and any division with active tasks/collaboration
+    const filtered = DIVISION_BOARDS.filter((div) => {
+      if (isHomeCard(div.key, userDept)) return true;
+      if (relevantDivisionKeys && relevantDivisionKeys.includes(div.key)) return true;
+      return false;
+    });
+
+    // Fallback: if no division matched yet, at least show the first home match or all
+    return filtered.length > 0 ? filtered : DIVISION_BOARDS.slice(0, 1);
+  }, [isManagerOrAdmin, userDept, relevantDivisionKeys]);
 
   return (
     <>
@@ -122,31 +206,41 @@ function SidebarInner({ role, department, isOpen, onClose }: SidebarProps) {
             <Link
               href="/dashboard/workspace"
               onClick={onClose}
-              className={`flex items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-xs font-bold transition whitespace-nowrap ${
+              className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs font-bold transition whitespace-nowrap ${
                 isDifitechActive
                   ? "bg-red-50 text-red-600 border border-red-200/80 shadow-2xs"
                   : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Layers className={`h-4 w-4 shrink-0 ${isDifitechActive ? "text-red-600" : "text-slate-400"}`} />
-                <span className="truncate">BigBoard Difitech</span>
+                <span className="font-bold">BigBoard Difitech</span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-100 text-slate-600 shrink-0">
-                6 Divisi
-              </span>
+              {isManagerOrAdmin ? (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black bg-slate-100 text-slate-600 shrink-0">
+                  6 Divisi
+                </span>
+              ) : (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black bg-slate-100 text-slate-600 shrink-0">
+                  Radar
+                </span>
+              )}
             </Link>
           </div>
 
-          {/* Section 2: BigBoard per Divisi */}
+          {/* Section 2: BigBoard per Divisi (Disesuaikan berdasarkan divisi karyawan) */}
           <div>
             <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>BigBoard Divisi</span>
+              <span>{isManagerOrAdmin ? "BigBoard Divisi (Semua)" : "BigBoard Divisi"}</span>
+              {!isManagerOrAdmin && (
+                <span className="text-[9px] text-blue-600 font-bold">Terkait</span>
+              )}
             </div>
             <nav className="space-y-0.5">
-              {DIVISION_BOARDS.map((div) => {
+              {visibleDivisions.map((div) => {
                 const Icon = div.icon;
                 const isActive = isWorkspace && currentCard === div.key;
+                const isHome = isHomeCard(div.key, userDept);
 
                 return (
                   <Link
@@ -168,6 +262,11 @@ function SidebarInner({ role, department, isOpen, onClose }: SidebarProps) {
                         <Icon className="h-3 w-3" />
                       </div>
                       <span className="truncate">{div.label}</span>
+                      {isHome && !isManagerOrAdmin && (
+                        <span className="text-[9px] px-1 py-0.2 rounded font-black bg-blue-100 text-blue-700 shrink-0">
+                          Saya
+                        </span>
+                      )}
                     </div>
                     <ChevronRight
                       className={`h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 ${
