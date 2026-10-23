@@ -8,7 +8,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
-import TaskDetailModal from "@/components/Tasks/TaskDetailModal";
+import TaskDetailModal, { WORKBOARD_STAGES, getTaskStageKey } from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
@@ -43,6 +43,9 @@ import {
   Flame,
   MessageSquare,
   Eye,
+  StickyNote,
+  Check,
+  Play,
 } from "lucide-react";
 
 interface TaskItem {
@@ -61,6 +64,7 @@ interface TaskItem {
   kanbanStage?: string | null;
   revisionTag?: string | null;
   revisionNote?: string | null;
+  revisionCount?: number | null;
   deliverableUrl?: string | null;
   reviewStatus?: string;
   reviewedAt?: string | null;
@@ -369,6 +373,7 @@ function WorkspaceCardsPageContent() {
   const [selectedBrand, setSelectedBrand] = useState("ALL");
   const [selectedMember, setSelectedMember] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [whiteboardStageFilter, setWhiteboardStageFilter] = useState<string>("ALL");
   const [viewScope, setViewScope] = useState<"ALL" | "MINE" | "DELEGATED" | "RELEVANT">("RELEVANT");
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
@@ -608,6 +613,19 @@ function WorkspaceCardsPageContent() {
       }
     } else {
       await handleStatusChange(taskId, targetColId);
+    }
+  };
+
+  const handleStartTask = async (taskId: string) => {
+    try {
+      await fetch(`/api/workspace/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "IN_PROGRESS" }),
+      });
+      fetchTasks();
+    } catch (err) {
+      console.error("Failed to start task:", err);
     }
   };
 
@@ -935,6 +953,89 @@ function WorkspaceCardsPageContent() {
             </div>
           )}
         </div>
+
+        {/* In-Card 5-Stage Stepper (Teero Mini Style) */}
+        {(() => {
+          const stageKey = getTaskStageKey(task);
+          const currentStage = WORKBOARD_STAGES.find((s) => s.key === stageKey) || WORKBOARD_STAGES[0];
+          const isRevision = stageKey === "REVISION";
+
+          return (
+            <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">Stage</span>
+                <span
+                  className={`font-black px-2 py-0.5 rounded-full text-[9px] border ${
+                    stageKey === "DONE"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                      : isRevision
+                      ? "bg-rose-100 text-rose-800 border-rose-200"
+                      : stageKey === "SUBMIT_TO_REVIEW"
+                      ? "bg-amber-100 text-amber-800 border-amber-200"
+                      : stageKey === "ON_PROGRESS"
+                      ? "bg-blue-100 text-blue-800 border-blue-200"
+                      : "bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  {currentStage.step}. {currentStage.label}
+                </span>
+              </div>
+
+              {/* 5-Step Mini Visual Indicator */}
+              <div className="grid grid-cols-5 gap-1 items-center pt-0.5">
+                {WORKBOARD_STAGES.map((s) => {
+                  const isPassed =
+                    s.key === "NOT_STARTED"
+                      ? stageKey !== "NOT_STARTED"
+                      : s.key === "ON_PROGRESS"
+                      ? stageKey === "SUBMIT_TO_REVIEW" || stageKey === "REVISION" || stageKey === "DONE"
+                      : s.key === "SUBMIT_TO_REVIEW"
+                      ? stageKey === "REVISION" || stageKey === "DONE"
+                      : s.key === "REVISION"
+                      ? stageKey === "DONE" && (Boolean(task.revisionNote) || (task.revisionCount && task.revisionCount > 0))
+                      : stageKey === "DONE";
+
+                  const isCurrent = stageKey === s.key;
+                  const isSkippedRev =
+                    s.key === "REVISION" &&
+                    stageKey === "DONE" &&
+                    !task.revisionNote &&
+                    (!task.revisionCount || task.revisionCount === 0);
+
+                  return (
+                    <div
+                      key={s.key}
+                      title={`${s.step}. ${s.label}`}
+                      className={`h-1.5 rounded-full transition-all ${
+                        isCurrent
+                          ? isRevision
+                            ? "bg-rose-500 ring-2 ring-rose-200"
+                            : "bg-blue-600 ring-2 ring-blue-200"
+                          : isPassed
+                          ? "bg-emerald-500"
+                          : isSkippedRev
+                          ? "bg-slate-200/50"
+                          : "bg-slate-200"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Quick Action Button for Not Started Stage */}
+              {stageKey === "NOT_STARTED" && isMyTask && (
+                <button
+                  type="button"
+                  onClick={() => handleStartTask(task.id)}
+                  className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                >
+                  <Play className="h-3 w-3" />
+                  <span>Next: Mulai Kerjakan &rarr;</span>
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Live Timer Section for In-Progress Task */}
         {task.status === "IN_PROGRESS" && (
@@ -2005,93 +2106,109 @@ function WorkspaceCardsPageContent() {
                 </div>
               </div>
 
-              {/* 4 Stage Kanban Columns */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-                {DIVISION_STAGE_COLUMNS.map((col) => {
-                  const Icon = col.icon;
-                  const colTasks = filteredDivisionTasks.filter((t) => {
-                    if (col.id === "REQUESTED") {
-                      return (
-                        t.status === "REQUESTED" ||
-                        (t.status === "PENDING" && t.creator?.id && t.creator.id !== t.user?.id) ||
-                        t.status === "PENDING"
-                      );
-                    }
-                    if (col.id === "IN_PROGRESS") {
-                      return (
-                        t.status === "IN_PROGRESS" &&
-                        t.reviewStatus !== "TO_BE_REVIEWED" &&
-                        t.reviewStatus !== "UNDER_REVIEW"
-                      );
-                    }
-                    if (col.id === "UNDER_REVIEW") {
-                      return (
-                        t.reviewStatus === "TO_BE_REVIEWED" ||
-                        t.reviewStatus === "UNDER_REVIEW" ||
-                        t.reviewStatus === "REVISION_REQUESTED"
-                      );
-                    }
-                    if (col.id === "COMPLETED") {
-                      return t.status === "COMPLETED";
-                    }
-                    return false;
-                  });
+              {/* Whiteboard Surface (Papan Tulis Sticky Notes View) */}
+              {(() => {
+                const countNotStarted = filteredDivisionTasks.filter(
+                  (t) => getTaskStageKey(t) === "NOT_STARTED"
+                ).length;
+                const countOnProgress = filteredDivisionTasks.filter(
+                  (t) => getTaskStageKey(t) === "ON_PROGRESS"
+                ).length;
+                const countReview = filteredDivisionTasks.filter(
+                  (t) => getTaskStageKey(t) === "SUBMIT_TO_REVIEW"
+                ).length;
+                const countRevision = filteredDivisionTasks.filter(
+                  (t) => getTaskStageKey(t) === "REVISION"
+                ).length;
+                const countDone = filteredDivisionTasks.filter(
+                  (t) => getTaskStageKey(t) === "DONE"
+                ).length;
 
-                  return (
-                    <div
-                      key={col.id}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, col.id)}
-                      className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur-xs shadow-2xs flex flex-col min-h-[520px] overflow-hidden"
-                    >
-                      {/* Column Header */}
-                      <div className="p-3.5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="text-xs font-bold text-slate-900">{col.title}</h3>
-                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full border ${col.badgeColor}`}>
-                                {colTasks.length}
+                const displayTasks =
+                  whiteboardStageFilter === "ALL"
+                    ? filteredDivisionTasks
+                    : filteredDivisionTasks.filter(
+                        (t) => getTaskStageKey(t) === whiteboardStageFilter
+                      );
+
+                const stageFilterTabs = [
+                  { id: "ALL", label: "Semua", count: filteredDivisionTasks.length, badgeStyle: "bg-slate-100 text-slate-700" },
+                  { id: "NOT_STARTED", label: "1. Not Started", count: countNotStarted, badgeStyle: "bg-slate-100 text-slate-700" },
+                  { id: "ON_PROGRESS", label: "2. On Progress", count: countOnProgress, badgeStyle: "bg-blue-100 text-blue-800" },
+                  { id: "SUBMIT_TO_REVIEW", label: "3. Review", count: countReview, badgeStyle: "bg-amber-100 text-amber-800" },
+                  { id: "REVISION", label: "4. Revisi", count: countRevision, badgeStyle: "bg-rose-100 text-rose-800" },
+                  { id: "DONE", label: "5. Done", count: countDone, badgeStyle: "bg-emerald-100 text-emerald-800" },
+                ];
+
+                return (
+                  <div className="rounded-3xl border border-slate-200/90 bg-white/70 backdrop-blur-xs p-5 shadow-xs space-y-4 min-h-[580px]">
+                    {/* Whiteboard Header: Sticky Notes Stage Filter Bar */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap pb-3.5 border-b border-slate-200/80">
+                      <div className="flex items-center gap-1.5 overflow-x-auto">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+                          Filter Stage:
+                        </span>
+                        {stageFilterTabs.map((filter) => {
+                          const isActive = whiteboardStageFilter === filter.id;
+                          return (
+                            <button
+                              key={filter.id}
+                              type="button"
+                              onClick={() => setWhiteboardStageFilter(filter.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 cursor-pointer ${
+                                isActive
+                                  ? "bg-slate-900 text-white shadow-2xs"
+                                  : "bg-white text-slate-600 border border-slate-200/90 hover:bg-slate-50 hover:text-slate-900"
+                              }`}
+                            >
+                              <span>{filter.label}</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                  isActive ? "bg-white/20 text-white" : filter.badgeStyle
+                                }`}
+                              >
+                                {filter.count}
                               </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-tight">{col.description}</p>
-                          </div>
-                        </div>
-
-                        {/* Add Task Button */}
-                        {col.id === "REQUESTED" && (
-                          <button
-                            onClick={() => {
-                              setTargetCardForNew(selectedDivision || undefined);
-                              setCreateModalOpen(true);
-                            }}
-                            title={`Tambah tugas ke tim ${currentDivisionDef?.label}`}
-                            className="p-1.5 rounded-lg text-purple-600 hover:text-purple-800 hover:bg-purple-100 transition cursor-pointer"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        )}
+                            </button>
+                          );
+                        })}
                       </div>
 
-                      {/* Cards Container */}
-                      <div className="p-3 flex-1 space-y-3 overflow-y-auto max-h-[720px]">
-                        {colTasks.length === 0 ? (
-                          <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-                            <Icon className="h-6 w-6 text-slate-300 mb-1" />
-                            <p className="text-xs font-bold text-slate-600">Kosong</p>
-                            <p className="text-[10px] text-slate-400">Tarik tugas ke kolom ini</p>
-                          </div>
-                        ) : (
-                          colTasks.map((t) => renderCard(t, false, false))
-                        )}
+                      <div className="text-xs text-slate-400 font-medium">
+                        Menampilkan <span className="font-bold text-slate-700">{displayTasks.length}</span> kartu kerja
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Whiteboard Cards Grid (Sticky Notes Layout) */}
+                    {displayTasks.length === 0 ? (
+                      <div className="h-72 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 border border-dashed border-slate-200 rounded-3xl">
+                        <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs mb-2">
+                          <StickyNote className="h-6 w-6 text-slate-400" />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-800">Papan Tulis Kosong</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                          Belum ada kartu kerja di papan tulis divisi {currentDivisionDef?.label}
+                          {whiteboardStageFilter !== "ALL" ? " untuk filter stage ini." : "."}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setTargetCardForNew(selectedDivision || undefined);
+                            setCreateModalOpen(true);
+                          }}
+                          className="mt-4 flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition shadow-xs cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Tambah Kartu Kerja Baru</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 items-start">
+                        {displayTasks.map((t) => renderCard(t, false, false))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </main>

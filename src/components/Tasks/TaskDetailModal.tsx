@@ -17,6 +17,7 @@ import {
   Clapperboard,
   Share2,
   Inbox,
+  Check,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
 
@@ -40,20 +41,40 @@ const DEPARTMENTS: Record<string, { label: string; color: string }> = {
   HR: { label: "HR", color: "bg-slate-100 text-slate-700 border-slate-300" },
 };
 
-const STANDARD_STAGES = [
-  { key: "PENDING", label: "1. Tugas Masuk" },
-  { key: "IN_PROGRESS", label: "2. Dikerjakan" },
-  { key: "COMPLETED", label: "3. Selesai" },
+export interface WorkboardStage {
+  key: "NOT_STARTED" | "ON_PROGRESS" | "SUBMIT_TO_REVIEW" | "REVISION" | "DONE";
+  label: string;
+  step: number;
+}
+
+export const WORKBOARD_STAGES: WorkboardStage[] = [
+  { key: "NOT_STARTED", label: "Not Started", step: 1 },
+  { key: "ON_PROGRESS", label: "On Progress", step: 2 },
+  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 3 },
+  { key: "REVISION", label: "Revision", step: 4 },
+  { key: "DONE", label: "Done", step: 5 },
 ];
 
-const CONTENT_PRODUCTION_STAGES = [
-  { key: "CONTENT_BRIEF", label: "1. Brief" },
-  { key: "SHOOTING", label: "2. Shooting" },
-  { key: "DESIGN", label: "3. Design" },
-  { key: "VIDEO_EDITING", label: "4. Editing" },
-  { key: "REVISION", label: "5. Revisi" },
-  { key: "APPROVAL", label: "6. Approval" },
-];
+export function getTaskStageKey(task: any): "NOT_STARTED" | "ON_PROGRESS" | "SUBMIT_TO_REVIEW" | "REVISION" | "DONE" {
+  if (!task) return "NOT_STARTED";
+  if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED") {
+    return "DONE";
+  }
+  if (task.reviewStatus === "REVISION_REQUESTED") {
+    return "REVISION";
+  }
+  if (
+    task.reviewStatus === "TO_BE_REVIEWED" ||
+    task.reviewStatus === "UNDER_REVIEW" ||
+    task.kanbanStage === "APPROVAL"
+  ) {
+    return "SUBMIT_TO_REVIEW";
+  }
+  if (task.status === "IN_PROGRESS") {
+    return "ON_PROGRESS";
+  }
+  return "NOT_STARTED";
+}
 
 export default function TaskDetailModal({
   isOpen,
@@ -157,17 +178,7 @@ export default function TaskDetailModal({
     }
   };
 
-  const stages =
-    task.departmentCard === "SOSMED" && task.isContentProduction
-      ? CONTENT_PRODUCTION_STAGES
-      : STANDARD_STAGES;
-
-  const currentStageKey =
-    task.departmentCard === "SOSMED" && task.isContentProduction
-      ? task.kanbanStage || "CONTENT_BRIEF"
-      : task.status;
-
-  const currentStageIdx = stages.findIndex((s) => s.key === currentStageKey);
+  const currentStageKey = getTaskStageKey(task);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
@@ -219,39 +230,87 @@ export default function TaskDetailModal({
           </div>
         </div>
 
-        {/* Visual Pipeline Stages Bar */}
-        <div className="bg-slate-900 text-white px-6 py-3 shrink-0 overflow-x-auto">
-          <div className="flex items-center gap-2 min-w-[500px]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Stage Pengerjaan:
-            </span>
-            <div className="flex items-center gap-1.5 flex-1">
-              {stages.map((stage, idx, arr) => {
-                const isPassed = currentStageIdx > idx;
-                const isCurrent = currentStageIdx === idx;
+        {/* Visual Pipeline Stages Bar (Image 2 Teero Stepper) */}
+        <div className="bg-slate-50/50 px-6 py-3.5 shrink-0 border-b border-slate-200 overflow-x-auto">
+          <div className="flex items-center min-w-[720px] border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs divide-x divide-slate-200">
+            {WORKBOARD_STAGES.map((stage) => {
+              const isPassed =
+                stage.key === "NOT_STARTED"
+                  ? currentStageKey !== "NOT_STARTED"
+                  : stage.key === "ON_PROGRESS"
+                  ? currentStageKey === "SUBMIT_TO_REVIEW" || currentStageKey === "REVISION" || currentStageKey === "DONE"
+                  : stage.key === "SUBMIT_TO_REVIEW"
+                  ? currentStageKey === "REVISION" || currentStageKey === "DONE"
+                  : stage.key === "REVISION"
+                  ? currentStageKey === "DONE" && (Boolean(task.revisionNote) || (task.revisionCount && task.revisionCount > 0))
+                  : currentStageKey === "DONE";
 
-                return (
-                  <div key={stage.key} className="flex items-center gap-1.5 flex-1">
+              const isCurrent = currentStageKey === stage.key;
+              const isRevisionStage = stage.key === "REVISION";
+              const isSkippedRevision =
+                stage.key === "REVISION" &&
+                currentStageKey === "DONE" &&
+                !task.revisionNote &&
+                (!task.revisionCount || task.revisionCount === 0);
+
+              return (
+                <div
+                  key={stage.key}
+                  className={`flex-1 py-3 px-4 flex items-center justify-center gap-2.5 text-xs relative transition select-none ${
+                    isCurrent
+                      ? isRevisionStage
+                        ? "bg-rose-50/50 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-rose-500"
+                        : "bg-blue-50/40 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-600"
+                      : isPassed
+                      ? "bg-emerald-50/20"
+                      : isSkippedRevision
+                      ? "bg-slate-50/60 opacity-60"
+                      : "bg-white"
+                  }`}
+                >
+                  {/* Step Circle Badge */}
+                  {isPassed ? (
+                    <div className="h-6 w-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    </div>
+                  ) : isCurrent ? (
                     <div
-                      className={`text-xs px-3 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1.5 w-full transition ${
-                        isCurrent
-                          ? "bg-red-600 text-white shadow-xs ring-2 ring-red-400/30"
-                          : isPassed
-                          ? "bg-slate-800 text-emerald-400 border border-emerald-500/20"
-                          : "bg-slate-800/60 text-slate-500"
+                      className={`h-6 w-6 rounded-full text-white font-extrabold flex items-center justify-center text-xs shadow-xs shrink-0 ${
+                        isRevisionStage ? "bg-rose-600 ring-2 ring-rose-200" : "bg-blue-600 ring-2 ring-blue-200"
                       }`}
                     >
-                      {isPassed && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
-                      {isCurrent && <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />}
-                      <span>{stage.label}</span>
+                      <span>{stage.step}</span>
                     </div>
-                    {idx < arr.length - 1 && (
-                      <ChevronRight className="h-3 w-3 text-slate-600 shrink-0" />
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 text-slate-400 font-bold flex items-center justify-center text-xs shrink-0">
+                      <span>{stage.step}</span>
+                    </div>
+                  )}
+
+                  {/* Step Label */}
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className={`whitespace-nowrap ${
+                        isCurrent
+                          ? isRevisionStage
+                            ? "font-black text-rose-700"
+                            : "font-black text-blue-700"
+                          : isPassed
+                          ? "font-bold text-emerald-700"
+                          : isSkippedRevision
+                          ? "font-medium text-slate-400 line-through decoration-slate-300"
+                          : "font-semibold text-slate-500"
+                      }`}
+                    >
+                      {stage.label}
+                    </span>
+                    {isSkippedRevision && (
+                      <span className="text-[9px] text-slate-400 -mt-0.5">(Tanpa Revisi)</span>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -572,120 +631,147 @@ export default function TaskDetailModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (Image 2 Style: Back left, Next right) */}
         <div className="border-t border-slate-100 bg-slate-50/90 px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shadow-2xs"
           >
             Tutup
           </button>
 
           <div className="flex items-center gap-2">
-            {/* Action 1: Mulai Kerjakan jika PENDING (khusus pengerja) */}
-            {isAssignee && task.status === "PENDING" && (
-              <button
-                onClick={handleStartTask}
-                disabled={isUpdating}
-                className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs cursor-pointer"
-              >
-                <Play className="h-3.5 w-3.5" />
-                <span>Mulai Kerjakan (Pindah ke Tahap 2)</span>
-              </button>
-            )}
-
-            {/* Action 2: Review Actions untuk Pemberi Tugas (Creator / Manager / Admin) */}
-            {isCreatorOrManager && task.status !== "COMPLETED" ? (
+            {/* STAGE 1: NOT_STARTED */}
+            {currentStageKey === "NOT_STARTED" && (
               <>
-                {task.reviewStatus === "TO_BE_REVIEWED" && (
+                {isAssignee ? (
                   <button
-                    onClick={handleStartReview}
+                    onClick={handleStartTask}
                     disabled={isUpdating}
-                    className="flex items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer"
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm cursor-pointer"
                   >
-                    <Clock className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Mulai Review</span>
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Next: Mulai Kerjakan &rarr;</span>
                   </button>
-                )}
-                {task.reviewStatus === "UNDER_REVIEW" && (
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100/80 border border-amber-300 text-amber-900 text-xs font-bold">
-                    <Clock className="h-3.5 w-3.5 text-amber-700 animate-pulse" />
-                    <span>Sedang Anda Review</span>
+                ) : (
+                  <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200">
+                    Tahap 1: Menunggu PIC Memulai
                   </span>
                 )}
-                {onOpenRevisionModal && (
+              </>
+            )}
+
+            {/* STAGE 2: ON_PROGRESS */}
+            {currentStageKey === "ON_PROGRESS" && (
+              <>
+                {isAssignee && onOpenDeliverableModal ? (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenDeliverableModal(task);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Next: Submit to Review &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-blue-700 font-bold bg-blue-50 px-3.5 py-2 rounded-xl border border-blue-200">
+                    <Clock className="h-3.5 w-3.5 animate-spin" />
+                    <span>Tahap 2: PIC Sedang Mengerjakan</span>
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* STAGE 3: SUBMIT_TO_REVIEW */}
+            {currentStageKey === "SUBMIT_TO_REVIEW" && (
+              <>
+                {isCreatorOrManager ? (
+                  <div className="flex items-center gap-2">
+                    {task.reviewStatus === "TO_BE_REVIEWED" && (
+                      <button
+                        onClick={handleStartReview}
+                        disabled={isUpdating}
+                        className="flex items-center gap-1.5 rounded-xl border border-amber-400 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition shadow-2xs cursor-pointer"
+                      >
+                        <Clock className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Mulai Review</span>
+                      </button>
+                    )}
+                    {onOpenRevisionModal && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onOpenRevisionModal(task);
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Minta Revisi (Tahap 4)</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleApproveReview}
+                      disabled={isUpdating}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>ACC Selesai (Langsung Done &rarr;)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 px-3.5 py-2 rounded-xl border border-amber-300">
+                    <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+                    <span>Tahap 3: Menunggu Keputusan Pemberi Tugas</span>
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* STAGE 4: REVISION */}
+            {currentStageKey === "REVISION" && (
+              <>
+                {isAssignee && onOpenDeliverableModal ? (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenDeliverableModal(task);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-rose-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow-sm cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Submit Ulang Hasil Revisi &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-rose-700 font-bold bg-rose-50 px-3.5 py-2 rounded-xl border border-rose-200">
+                    Tahap 4: Menunggu PIC Memperbaiki Revisi
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* STAGE 5: DONE */}
+            {currentStageKey === "DONE" && (
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Tahap 5: Tugas Selesai & Di-ACC</span>
+                </span>
+                {isCreatorOrManager && onOpenRevisionModal && (
                   <button
                     onClick={() => {
                       onClose();
                       onOpenRevisionModal(task);
                     }}
-                    className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-xs cursor-pointer"
+                    className="flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    <span>Minta Revisi (Revision)</span>
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Minta Revisi Baru</span>
                   </button>
                 )}
-                <button
-                  onClick={handleApproveReview}
-                  disabled={isUpdating}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Setujui (Done !)</span>
-                </button>
-              </>
-            ) : isAssignee && task.status !== "COMPLETED" && onOpenDeliverableModal ? (
-              <>
-                {task.reviewStatus === "REVISION_REQUESTED" ? (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenDeliverableModal(task);
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    <span>Submit Revisi & Bukti Baru &rarr;</span>
-                  </button>
-                ) : hasDeliverable ? (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenDeliverableModal(task);
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition shadow-xs cursor-pointer"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    <span>Perbarui Link Hasil</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenDeliverableModal(task);
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-xs cursor-pointer"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Submit Hasil Kerja & Ajukan Review &rarr;</span>
-                  </button>
-                )}
-              </>
-            ) : null}
-
-            {/* Action 3: Minta Revisi jika sudah COMPLETED oleh Creator */}
-            {task.status === "COMPLETED" && isCreatorOrManager && onOpenRevisionModal && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenRevisionModal(task);
-                }}
-                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                <span>Minta Revisi Baru</span>
-              </button>
+              </div>
             )}
           </div>
         </div>
