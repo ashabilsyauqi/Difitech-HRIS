@@ -196,10 +196,10 @@ const DIVISION_STAGE_COLUMNS = [
 const PERSONAL_MY_TASKS_STAGES = [
   {
     id: "REQUESTED",
-    title: "1. Tugas Masuk",
+    title: "1. User Requested",
     badgeColor: "bg-purple-100 text-purple-800 border-purple-200",
     icon: Inbox,
-    description: "Antrean tugas baru & rencana kerja",
+    description: "Request masuk dari divisi lain & antrean",
   },
   {
     id: "IN_PROGRESS",
@@ -776,6 +776,20 @@ function WorkspaceCardsPageContent() {
     const isMyTask = task.user?.id === user?.id || task.assignees?.some((a) => a.user?.id === user?.id);
     const isCreator = task.creator?.id === user?.id;
 
+    // Check if requested from another user / external division
+    const isExternalDivisionRequest = Boolean(
+      task.creator?.id &&
+      task.creator.id !== user?.id &&
+      task.departmentCard &&
+      !isHomeCard(task.departmentCard, user?.department)
+    );
+
+    const isUserRequested = Boolean(
+      task.creator?.id &&
+      task.creator.id !== user?.id &&
+      !isDelegatedView
+    );
+
     // Check if created from another department (Corong Cross-Department)
     const isCrossDepartment =
       task.creator?.id &&
@@ -801,6 +815,14 @@ function WorkspaceCardsPageContent() {
         {/* Top Badge Row */}
         <div className="flex items-center justify-between gap-1.5 whitespace-nowrap overflow-hidden">
           <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+            {/* User Requested Badge */}
+            {isUserRequested && (
+              <span className="rounded-full bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 shadow-2xs flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <Inbox className="h-2.5 w-2.5" />
+                User Requested
+              </span>
+            )}
+
             {/* Priority: only if URGENT or HIGH */}
             {task.priority === "URGENT" && (
               <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs shrink-0 whitespace-nowrap">
@@ -816,7 +838,13 @@ function WorkspaceCardsPageContent() {
 
             {/* Division Badge */}
             {task.departmentCard && (
-              <span className="rounded-md bg-slate-100 text-slate-700 font-bold text-[9px] px-1.5 py-0.5 border border-slate-200 shrink-0 whitespace-nowrap">
+              <span
+                className={`rounded-md font-bold text-[9px] px-1.5 py-0.5 border shrink-0 whitespace-nowrap ${
+                  isExternalDivisionRequest
+                    ? "bg-purple-100 text-purple-800 border-purple-200"
+                    : "bg-slate-100 text-slate-700 border-slate-200"
+                }`}
+              >
                 {task.departmentCard}
               </span>
             )}
@@ -1602,6 +1630,15 @@ function WorkspaceCardsPageContent() {
                                     {/* Tags Row: Priority + Status */}
                                     <div className="flex items-center justify-between gap-1.5 whitespace-nowrap overflow-hidden">
                                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                                        {task.creator?.id &&
+                                          task.creator.id !== user?.id &&
+                                          (task.user?.id === user?.id ||
+                                            task.assignees?.some((a) => a.user?.id === user?.id)) && (
+                                            <span className="rounded-full bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.5 shadow-2xs flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                                              <Inbox className="h-2.5 w-2.5" />
+                                              User Requested
+                                            </span>
+                                          )}
                                         {task.priority === "URGENT" && (
                                           <span className="rounded-full bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center gap-0.5 shadow-2xs shrink-0 whitespace-nowrap">
                                             <Flame className="h-2.5 w-2.5" />

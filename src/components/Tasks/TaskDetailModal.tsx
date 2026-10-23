@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Clapperboard,
   Share2,
+  Inbox,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
 
@@ -185,6 +186,11 @@ export default function TaskDetailModal({
                 {task.brandName && (
                   <span className="rounded-full bg-red-50 text-red-700 border border-red-200 font-bold text-[10px] px-2.5 py-0.5 flex items-center gap-1">
                     <Tag className="h-2.5 w-2.5" /> {task.brandName}
+                  </span>
+                )}
+                {task.creator?.id && task.creator.id !== currentUser?.id && (
+                  <span className="rounded-full bg-purple-600 text-white font-extrabold text-[10px] px-2.5 py-0.5 shadow-2xs flex items-center gap-1">
+                    <Inbox className="h-3 w-3" /> User Requested
                   </span>
                 )}
                 {isAssignee && (

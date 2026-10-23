@@ -151,16 +151,12 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
     if (isManagerOrAdmin) {
       return DIVISION_BOARDS;
     }
-    // For regular employee: only show their home division and any division with active tasks/collaboration
-    const filtered = DIVISION_BOARDS.filter((div) => {
-      if (isHomeCard(div.key, userDept)) return true;
-      if (relevantDivisionKeys && relevantDivisionKeys.includes(div.key)) return true;
-      return false;
-    });
-
-    // Fallback: if no division matched yet, at least show the first home match or all
-    return filtered.length > 0 ? filtered : DIVISION_BOARDS.slice(0, 1);
-  }, [isManagerOrAdmin, userDept, relevantDivisionKeys]);
+    // Regular employee strictly sees ONLY their home division (e.g. BigBoard Web Dev)
+    const homeOnly = DIVISION_BOARDS.filter((div) => isHomeCard(div.key, userDept));
+    return homeOnly.length > 0
+      ? homeOnly
+      : [DIVISION_BOARDS.find((d) => d.key === "WEB") || DIVISION_BOARDS[0]];
+  }, [isManagerOrAdmin, userDept]);
 
   return (
     <>
@@ -230,17 +226,13 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
 
           {/* Section 2: BigBoard per Divisi (Disesuaikan berdasarkan divisi karyawan) */}
           <div>
-            <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>{isManagerOrAdmin ? "BigBoard Divisi (Semua)" : "BigBoard Divisi"}</span>
-              {!isManagerOrAdmin && (
-                <span className="text-[9px] text-blue-600 font-bold">Terkait</span>
-              )}
+            <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              {isManagerOrAdmin ? "BigBoard Divisi (Semua)" : "BigBoard Divisi"}
             </div>
             <nav className="space-y-0.5">
               {visibleDivisions.map((div) => {
                 const Icon = div.icon;
                 const isActive = isWorkspace && currentCard === div.key;
-                const isHome = isHomeCard(div.key, userDept);
 
                 return (
                   <Link
@@ -261,12 +253,9 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
                       >
                         <Icon className="h-3 w-3" />
                       </div>
-                      <span className="truncate">{div.label}</span>
-                      {isHome && !isManagerOrAdmin && (
-                        <span className="text-[9px] px-1 py-0.2 rounded font-black bg-blue-100 text-blue-700 shrink-0">
-                          Saya
-                        </span>
-                      )}
+                      <span className="truncate">
+                        {!isManagerOrAdmin ? `BigBoard ${div.label}` : div.label}
+                      </span>
                     </div>
                     <ChevronRight
                       className={`h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 ${
