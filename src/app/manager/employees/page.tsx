@@ -78,7 +78,7 @@ export default function ManagerEmployeesPage() {
       }
       const authData = await authRes.json();
       if (authData.user.role !== "ADMIN" && authData.user.role !== "MANAGER") {
-        router.push("/dashboard");
+        router.push("/dashboard/workspace");
         return;
       }
       setUser(authData.user);
@@ -295,7 +295,7 @@ export default function ManagerEmployeesPage() {
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
                 <Users className="h-4 w-4" />
-                <span>Direktori & Manajemen SDM Difitech HRIS</span>
+                <span>Direktori Tim & Anggota Divisi DifWorkBoard</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
                 Manajemen Data Karyawan & Divisi

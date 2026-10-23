@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Difitech HRIS - Presensi CamStamp & Manajemen SDM",
-  description: "Sistem Manajemen SDM & Presensi Verifikasi CamStamp Difitech HRIS dengan Geofencing GPS Anti-Spoofing.",
+  title: "DifWorkBoard - Agile Task & Team Collaboration Board",
+  description: "Platform Manajemen Tugas, BigBoard Divisi Kolaboratif & Corong Delegasi Tim Difitech.",
   manifest: "/manifest.json",
   icons: {
     icon: [

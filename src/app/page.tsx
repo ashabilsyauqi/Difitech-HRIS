@@ -10,9 +10,5 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  if (user.role === "ADMIN" || user.role === "MANAGER") {
-    redirect("/manager");
-  } else {
-    redirect("/dashboard");
-  }
+  redirect("/dashboard/workspace");
 }

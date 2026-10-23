@@ -260,8 +260,8 @@ export default function CreateTaskModal({
               </div>
               <p className="text-xs text-slate-500">
                 {isContentProduction
-                  ? "Pipeline Produksi Konten Tim Sosmed & Kreatif • Terintegrasi Otomatis dengan HRIS"
-                  : "Workspace Task Management • Terintegrasi Otomatis dengan HRIS"}
+                  ? "Pipeline Produksi Konten Tim Sosmed & Kreatif • DifWorkBoard System"
+                  : "Workspace Task Management • DifWorkBoard System"}
               </p>
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function CreateTaskModal({
                     required
                     placeholder={
                       isContentProduction
-                        ? "Contoh: Video Reels Edukasi Fitur HRIS / Banner Promo Gajian..."
+                        ? "Contoh: Video Reels Edukasi Fitur Produk / Desain Banner Kampanye..."
                         : "Contoh: Optimasi Konten SEO Pilar X / Maintenance Server..."
                     }
                     value={title}

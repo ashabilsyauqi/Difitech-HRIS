@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Lock, Mail, ArrowRight, Camera, MapPin, CheckSquare, Eye, EyeOff, UserCheck, X } from "lucide-react";
+import { ShieldCheck, Lock, Mail, ArrowRight, Layers, Users, Sparkles, Eye, EyeOff, UserCheck, X } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -93,8 +93,7 @@ export default function LoginPage() {
         localStorage.removeItem("difitech_saved_account");
       }
 
-      const redirectPath = data.user.role === "ADMIN" || data.user.role === "MANAGER" ? "/manager" : "/dashboard";
-      window.location.href = redirectPath;
+      window.location.href = "/dashboard/workspace";
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal masuk ke sistem");
     } finally {
@@ -109,48 +108,48 @@ export default function LoginPage() {
         <div className="flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-b from-red-50/40 via-white to-blue-50/30 p-8 lg:col-span-5">
           <div>
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Difitech HRIS Logo" className="h-12 w-12 object-contain drop-shadow-md" />
+              <img src="/logo.png" alt="DifWorkBoard Logo" className="h-12 w-12 object-contain drop-shadow-md" />
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                  <span className="text-red-600">Difitech</span> <span className="text-blue-600 text-lg font-bold">HRIS</span>
+                  <span className="text-red-600">Dif</span><span className="text-slate-900">WorkBoard</span>
                 </h1>
-                <p className="text-xs text-slate-500 font-semibold">Presensi Verifikasi & Manajemen SDM</p>
+                <p className="text-xs text-slate-500 font-semibold">Agile Task & Team Collaboration</p>
               </div>
             </div>
 
             <div className="mt-8 space-y-3.5">
               <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-white p-3.5 shadow-2xs">
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
-                  <Camera className="h-4 w-4" />
+                  <Layers className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">CamStamp Watermark</h4>
+                  <h4 className="text-xs font-bold text-slate-900">BigBoard Kanban 6 Divisi</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                    Akses kamera langsung dengan pembakaran stempel koordinat GPS & waktu ISO otomatis.
+                    Papan kerja horizontal kolaboratif non-stage mewakili seluruh divisi Difitech secara inline.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-white p-3.5 shadow-2xs">
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                  <MapPin className="h-4 w-4" />
+                  <Users className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Geofence Kantor PT Jaya Bersama Digital</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Sistem Corong Delegasi Tim</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                    Validasi radius perimeter kantor fisik dengan filter anti-manipulasi lokasi.
+                    Distribusi tugas otomatis ke PIC dan board divisi bersangkutan dalam satu alur terpadu.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xs">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                  <CheckSquare className="h-4 w-4" />
+              <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-3.5 shadow-2xs">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                  <ShieldCheck className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Manajemen Tugas & Payroll</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Approval & Review Gate Live</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                    Papan kerja harian, pelacakan waktu nyata, dan kalkulasi slip gaji otomatis.
+                    Kontrol verifikasi tugas live: ACC atau Minta Revisi dengan WYSIWYG screenshot editor.
                   </p>
                 </div>
               </div>
@@ -159,8 +158,8 @@ export default function LoginPage() {
 
           <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
             <div className="flex items-center gap-1.5 font-medium text-slate-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Difitech HRIS • Enkripsi SHA-256</span>
+              <Sparkles className="h-3.5 w-3.5 text-red-600" />
+              <span>DifWorkBoard • Standalone Agile System</span>
             </div>
             <span className="text-red-600 font-bold">v1.0 Pro</span>
           </div>
@@ -171,7 +170,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Masuk ke Portal</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Masuk ke Workspace</h2>
                 <p className="text-xs text-slate-500 mt-1">Masukkan alamat email dan kata sandi akun Anda</p>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
@@ -275,7 +274,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-3 text-xs font-bold text-white shadow-lg shadow-red-600/25 transition hover:from-red-700 hover:to-rose-700 active:scale-[0.99] disabled:opacity-50"
               >
-                <span>{isLoading ? "Memverifikasi Kredensial..." : "Masuk ke Portal Difitech HRIS"}</span>
+                <span>{isLoading ? "Memverifikasi Kredensial..." : "Masuk ke DifWorkBoard"}</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>

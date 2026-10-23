@@ -74,35 +74,21 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
         )}
 
         <Link
-          href={
-            pathname?.includes("workspace") || pathname?.includes("content-production")
-              ? "/dashboard/workspace"
-              : user.role === "EMPLOYEE"
-              ? "/dashboard"
-              : "/manager"
-          }
+          href="/dashboard/workspace"
           className="flex items-center gap-2.5"
         >
-          {/* Difitech Shield Logo */}
-          <img src="/logo.png" alt="Difitech HRIS Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
+          {/* DifWorkBoard Shield Logo */}
+          <img src="/logo.png" alt="DifWorkBoard Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
           <div>
             <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
-              <span className="text-red-600">Difitech</span>
-              {pathname?.includes("workspace") || pathname?.includes("content-production") ? (
-                <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[10px] font-bold text-white border border-slate-800 flex items-center gap-1 shadow-2xs">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                  DifWorkBoard
-                </span>
-              ) : (
-                <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                  HRIS CamStamp
-                </span>
-              )}
+              <span className="text-red-600">Dif</span><span className="text-slate-900">WorkBoard</span>
+              <span className="rounded bg-slate-950 px-1.5 py-0.5 text-[10px] font-bold text-white border border-slate-800 flex items-center gap-1 shadow-2xs">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                Agile
+              </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">
-              {pathname?.includes("workspace") || pathname?.includes("content-production")
-                ? "BigBoard & Corong Kolaborasi"
-                : "Sistem Presensi & SDM Modern"}
+              Papan Kolaborasi & Manajemen Tugas Tim
             </p>
           </div>
         </Link>
