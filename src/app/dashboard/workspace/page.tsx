@@ -366,7 +366,7 @@ const getCleanDescriptionSnippet = (desc?: string | null) => {
   return text;
 };
 
-type SortField = "TITLE" | "PRIORITY" | "STAGE" | "DEADLINE" | "CREATED_AT" | "ASSIGNEE" | "CREATOR" | "BRAND";
+type SortField = "TITLE" | "PRIORITY" | "STAGE" | "DEADLINE" | "CREATED_AT" | "ASSIGNEE" | "CREATOR" | "BRAND" | "ACTION";
 type SortDirection = "ASC" | "DESC";
 
 function WorkspaceCardsPageContent() {
@@ -1322,6 +1322,20 @@ function WorkspaceCardsPageContent() {
     DONE: 5,
   };
 
+  const getTaskActionRank = (t: TaskItem): number => {
+    const stage = getTaskStageKey(t);
+    const isMine = t.user?.id === user?.id || t.assignees?.some((a) => a.user?.id === user?.id);
+    const isCreatorOrMgr = t.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER";
+
+    if (stage === "ON_PROGRESS" && isMine) return 1; // Submit deliverable
+    if (stage === "REVISION" && isMine) return 2; // Submit revision
+    if (stage === "NOT_STARTED" && isMine) return 3; // Mulai
+    if ((stage === "SUBMIT_TO_REVIEW" || t.reviewStatus === "UNDER_REVIEW") && isCreatorOrMgr) return 4; // ACC / Revisi
+    if (stage === "SUBMIT_TO_REVIEW" || t.reviewStatus === "UNDER_REVIEW") return 5; // Menunggu ACC
+    if (stage === "DONE") return 6; // Selesai
+    return 7; // Detail
+  };
+
   const sortTasks = (items: TaskItem[], field: SortField, direction: SortDirection): TaskItem[] => {
     return [...items].sort((a, b) => {
       let diff = 0;
@@ -1335,13 +1349,22 @@ function WorkspaceCardsPageContent() {
         const sA = stageWeight[getTaskStageKey(a)] || 0;
         const sB = stageWeight[getTaskStageKey(b)] || 0;
         diff = sA - sB;
+      } else if (field === "ACTION") {
+        const rA = getTaskActionRank(a);
+        const rB = getTaskActionRank(b);
+        diff = rA - rB;
       } else if (field === "DEADLINE") {
         const timeA = a.expectedDeadline ? new Date(a.expectedDeadline).getTime() : null;
         const timeB = b.expectedDeadline ? new Date(b.expectedDeadline).getTime() : null;
-        if (timeA === null && timeB === null) return 0;
-        if (timeA === null) return 1;
-        if (timeB === null) return -1;
-        return direction === "ASC" ? timeA - timeB : timeB - timeA;
+        if (timeA === null && timeB === null) {
+          diff = 0;
+        } else if (timeA === null) {
+          return 1;
+        } else if (timeB === null) {
+          return -1;
+        } else {
+          diff = timeA - timeB;
+        }
       } else if (field === "CREATED_AT") {
         const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -1359,6 +1382,18 @@ function WorkspaceCardsPageContent() {
         const strB = `${b.departmentCard || ""} ${b.brandName || ""}`.trim();
         diff = strA.localeCompare(strB, "id", { sensitivity: "base" });
       }
+
+      // If tie on primary sort field, apply secondary tie-breaker by stage & newest
+      if (diff === 0) {
+        const sA = stageWeight[getTaskStageKey(a)] || 0;
+        const sB = stageWeight[getTaskStageKey(b)] || 0;
+        const sDiff = sA - sB;
+        if (sDiff !== 0) return sDiff;
+        const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tB - tA;
+      }
+
       return direction === "ASC" ? diff : -diff;
     });
   };
@@ -1407,6 +1442,8 @@ function WorkspaceCardsPageContent() {
   const getCurrentSortValue = (): string => {
     if (sortField === "DEADLINE" && sortDirection === "ASC") return "DEADLINE_ASC";
     if (sortField === "DEADLINE" && sortDirection === "DESC") return "DEADLINE_DESC";
+    if (sortField === "ACTION" && sortDirection === "ASC") return "ACTION_ASC";
+    if (sortField === "ACTION" && sortDirection === "DESC") return "ACTION_DESC";
     if (sortField === "PRIORITY" && sortDirection === "DESC") return "PRIORITY_DESC";
     if (sortField === "PRIORITY" && sortDirection === "ASC") return "PRIORITY_ASC";
     if (sortField === "CREATED_AT" && sortDirection === "DESC") return "CREATED_AT_DESC";
@@ -1423,6 +1460,12 @@ function WorkspaceCardsPageContent() {
       setSortDirection("ASC");
     } else if (value === "DEADLINE_DESC") {
       setSortField("DEADLINE");
+      setSortDirection("DESC");
+    } else if (value === "ACTION_ASC") {
+      setSortField("ACTION");
+      setSortDirection("ASC");
+    } else if (value === "ACTION_DESC") {
+      setSortField("ACTION");
       setSortDirection("DESC");
     } else if (value === "PRIORITY_DESC") {
       setSortField("PRIORITY");
@@ -1624,6 +1667,7 @@ function WorkspaceCardsPageContent() {
       >
         <option value="DEADLINE_ASC">📅 Deadline Terdekat</option>
         <option value="DEADLINE_DESC">📅 Deadline Terjauh</option>
+        <option value="ACTION_ASC">⚡ Tombol Aksi / Butuh Tindakan</option>
         <option value="PRIORITY_DESC">🔥 Prioritas Tertinggi</option>
         <option value="PRIORITY_ASC">Prioritas Terendah</option>
         <option value="CREATED_AT_DESC">🕐 Terbaru Dibuat</option>
@@ -1971,7 +2015,17 @@ function WorkspaceCardsPageContent() {
                           {renderSortIcon("DEADLINE")}
                         </div>
                       </th>
-                      <th className="py-3.5 px-4 text-right">Aksi</th>
+                      <th
+                        onClick={() => handleSortClick("ACTION")}
+                        className="py-3.5 px-4 text-right cursor-pointer hover:bg-slate-100 hover:text-slate-900 transition group select-none"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span className={sortField === "ACTION" ? "text-blue-700 font-black" : ""}>
+                            Aksi
+                          </span>
+                          {renderSortIcon("ACTION")}
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -2130,7 +2184,7 @@ function WorkspaceCardsPageContent() {
                                       <ExternalLink className="h-3.5 w-3.5" />
                                     </a>
                                   )}
-                                  {isCreatorOrMgr && (
+                                  {isCreatorOrMgr ? (
                                     <>
                                       <button
                                         type="button"
@@ -2147,6 +2201,11 @@ function WorkspaceCardsPageContent() {
                                         ACC ✓
                                       </button>
                                     </>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap">
+                                      <Clock className="h-3 w-3 text-amber-600" />
+                                      Menunggu ACC
+                                    </span>
                                   )}
                                 </div>
                               ) : stageKey === "REVISION" && isMyTask ? (
