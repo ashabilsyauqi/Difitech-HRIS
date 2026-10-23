@@ -1556,13 +1556,17 @@ export default function WorkspaceCardsPage() {
                           {/* Column Header */}
                           <div className={`p-3 text-white ${cardDef.headerBg} shrink-0`}>
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-xs text-white shrink-0">
+                              <div
+                                onClick={() => openDivisionStage(cardDef.key)}
+                                className="flex items-center gap-2 min-w-0 cursor-pointer group/title"
+                                title={`Buka BigBoard Divisi ${cardDef.label}`}
+                              >
+                                <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-xs text-white shrink-0 group-hover/title:bg-white/30 transition">
                                   <Icon className="h-4 w-4" />
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <h3 className="text-sm font-black tracking-tight truncate">{cardDef.label}</h3>
+                                    <h3 className="text-sm font-black tracking-tight truncate group-hover/title:underline">{cardDef.label}</h3>
                                     <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-black shrink-0">
                                       {cardTasks.length}
                                     </span>
@@ -1572,6 +1576,15 @@ export default function WorkspaceCardsPage() {
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  title={`Buka BigBoard Divisi ${cardDef.label}`}
+                                  onClick={() => openDivisionStage(cardDef.key)}
+                                  className="p-1 rounded-lg bg-white/20 hover:bg-white/35 text-white transition shadow-2xs cursor-pointer"
+                                >
+                                  <ArrowRight className="h-3.5 w-3.5" />
+                                </button>
+
                                 <button
                                   type="button"
                                   title={`Tambah Kartu Kerja di ${cardDef.label}`}
