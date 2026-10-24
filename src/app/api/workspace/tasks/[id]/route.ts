@@ -407,9 +407,41 @@ export async function PATCH(
       completionNote,
       estimatedHours,
       actualHours,
+      kanbanStage,
     } = body;
 
     const updatedData: any = {};
+    if (kanbanStage !== undefined) {
+      updatedData.kanbanStage = kanbanStage;
+      if (kanbanStage === "NOT_STARTED") {
+        updatedData.status = "PENDING";
+        updatedData.reviewStatus = "NONE";
+      } else if (kanbanStage === "ON_PROGRESS") {
+        updatedData.status = "IN_PROGRESS";
+      } else if (kanbanStage === "DONE") {
+        const isCreator = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
+        const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
+        if (isCreator || isManagerOrAdmin) {
+          updatedData.status = "COMPLETED";
+          updatedData.reviewStatus = "APPROVED";
+          updatedData.reviewedAt = new Date();
+        } else {
+          updatedData.status = "IN_PROGRESS";
+          updatedData.reviewStatus = "TO_BE_REVIEWED";
+        }
+      } else if (kanbanStage === "SUBMIT_TO_REVIEW") {
+        updatedData.status = "IN_PROGRESS";
+        updatedData.reviewStatus = "TO_BE_REVIEWED";
+      } else if (kanbanStage === "REVISION") {
+        updatedData.status = "IN_PROGRESS";
+        updatedData.reviewStatus = "REVISION_REQUESTED";
+      } else {
+        if (existingTask.status === "PENDING") {
+          updatedData.status = "IN_PROGRESS";
+        }
+      }
+    }
+
     if (status !== undefined) {
       // Jika mencoba set COMPLETED padahal ditugaskan oleh orang lain dan belum di-approve
       if (status === "COMPLETED" && existingTask.creatorId && existingTask.creatorId !== authUser.userId && existingTask.reviewStatus !== "APPROVED") {

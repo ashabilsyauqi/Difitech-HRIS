@@ -8,7 +8,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
-import TaskDetailModal, { WORKBOARD_STAGES, getTaskStageKey } from "@/components/Tasks/TaskDetailModal";
+import TaskDetailModal, { WORKBOARD_STAGES, getTaskStageKey, WorkboardStage } from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
@@ -62,6 +62,9 @@ import {
   ArrowDown,
   UserCheck,
   FolderKanban,
+  Pencil,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 
 interface TaskItem {
@@ -371,6 +374,96 @@ const getCleanDescriptionSnippet = (desc?: string | null) => {
 type SortField = "TITLE" | "PRIORITY" | "STAGE" | "DEADLINE" | "CREATED_AT" | "ASSIGNEE" | "CREATOR" | "BRAND" | "ACTION";
 type SortDirection = "ASC" | "DESC";
 
+const AVAILABLE_STAGE_COLORS = [
+  { key: "blue", label: "Biru", bg: "bg-blue-500" },
+  { key: "emerald", label: "Hijau", bg: "bg-emerald-500" },
+  { key: "amber", label: "Kuning", bg: "bg-amber-500" },
+  { key: "rose", label: "Merah", bg: "bg-rose-500" },
+  { key: "purple", label: "Ungu", bg: "bg-purple-500" },
+  { key: "indigo", label: "Indigo", bg: "bg-indigo-500" },
+  { key: "cyan", label: "Sian", bg: "bg-cyan-500" },
+  { key: "orange", label: "Oranye", bg: "bg-orange-500" },
+  { key: "slate", label: "Abu-abu", bg: "bg-slate-500" },
+];
+
+const STAGE_COLOR_MAP: Record<
+  string,
+  { bg: string; text: string; border: string; dot: string; bar: string; badge: string }
+> = {
+  slate: {
+    bg: "bg-slate-50/70",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-500",
+    bar: "bg-slate-600",
+    badge: "bg-slate-100 text-slate-800 border-slate-200",
+  },
+  blue: {
+    bg: "bg-blue-50/40",
+    text: "text-blue-800",
+    border: "border-blue-200",
+    dot: "bg-blue-500",
+    bar: "bg-blue-600",
+    badge: "bg-blue-100 text-blue-800 border-blue-200",
+  },
+  amber: {
+    bg: "bg-amber-50/40",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-500",
+    bar: "bg-amber-500",
+    badge: "bg-amber-100 text-amber-800 border-amber-200",
+  },
+  rose: {
+    bg: "bg-rose-50/40",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-500",
+    bar: "bg-rose-600",
+    badge: "bg-rose-100 text-rose-800 border-rose-200",
+  },
+  emerald: {
+    bg: "bg-emerald-50/40",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    dot: "bg-emerald-500",
+    bar: "bg-emerald-600",
+    badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  },
+  purple: {
+    bg: "bg-purple-50/40",
+    text: "text-purple-800",
+    border: "border-purple-200",
+    dot: "bg-purple-500",
+    bar: "bg-purple-600",
+    badge: "bg-purple-100 text-purple-800 border-purple-200",
+  },
+  indigo: {
+    bg: "bg-indigo-50/40",
+    text: "text-indigo-800",
+    border: "border-indigo-200",
+    dot: "bg-indigo-500",
+    bar: "bg-indigo-600",
+    badge: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  },
+  cyan: {
+    bg: "bg-cyan-50/40",
+    text: "text-cyan-800",
+    border: "border-cyan-200",
+    dot: "bg-cyan-500",
+    bar: "bg-cyan-600",
+    badge: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  },
+  orange: {
+    bg: "bg-orange-50/40",
+    text: "text-orange-800",
+    border: "border-orange-200",
+    dot: "bg-orange-500",
+    bar: "bg-orange-600",
+    badge: "bg-orange-100 text-orange-800 border-orange-200",
+  },
+};
+
 function WorkspaceCardsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -397,6 +490,9 @@ function WorkspaceCardsPageContent() {
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   // Multi-View Customizer: "CARD" | "KANBAN" | "LIST"
   const [currentViewMode, setCurrentViewMode] = useState<"CARD" | "KANBAN" | "LIST">("CARD");
+
+  // User-Customizable Workboard Stages
+  const [userStages, setUserStages] = useState<WorkboardStage[]>(WORKBOARD_STAGES);
   const [visibleStages, setVisibleStages] = useState<string[]>([
     "NOT_STARTED",
     "ON_PROGRESS",
@@ -409,6 +505,154 @@ function WorkspaceCardsPageContent() {
   const [sortField, setSortField] = useState<SortField>("DEADLINE");
   const [sortDirection, setSortDirection] = useState<SortDirection>("ASC");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
+
+  // Stage Customizer Inline Form State
+  const [isAddingStage, setIsAddingStage] = useState(false);
+  const [newStageLabel, setNewStageLabel] = useState("");
+  const [newStageColor, setNewStageColor] = useState("blue");
+  const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
+  const [editingStageLabel, setEditingStageLabel] = useState("");
+  const [editingStageColor, setEditingStageColor] = useState("blue");
+
+  const fetchUserCustomStages = async (userId?: string) => {
+    try {
+      if (userId) {
+        const cached = localStorage.getItem(`difworkboard_stages_${userId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.stages) && parsed.stages.length > 0) {
+            setUserStages(parsed.stages);
+            if (Array.isArray(parsed.visibleStageKeys) && parsed.visibleStageKeys.length > 0) {
+              setVisibleStages(parsed.visibleStageKeys);
+            }
+          }
+        }
+      }
+
+      const res = await fetch("/api/workspace/user-stages");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.stages) && data.stages.length > 0) {
+          setUserStages(data.stages);
+          if (Array.isArray(data.visibleStageKeys) && data.visibleStageKeys.length > 0) {
+            setVisibleStages(data.visibleStageKeys);
+          }
+          if (userId) {
+            localStorage.setItem(
+              `difworkboard_stages_${userId}`,
+              JSON.stringify({ stages: data.stages, visibleStageKeys: data.visibleStageKeys })
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load user custom stages:", err);
+    }
+  };
+
+  const saveUserStages = async (stagesToSave: WorkboardStage[], visibleKeysToSave?: string[]) => {
+    setUserStages(stagesToSave);
+    const vis = visibleKeysToSave || visibleStages;
+    setVisibleStages(vis);
+
+    if (user?.id) {
+      try {
+        localStorage.setItem(
+          `difworkboard_stages_${user.id}`,
+          JSON.stringify({ stages: stagesToSave, visibleStageKeys: vis })
+        );
+      } catch {}
+
+      try {
+        await fetch("/api/workspace/user-stages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stages: stagesToSave, visibleStageKeys: vis }),
+        });
+      } catch (err) {
+        console.error("Failed to sync user stages to server:", err);
+      }
+    }
+  };
+
+  const handleAddStage = async () => {
+    if (!newStageLabel.trim()) return;
+    const newKey = `STAGE_${Date.now()}`;
+    const newStageItem: WorkboardStage = {
+      key: newKey,
+      label: newStageLabel.trim(),
+      step: userStages.length + 1,
+      color: newStageColor,
+      isDefault: false,
+    };
+    const updatedStages = [...userStages, newStageItem];
+    const updatedVisible = [...visibleStages, newKey];
+    await saveUserStages(updatedStages, updatedVisible);
+    setNewStageLabel("");
+    setIsAddingStage(false);
+  };
+
+  const handleStartEditStage = (stage: WorkboardStage) => {
+    setEditingStageKey(stage.key);
+    setEditingStageLabel(stage.label);
+    setEditingStageColor(stage.color || "blue");
+  };
+
+  const handleSaveEditStage = async () => {
+    if (!editingStageKey || !editingStageLabel.trim()) return;
+    const updatedStages = userStages.map((s) => {
+      if (s.key === editingStageKey) {
+        return { ...s, label: editingStageLabel.trim(), color: editingStageColor };
+      }
+      return s;
+    });
+    await saveUserStages(updatedStages);
+    setEditingStageKey(null);
+  };
+
+  const handleDeleteStage = async (stageKey: string) => {
+    if (userStages.length <= 1) {
+      alert("Minimal harus ada 1 stage.");
+      return;
+    }
+    if (
+      !confirm(
+        "Hapus stage ini? Kartu kerja pada stage ini tidak akan terhapus, tetapi kolom stage akan dihilangkan."
+      )
+    ) {
+      return;
+    }
+    const updatedStages = userStages
+      .filter((s) => s.key !== stageKey)
+      .map((s, idx) => ({ ...s, step: idx + 1 }));
+    const updatedVisible = visibleStages.filter((k) => k !== stageKey);
+    await saveUserStages(
+      updatedStages,
+      updatedVisible.length > 0 ? updatedVisible : [updatedStages[0].key]
+    );
+    if (editingStageKey === stageKey) {
+      setEditingStageKey(null);
+    }
+  };
+
+  const handleMoveStage = async (index: number, direction: "UP" | "DOWN") => {
+    const targetIndex = direction === "UP" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= userStages.length) return;
+    const copy = [...userStages];
+    const temp = copy[index];
+    copy[index] = copy[targetIndex];
+    copy[targetIndex] = temp;
+    const reindexed = copy.map((s, idx) => ({ ...s, step: idx + 1 }));
+    await saveUserStages(reindexed);
+  };
+
+  const handleResetStages = async () => {
+    if (!confirm("Reset semua stage ke 5 stage bawaan standar?")) return;
+    await saveUserStages(
+      WORKBOARD_STAGES,
+      WORKBOARD_STAGES.map((s) => s.key)
+    );
+  };
 
   useEffect(() => {
     try {
@@ -458,6 +702,9 @@ function WorkspaceCardsPageContent() {
       const data = await res.json();
       setUser(data.user);
       setViewScope("ALL");
+      if (data.user?.id) {
+        fetchUserCustomStages(data.user.id);
+      }
     } catch {
       router.push("/login");
     }
@@ -696,6 +943,18 @@ function WorkspaceCardsPageContent() {
         await handleApproveTask(taskId);
       } else {
         alert("Pekerjaan harus di-ACC oleh pemberi tugas untuk berpindah ke status Selesai.");
+      }
+    } else {
+      // Custom user stage
+      try {
+        await fetch(`/api/workspace/tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanStage: targetStageKey }),
+        });
+        fetchTasks();
+      } catch (err) {
+        console.error("Failed to move task to custom stage:", err);
       }
     }
   };
@@ -1038,53 +1297,33 @@ function WorkspaceCardsPageContent() {
           )}
         </div>
 
-        {/* In-Card 5-Stage Stepper (Teero Mini Style) */}
+        {/* In-Card Dynamic Stage Stepper */}
         {(() => {
-          const stageKey = getTaskStageKey(task);
-          const currentStage = WORKBOARD_STAGES.find((s) => s.key === stageKey) || WORKBOARD_STAGES[0];
-          const isRevision = stageKey === "REVISION";
+          const stageKey = getTaskStageKey(task, userStages);
+          const currentStage = userStages.find((s) => s.key === stageKey) || userStages[0] || WORKBOARD_STAGES[0];
+          const colorCfg = STAGE_COLOR_MAP[currentStage.color || "blue"] || STAGE_COLOR_MAP.blue;
+          const currentIndex = userStages.findIndex((s) => s.key === stageKey);
 
           return (
             <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between text-[10px]">
                 <span className="font-bold text-slate-400 uppercase tracking-wider text-[9px]">Stage</span>
                 <span
-                  className={`font-black px-2 py-0.5 rounded-full text-[9px] border ${
-                    stageKey === "DONE"
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                      : isRevision
-                      ? "bg-rose-100 text-rose-800 border-rose-200"
-                      : stageKey === "SUBMIT_TO_REVIEW"
-                      ? "bg-amber-100 text-amber-800 border-amber-200"
-                      : stageKey === "ON_PROGRESS"
-                      ? "bg-blue-100 text-blue-800 border-blue-200"
-                      : "bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
+                  className={`font-black px-2 py-0.5 rounded-full text-[9px] border ${colorCfg.badge}`}
                 >
                   {currentStage.step}. {currentStage.label}
                 </span>
               </div>
 
-              {/* 5-Step Mini Visual Indicator */}
-              <div className="grid grid-cols-5 gap-1 items-center pt-0.5">
-                {WORKBOARD_STAGES.map((s) => {
-                  const isPassed =
-                    s.key === "NOT_STARTED"
-                      ? stageKey !== "NOT_STARTED"
-                      : s.key === "ON_PROGRESS"
-                      ? stageKey === "SUBMIT_TO_REVIEW" || stageKey === "REVISION" || stageKey === "DONE"
-                      : s.key === "SUBMIT_TO_REVIEW"
-                      ? stageKey === "REVISION" || stageKey === "DONE"
-                      : s.key === "REVISION"
-                      ? stageKey === "DONE" && (Boolean(task.revisionNote) || (task.revisionCount && task.revisionCount > 0))
-                      : stageKey === "DONE";
-
+              {/* Dynamic Mini Visual Indicator */}
+              <div
+                className="grid gap-1 items-center pt-0.5"
+                style={{ gridTemplateColumns: `repeat(${userStages.length}, minmax(0, 1fr))` }}
+              >
+                {userStages.map((s, idx) => {
                   const isCurrent = stageKey === s.key;
-                  const isSkippedRev =
-                    s.key === "REVISION" &&
-                    stageKey === "DONE" &&
-                    !task.revisionNote &&
-                    (!task.revisionCount || task.revisionCount === 0);
+                  const isPassed = currentIndex > -1 && idx < currentIndex;
+                  const sColor = STAGE_COLOR_MAP[s.color || "blue"] || STAGE_COLOR_MAP.blue;
 
                   return (
                     <div
@@ -1092,13 +1331,9 @@ function WorkspaceCardsPageContent() {
                       title={`${s.step}. ${s.label}`}
                       className={`h-1.5 rounded-full transition-all ${
                         isCurrent
-                          ? isRevision
-                            ? "bg-rose-500 ring-2 ring-rose-200"
-                            : "bg-blue-600 ring-2 ring-blue-200"
+                          ? `${sColor.bar} ring-2 ring-blue-200`
                           : isPassed
                           ? "bg-emerald-500"
-                          : isSkippedRev
-                          ? "bg-slate-200/50"
                           : "bg-slate-200"
                       }`}
                     />
@@ -1106,8 +1341,8 @@ function WorkspaceCardsPageContent() {
                 })}
               </div>
 
-              {/* Quick Action Button for Not Started Stage */}
-              {stageKey === "NOT_STARTED" && isMyTask && (
+              {/* Quick Action Button for First / Not Started Stage */}
+              {(stageKey === "NOT_STARTED" || (userStages[0] && stageKey === userStages[0].key && task.status === "PENDING")) && isMyTask && (
                 <button
                   type="button"
                   onClick={() => handleStartTask(task.id)}
@@ -1320,7 +1555,7 @@ function WorkspaceCardsPageContent() {
   };
 
   const getTaskActionRank = (t: TaskItem): number => {
-    const stage = getTaskStageKey(t);
+    const stage = getTaskStageKey(t, userStages);
     const isMine = t.user?.id === user?.id || t.assignees?.some((a) => a.user?.id === user?.id);
     const isCreatorOrMgr = t.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER";
 
@@ -1338,8 +1573,8 @@ function WorkspaceCardsPageContent() {
       // For standard sorts (Deadline, Priority, CreatedAt, Title, Brand, Assignee, Creator),
       // Active tasks ALWAYS come first, and Done/Completed tasks ALWAYS go to the bottom!
       if (field !== "STAGE" && field !== "ACTION") {
-        const isDoneA = getTaskStageKey(a) === "DONE";
-        const isDoneB = getTaskStageKey(b) === "DONE";
+        const isDoneA = getTaskStageKey(a, userStages) === "DONE";
+        const isDoneB = getTaskStageKey(b, userStages) === "DONE";
         if (isDoneA !== isDoneB) {
           return isDoneA ? 1 : -1;
         }
@@ -1353,8 +1588,12 @@ function WorkspaceCardsPageContent() {
         const wB = priorityWeight[b.priority?.toUpperCase() || ""] || 0;
         diff = wA - wB;
       } else if (field === "STAGE") {
-        const sA = stageWeight[getTaskStageKey(a)] || 0;
-        const sB = stageWeight[getTaskStageKey(b)] || 0;
+        const getStageIdx = (stKey: string) => {
+          const idx = userStages.findIndex((s) => s.key === stKey);
+          return idx !== -1 ? idx : 999;
+        };
+        const sA = getStageIdx(getTaskStageKey(a, userStages));
+        const sB = getStageIdx(getTaskStageKey(b, userStages));
         diff = sA - sB;
       } else if (field === "ACTION") {
         const rA = getTaskActionRank(a);
@@ -1557,16 +1796,16 @@ function WorkspaceCardsPageContent() {
         type="button"
         onClick={() => setShowCustomizeMenu(!showCustomizeMenu)}
         className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-          showCustomizeMenu || visibleStages.length < WORKBOARD_STAGES.length
+          showCustomizeMenu || visibleStages.length < userStages.length
             ? "bg-blue-50 border-blue-300 text-blue-700"
             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white"
         }`}
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />
         <span>Stage</span>
-        {visibleStages.length < WORKBOARD_STAGES.length && (
+        {visibleStages.length < userStages.length && (
           <span className="rounded-full bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2">
-            {visibleStages.length}/5
+            {visibleStages.length}/{userStages.length}
           </span>
         )}
       </button>
@@ -1574,35 +1813,59 @@ function WorkspaceCardsPageContent() {
       {showCustomizeMenu && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-3.5 z-40 space-y-3 animate-in fade-in zoom-in-95"
+          className="absolute right-0 top-full mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-slate-200 shadow-2xl p-4 z-40 space-y-3.5 animate-in fade-in zoom-in-95 text-xs"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <span className="text-xs font-bold text-slate-900">Kustomisasi Stage</span>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-slate-900 text-sm">Kustomisasi Stage</span>
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  {userStages.length} Stage
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">Atur alur kerja, urutan, & visibilitas board Anda</p>
+            </div>
             <button
               type="button"
               onClick={() => setShowCustomizeMenu(false)}
-              className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer transition"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Preset Cepat:
-            </span>
+          {/* Quick Presets & Reset */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Preset Cepat:
+              </span>
+              <button
+                type="button"
+                onClick={handleResetStages}
+                title="Kembalikan ke 5 stage bawaan standar"
+                className="text-[10px] font-bold text-slate-500 hover:text-red-600 flex items-center gap-1 transition cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Reset Standar</span>
+              </button>
+            </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
-                onClick={() => setVisibleStages(WORKBOARD_STAGES.map((s) => s.key))}
+                onClick={() => saveUserStages(userStages, userStages.map((s) => s.key))}
                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
               >
-                Semua (5)
+                Semua ({userStages.length})
               </button>
               <button
                 type="button"
                 onClick={() =>
-                  setVisibleStages(["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION"])
+                  saveUserStages(
+                    userStages,
+                    userStages.filter((s) => s.key !== "DONE").map((s) => s.key)
+                  )
                 }
                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
               >
@@ -1610,7 +1873,14 @@ function WorkspaceCardsPageContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setVisibleStages(["SUBMIT_TO_REVIEW", "REVISION"])}
+                onClick={() =>
+                  saveUserStages(
+                    userStages,
+                    userStages
+                      .filter((s) => s.key === "SUBMIT_TO_REVIEW" || s.key === "REVISION" || s.step >= 3)
+                      .map((s) => s.key)
+                  )
+                }
                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition cursor-pointer"
               >
                 Perlu Tindakan
@@ -1618,43 +1888,231 @@ function WorkspaceCardsPageContent() {
             </div>
           </div>
 
-          <div className="space-y-1.5 pt-1 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Pilih Tahap Ditampilkan:
-            </span>
-            {WORKBOARD_STAGES.map((s) => {
-              const isChecked = visibleStages.includes(s.key);
-              return (
-                <label
-                  key={s.key}
-                  className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setVisibleStages([...visibleStages, s.key]);
-                        } else {
-                          if (visibleStages.length > 1) {
-                            setVisibleStages(visibleStages.filter((k) => k !== s.key));
-                          }
-                        }
-                      }}
-                      className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
-                    />
-                    <span
-                      className={`font-bold ${
-                        isChecked ? "text-slate-800" : "text-slate-400 line-through"
-                      }`}
+          {/* Stages List */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Daftar Stage ({visibleStages.length} aktif):
+              </span>
+              <span className="text-[9px] text-slate-400">Centang = Tampilkan</span>
+            </div>
+
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {userStages.map((s, index) => {
+                const isChecked = visibleStages.includes(s.key);
+                const isEditing = editingStageKey === s.key;
+                const colorCfg = STAGE_COLOR_MAP[s.color || "blue"] || STAGE_COLOR_MAP.blue;
+
+                if (isEditing) {
+                  return (
+                    <div
+                      key={s.key}
+                      className="p-2.5 rounded-xl border border-blue-300 bg-blue-50/40 space-y-2"
                     >
-                      {s.step}. {s.label}
-                    </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-blue-700 w-5">{s.step}.</span>
+                        <input
+                          type="text"
+                          value={editingStageLabel}
+                          onChange={(e) => setEditingStageLabel(e.target.value)}
+                          placeholder="Nama stage..."
+                          className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveEditStage();
+                            if (e.key === "Escape") setEditingStageKey(null);
+                          }}
+                        />
+                      </div>
+
+                      {/* Color Palette Selector */}
+                      <div className="flex items-center gap-1.5 pt-1 overflow-x-auto pb-0.5">
+                        <span className="text-[10px] font-semibold text-slate-400 shrink-0">Warna:</span>
+                        {AVAILABLE_STAGE_COLORS.map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => setEditingStageColor(c.key)}
+                            title={c.label}
+                            className={`h-5 w-5 rounded-full ${c.bg} transition-all cursor-pointer shrink-0 ${
+                              editingStageColor === c.key ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingStageKey(null)}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-200 transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEditStage}
+                          disabled={!editingStageLabel.trim()}
+                          className="px-3 py-1 rounded-lg text-[10px] font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition cursor-pointer shadow-2xs"
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={s.key}
+                    className="flex items-center justify-between p-2 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 transition group"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            saveUserStages(userStages, [...visibleStages, s.key]);
+                          } else {
+                            if (visibleStages.length > 1) {
+                              saveUserStages(userStages, visibleStages.filter((k) => k !== s.key));
+                            }
+                          }
+                        }}
+                        className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer shrink-0"
+                      />
+                      <span className={`h-2.5 w-2.5 rounded-full ${colorCfg.dot} shrink-0`} />
+                      <span className="text-[10px] font-black text-slate-400 shrink-0">{s.step}.</span>
+                      <span
+                        className={`font-bold truncate text-xs ${
+                          isChecked ? "text-slate-800" : "text-slate-400 line-through"
+                        }`}
+                      >
+                        {s.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-80 group-hover:opacity-100">
+                      {/* Move Up */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStage(index, "UP")}
+                        disabled={index === 0}
+                        title="Geser ke atas / urutan lebih awal"
+                        className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </button>
+
+                      {/* Move Down */}
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStage(index, "DOWN")}
+                        disabled={index === userStages.length - 1}
+                        title="Geser ke bawah / urutan lebih akhir"
+                        className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+
+                      {/* Edit */}
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditStage(s)}
+                        title="Edit nama dan warna stage"
+                        className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer transition"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStage(s.key)}
+                        disabled={userStages.length <= 1}
+                        title="Hapus stage ini"
+                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </label>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add Stage Form or Trigger */}
+          <div className="pt-2 border-t border-slate-100">
+            {isAddingStage ? (
+              <div className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50/40 space-y-2">
+                <span className="text-[11px] font-bold text-emerald-800 block">Tambah Stage Baru</span>
+                <input
+                  type="text"
+                  value={newStageLabel}
+                  onChange={(e) => setNewStageLabel(e.target.value)}
+                  placeholder="Nama stage (contoh: Testing / QA, Review Klien)..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddStage();
+                    if (e.key === "Escape") setIsAddingStage(false);
+                  }}
+                />
+
+                {/* Color Selector */}
+                <div className="flex items-center gap-1.5 pt-1 overflow-x-auto pb-0.5">
+                  <span className="text-[10px] font-semibold text-slate-500 shrink-0">Warna:</span>
+                  {AVAILABLE_STAGE_COLORS.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setNewStageColor(c.key)}
+                      title={c.label}
+                      className={`h-5 w-5 rounded-full ${c.bg} transition-all cursor-pointer shrink-0 ${
+                        newStageColor === c.key ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingStage(false);
+                      setNewStageLabel("");
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddStage}
+                    disabled={!newStageLabel.trim()}
+                    className="px-3.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition cursor-pointer shadow-2xs flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Tambahkan Stage</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingStage(true);
+                  setNewStageLabel("");
+                  setNewStageColor("blue");
+                }}
+                className="w-full py-2 px-3 rounded-xl border border-dashed border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/40 text-slate-600 hover:text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>+ Buat Stage Kustom Baru</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1713,40 +2171,36 @@ function WorkspaceCardsPageContent() {
   }) => {
     const processedTasks = filterAndSortTasks(inputTasks);
     const tasksInVisibleStages = processedTasks.filter((t) =>
-      visibleStages.includes(getTaskStageKey(t))
+      visibleStages.includes(getTaskStageKey(t, userStages))
     );
-
-    const countNotStarted = processedTasks.filter(
-      (t) => getTaskStageKey(t) === "NOT_STARTED"
-    ).length;
-    const countOnProgress = processedTasks.filter(
-      (t) => getTaskStageKey(t) === "ON_PROGRESS"
-    ).length;
-    const countReview = processedTasks.filter(
-      (t) => getTaskStageKey(t) === "SUBMIT_TO_REVIEW"
-    ).length;
-    const countRevision = processedTasks.filter(
-      (t) => getTaskStageKey(t) === "REVISION"
-    ).length;
-    const countDone = processedTasks.filter(
-      (t) => getTaskStageKey(t) === "DONE"
-    ).length;
 
     const displayTasks =
       whiteboardStageFilter === "ALL"
         ? tasksInVisibleStages
         : tasksInVisibleStages.filter(
-            (t) => getTaskStageKey(t) === whiteboardStageFilter
+            (t) => getTaskStageKey(t, userStages) === whiteboardStageFilter
           );
 
     const stageFilterTabs = [
-      { id: "ALL", label: "Semua", count: tasksInVisibleStages.length, badgeStyle: "bg-slate-100 text-slate-700" },
-      { id: "NOT_STARTED", label: "1. Not Started", count: countNotStarted, badgeStyle: "bg-slate-100 text-slate-700" },
-      { id: "ON_PROGRESS", label: "2. On Progress", count: countOnProgress, badgeStyle: "bg-blue-100 text-blue-800" },
-      { id: "SUBMIT_TO_REVIEW", label: "3. Review", count: countReview, badgeStyle: "bg-amber-100 text-amber-800" },
-      { id: "REVISION", label: "4. Revisi", count: countRevision, badgeStyle: "bg-rose-100 text-rose-800" },
-      { id: "DONE", label: "5. Done", count: countDone, badgeStyle: "bg-emerald-100 text-emerald-800" },
-    ].filter((tab) => tab.id === "ALL" || visibleStages.includes(tab.id));
+      {
+        id: "ALL",
+        label: "Semua",
+        count: tasksInVisibleStages.length,
+        badgeStyle: "bg-slate-100 text-slate-700",
+      },
+      ...userStages
+        .filter((s) => visibleStages.includes(s.key))
+        .map((s) => {
+          const count = processedTasks.filter((t) => getTaskStageKey(t, userStages) === s.key).length;
+          const colorCfg = STAGE_COLOR_MAP[s.color || "blue"] || STAGE_COLOR_MAP.blue;
+          return {
+            id: s.key,
+            label: `${s.step}. ${s.label}`,
+            count,
+            badgeStyle: colorCfg.badge,
+          };
+        }),
+    ];
 
     return (
       <div className="space-y-4">
@@ -1823,12 +2277,12 @@ function WorkspaceCardsPageContent() {
         {currentViewMode === "KANBAN" && (
           <div className="rounded-3xl border border-slate-200/90 bg-slate-100/60 p-4 shadow-xs overflow-x-auto min-h-[620px]">
             <div className="flex items-start gap-4 min-w-[1000px] pb-2">
-              {WORKBOARD_STAGES.filter((s) => visibleStages.includes(s.key)).map((stage) => {
+              {userStages.filter((s) => visibleStages.includes(s.key)).map((stage) => {
                 const isCollapsed = Boolean(collapsedStages[stage.key]);
                 const colTasks = processedTasks.filter(
-                  (t) => getTaskStageKey(t) === stage.key
+                  (t) => getTaskStageKey(t, userStages) === stage.key
                 );
-                const isRevision = stage.key === "REVISION";
+                const colorCfg = STAGE_COLOR_MAP[stage.color || "blue"] || STAGE_COLOR_MAP.blue;
 
                 if (isCollapsed) {
                   return (
@@ -1860,32 +2314,12 @@ function WorkspaceCardsPageContent() {
                     key={stage.key}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDropToStage(e, stage.key)}
-                    className={`flex-1 min-w-[280px] max-w-[340px] rounded-3xl border shadow-2xs flex flex-col min-h-[580px] max-h-[820px] overflow-hidden transition-all ${
-                      stage.key === "DONE"
-                        ? "bg-emerald-50/30 border-emerald-200/70"
-                        : isRevision
-                        ? "bg-rose-50/30 border-rose-200/70"
-                        : stage.key === "SUBMIT_TO_REVIEW"
-                        ? "bg-amber-50/30 border-amber-200/70"
-                        : stage.key === "ON_PROGRESS"
-                        ? "bg-blue-50/30 border-blue-200/70"
-                        : "bg-white/90 border-slate-200"
-                    }`}
+                    className={`flex-1 min-w-[280px] max-w-[340px] rounded-3xl border shadow-2xs flex flex-col min-h-[580px] max-h-[820px] overflow-hidden transition-all ${colorCfg.bg} ${colorCfg.border}`}
                   >
                     <div className="p-3.5 border-b border-slate-200/80 bg-white/80 backdrop-blur-xs flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`h-6 w-6 rounded-full text-white text-[11px] font-black flex items-center justify-center shadow-xs shrink-0 ${
-                            stage.key === "DONE"
-                              ? "bg-emerald-600"
-                              : isRevision
-                              ? "bg-rose-600"
-                              : stage.key === "SUBMIT_TO_REVIEW"
-                              ? "bg-amber-500"
-                              : stage.key === "ON_PROGRESS"
-                              ? "bg-blue-600"
-                              : "bg-slate-700"
-                          }`}
+                          className={`h-6 w-6 rounded-full text-white text-[11px] font-black flex items-center justify-center shadow-xs shrink-0 ${colorCfg.bar}`}
                         >
                           {stage.step}
                         </span>
@@ -1943,7 +2377,7 @@ function WorkspaceCardsPageContent() {
         {/* VIEW 3: LIST VIEW (TABEL / DAFTAR BARIS KOMPAK ALA NOTION / CLICKUP) */}
         {currentViewMode === "LIST" && (() => {
           const tableTasks = processedTasks.filter((t) =>
-            visibleStages.includes(getTaskStageKey(t))
+            visibleStages.includes(getTaskStageKey(t, userStages))
           );
 
           return (
@@ -2055,9 +2489,15 @@ function WorkspaceCardsPageContent() {
                       </tr>
                     ) : (
                       tableTasks.map((task) => {
-                        const stageKey = getTaskStageKey(task);
+                        const stageKey = getTaskStageKey(task, userStages);
                         const stageInfo =
-                          WORKBOARD_STAGES.find((s) => s.key === stageKey) || WORKBOARD_STAGES[0];
+                          userStages.find((s) => s.key === stageKey) || {
+                            key: stageKey,
+                            label: stageKey,
+                            step: 0,
+                            color: "slate",
+                          };
+                        const colorCfg = STAGE_COLOR_MAP[stageInfo.color || "blue"] || STAGE_COLOR_MAP.blue;
                         const isMyTask =
                           task.user?.id === user?.id ||
                           task.assignees?.some((a) => a.user?.id === user?.id);
@@ -2098,20 +2538,10 @@ function WorkspaceCardsPageContent() {
 
                             <td className="py-3 px-3 whitespace-nowrap">
                               <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
-                                  stageKey === "DONE"
-                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                    : stageKey === "REVISION"
-                                    ? "bg-rose-50 text-rose-800 border-rose-200"
-                                    : stageKey === "SUBMIT_TO_REVIEW"
-                                    ? "bg-amber-50 text-amber-800 border-amber-200"
-                                    : stageKey === "ON_PROGRESS"
-                                    ? "bg-blue-50 text-blue-800 border-blue-200"
-                                    : "bg-slate-100 text-slate-700 border-slate-200"
-                                }`}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${colorCfg.badge}`}
                               >
                                 <span>
-                                  {stageInfo.step}. {stageInfo.label}
+                                  {stageInfo.step ? `${stageInfo.step}. ` : ""}{stageInfo.label}
                                 </span>
                               </span>
                             </td>
@@ -3059,6 +3489,7 @@ function WorkspaceCardsPageContent() {
           onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
           onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
           onOpenRevisionModal={(t) => setRevisionModalTask(t)}
+          customStages={userStages}
         />
       )}
 

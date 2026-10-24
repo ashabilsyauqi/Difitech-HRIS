@@ -30,6 +30,7 @@ interface TaskDetailModalProps {
   onOpenDeadlineModal?: (task: any) => void;
   onOpenDeliverableModal?: (task: any) => void;
   onOpenRevisionModal?: (task: any) => void;
+  customStages?: WorkboardStage[];
 }
 
 const DEPARTMENTS: Record<string, { label: string; color: string }> = {
@@ -42,21 +43,33 @@ const DEPARTMENTS: Record<string, { label: string; color: string }> = {
 };
 
 export interface WorkboardStage {
-  key: "NOT_STARTED" | "ON_PROGRESS" | "SUBMIT_TO_REVIEW" | "REVISION" | "DONE";
+  key: string;
   label: string;
   step: number;
+  color?: string;
+  badgeStyle?: string;
+  isDefault?: boolean;
 }
 
 export const WORKBOARD_STAGES: WorkboardStage[] = [
-  { key: "NOT_STARTED", label: "Not Started", step: 1 },
-  { key: "ON_PROGRESS", label: "On Progress", step: 2 },
-  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 3 },
-  { key: "REVISION", label: "Revision", step: 4 },
-  { key: "DONE", label: "Done", step: 5 },
+  { key: "NOT_STARTED", label: "Not Started", step: 1, color: "slate", isDefault: true },
+  { key: "ON_PROGRESS", label: "On Progress", step: 2, color: "blue", isDefault: true },
+  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 3, color: "amber", isDefault: true },
+  { key: "REVISION", label: "Revision", step: 4, color: "rose", isDefault: true },
+  { key: "DONE", label: "Done", step: 5, color: "emerald", isDefault: true },
 ];
 
-export function getTaskStageKey(task: any): "NOT_STARTED" | "ON_PROGRESS" | "SUBMIT_TO_REVIEW" | "REVISION" | "DONE" {
+export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): string {
   if (!task) return "NOT_STARTED";
+  if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF") {
+    if (customStages && customStages.some((s) => s.key === task.kanbanStage)) {
+      return task.kanbanStage;
+    }
+    if (["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
+      return task.kanbanStage;
+    }
+    return task.kanbanStage;
+  }
   if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED") {
     return "DONE";
   }
@@ -85,6 +98,7 @@ export default function TaskDetailModal({
   onOpenDeadlineModal,
   onOpenDeliverableModal,
   onOpenRevisionModal,
+  customStages,
 }: TaskDetailModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -178,7 +192,9 @@ export default function TaskDetailModal({
     }
   };
 
-  const currentStageKey = getTaskStageKey(task);
+  const stagesToRender = customStages && customStages.length > 0 ? customStages : WORKBOARD_STAGES;
+  const currentStageKey = getTaskStageKey(task, stagesToRender);
+  const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
@@ -233,19 +249,9 @@ export default function TaskDetailModal({
         {/* Visual Pipeline Stages Bar (Image 2 Teero Stepper) */}
         <div className="bg-slate-50/50 px-6 py-3.5 shrink-0 border-b border-slate-200 overflow-x-auto">
           <div className="flex items-center min-w-[720px] border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs divide-x divide-slate-200">
-            {WORKBOARD_STAGES.map((stage) => {
-              const isPassed =
-                stage.key === "NOT_STARTED"
-                  ? currentStageKey !== "NOT_STARTED"
-                  : stage.key === "ON_PROGRESS"
-                  ? currentStageKey === "SUBMIT_TO_REVIEW" || currentStageKey === "REVISION" || currentStageKey === "DONE"
-                  : stage.key === "SUBMIT_TO_REVIEW"
-                  ? currentStageKey === "REVISION" || currentStageKey === "DONE"
-                  : stage.key === "REVISION"
-                  ? currentStageKey === "DONE" && (Boolean(task.revisionNote) || (task.revisionCount && task.revisionCount > 0))
-                  : currentStageKey === "DONE";
-
+            {stagesToRender.map((stage, sIdx) => {
               const isCurrent = currentStageKey === stage.key;
+              const isPassed = currentStageIndex > -1 && sIdx < currentStageIndex;
               const isRevisionStage = stage.key === "REVISION";
               const isSkippedRevision =
                 stage.key === "REVISION" &&
