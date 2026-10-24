@@ -8,7 +8,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
-import TaskDetailModal, { WORKBOARD_STAGES, getTaskStageKey, WorkboardStage } from "@/components/Tasks/TaskDetailModal";
+import TaskDetailModal, { WORKBOARD_STAGES, SOSMED_WORKBOARD_STAGES, getTaskStageKey, WorkboardStage } from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
@@ -805,6 +805,9 @@ function WorkspaceCardsPageContent() {
       if (found) {
         setBoardMode("DIVISION");
         setSelectedDivision(found.key);
+        if (found.key === "SOSMED") {
+          setCurrentViewMode("KANBAN");
+        }
       } else {
         setBoardMode("DIVISION");
         setSelectedDivision(null);
@@ -822,6 +825,9 @@ function WorkspaceCardsPageContent() {
   // Navigate to division stage view
   const openDivisionStage = (divisionKey: string) => {
     setSelectedMember("ALL");
+    if (divisionKey === "SOSMED") {
+      setCurrentViewMode("KANBAN");
+    }
     router.push(`/dashboard/workspace?card=${divisionKey}`);
   };
 
@@ -924,10 +930,24 @@ function WorkspaceCardsPageContent() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    if (targetStageKey === "NOT_STARTED") {
+    if (targetStageKey === "NOT_STARTED" || targetStageKey === "CONTENT_BRIEF") {
       await handleStatusChange(taskId, "PENDING");
-    } else if (targetStageKey === "ON_PROGRESS") {
+      if (targetStageKey === "CONTENT_BRIEF") {
+        await fetch(`/api/workspace/tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanStage: "CONTENT_BRIEF" }),
+        });
+      }
+    } else if (targetStageKey === "ON_PROGRESS" || targetStageKey === "SHOOTING" || targetStageKey === "DESIGN" || targetStageKey === "VIDEO_EDITING") {
       await handleStartTask(taskId);
+      if (targetStageKey !== "ON_PROGRESS") {
+        await fetch(`/api/workspace/tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kanbanStage: targetStageKey }),
+        });
+      }
     } else if (targetStageKey === "SUBMIT_TO_REVIEW") {
       setDeliverableModalTask(task);
     } else if (targetStageKey === "REVISION") {
@@ -937,12 +957,19 @@ function WorkspaceCardsPageContent() {
       } else {
         alert("Hanya pemberi tugas yang dapat meminta revisi.");
       }
-    } else if (targetStageKey === "DONE") {
+    } else if (targetStageKey === "DONE" || targetStageKey === "APPROVAL") {
       const isCreatorOrMgr = task.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER";
       if (isCreatorOrMgr) {
         await handleApproveTask(taskId);
+        if (targetStageKey === "APPROVAL") {
+          await fetch(`/api/workspace/tasks/${taskId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kanbanStage: "APPROVAL" }),
+          });
+        }
       } else {
-        alert("Pekerjaan harus di-ACC oleh pemberi tugas untuk berpindah ke status Selesai.");
+        alert("Pekerjaan harus di-ACC oleh pemberi tugas untuk berpindah ke status Selesai / Approval.");
       }
     } else {
       // Custom user stage
@@ -1131,7 +1158,7 @@ function WorkspaceCardsPageContent() {
   }, [user, tasks]);
 
   // Helper to render individual task cards with multi-assignee avatars and Corong indicators
-  const renderCard = (task: TaskItem, isPersonalBoard: boolean = false, isDelegatedView: boolean = false) => {
+  const renderCard = (task: TaskItem, isPersonalBoard: boolean = false, isDelegatedView: boolean = false, cardStagesParam?: WorkboardStage[]) => {
     const isRunning = Boolean(task.timerStartedAt);
     const elapsed = activeTimers[task.id] || 0;
     const isMyTask = task.user?.id === user?.id || task.assignees?.some((a) => a.user?.id === user?.id);
@@ -1299,10 +1326,19 @@ function WorkspaceCardsPageContent() {
 
         {/* In-Card Dynamic Stage Stepper */}
         {(() => {
-          const stageKey = getTaskStageKey(task, userStages);
-          const currentStage = userStages.find((s) => s.key === stageKey) || userStages[0] || WORKBOARD_STAGES[0];
-          const colorCfg = STAGE_COLOR_MAP[currentStage.color || "blue"] || STAGE_COLOR_MAP.blue;
-          const currentIndex = userStages.findIndex((s) => s.key === stageKey);
+          const cardStages =
+            cardStagesParam ||
+            (task.departmentCard === "SOSMED" || task.isContentProduction
+              ? SOSMED_WORKBOARD_STAGES
+              : userStages);
+          const stageKey = getTaskStageKey(task, cardStages);
+          const currentStage =
+            cardStages.find((s) => s.key === stageKey) ||
+            cardStages[0] ||
+            WORKBOARD_STAGES[0];
+          const colorCfg =
+            STAGE_COLOR_MAP[currentStage.color || "blue"] || STAGE_COLOR_MAP.blue;
+          const currentIndex = cardStages.findIndex((s) => s.key === stageKey);
 
           return (
             <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1318,9 +1354,9 @@ function WorkspaceCardsPageContent() {
               {/* Dynamic Mini Visual Indicator */}
               <div
                 className="grid gap-1 items-center pt-0.5"
-                style={{ gridTemplateColumns: `repeat(${userStages.length}, minmax(0, 1fr))` }}
+                style={{ gridTemplateColumns: `repeat(${cardStages.length}, minmax(0, 1fr))` }}
               >
-                {userStages.map((s, idx) => {
+                {cardStages.map((s, idx) => {
                   const isCurrent = stageKey === s.key;
                   const isPassed = currentIndex > -1 && idx < currentIndex;
                   const sColor = STAGE_COLOR_MAP[s.color || "blue"] || STAGE_COLOR_MAP.blue;
@@ -1573,8 +1609,9 @@ function WorkspaceCardsPageContent() {
       // For standard sorts (Deadline, Priority, CreatedAt, Title, Brand, Assignee, Creator),
       // Active tasks ALWAYS come first, and Done/Completed tasks ALWAYS go to the bottom!
       if (field !== "STAGE" && field !== "ACTION") {
-        const isDoneA = getTaskStageKey(a, userStages) === "DONE";
-        const isDoneB = getTaskStageKey(b, userStages) === "DONE";
+        const stagesForSort = selectedDivision === "SOSMED" ? SOSMED_WORKBOARD_STAGES : userStages;
+        const isDoneA = getTaskStageKey(a, stagesForSort) === "DONE" || getTaskStageKey(a, stagesForSort) === "APPROVAL" || a.status === "COMPLETED";
+        const isDoneB = getTaskStageKey(b, stagesForSort) === "DONE" || getTaskStageKey(b, stagesForSort) === "APPROVAL" || b.status === "COMPLETED";
         if (isDoneA !== isDoneB) {
           return isDoneA ? 1 : -1;
         }
@@ -2162,23 +2199,27 @@ function WorkspaceCardsPageContent() {
     isDelegatedView = false,
     emptyContextText = "di papan ini",
     defaultCardKey,
+    stages: stagesParam,
   }: {
     tasks: TaskItem[];
     isPersonalBoard?: boolean;
     isDelegatedView?: boolean;
     emptyContextText?: string;
     defaultCardKey?: string;
+    stages?: WorkboardStage[];
   }) => {
+    const activeStages = stagesParam || userStages;
+    const isCustomParamStages = Boolean(stagesParam);
     const processedTasks = filterAndSortTasks(inputTasks);
     const tasksInVisibleStages = processedTasks.filter((t) =>
-      visibleStages.includes(getTaskStageKey(t, userStages))
+      isCustomParamStages ? true : visibleStages.includes(getTaskStageKey(t, activeStages))
     );
 
     const displayTasks =
       whiteboardStageFilter === "ALL"
         ? tasksInVisibleStages
         : tasksInVisibleStages.filter(
-            (t) => getTaskStageKey(t, userStages) === whiteboardStageFilter
+            (t) => getTaskStageKey(t, activeStages) === whiteboardStageFilter
           );
 
     const stageFilterTabs = [
@@ -2188,10 +2229,10 @@ function WorkspaceCardsPageContent() {
         count: tasksInVisibleStages.length,
         badgeStyle: "bg-slate-100 text-slate-700",
       },
-      ...userStages
-        .filter((s) => visibleStages.includes(s.key))
+      ...activeStages
+        .filter((s) => (isCustomParamStages ? true : visibleStages.includes(s.key)))
         .map((s) => {
-          const count = processedTasks.filter((t) => getTaskStageKey(t, userStages) === s.key).length;
+          const count = processedTasks.filter((t) => getTaskStageKey(t, activeStages) === s.key).length;
           const colorCfg = STAGE_COLOR_MAP[s.color || "blue"] || STAGE_COLOR_MAP.blue;
           return {
             id: s.key,
@@ -2267,7 +2308,7 @@ function WorkspaceCardsPageContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 items-start">
-                {displayTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView))}
+                {displayTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView, activeStages))}
               </div>
             )}
           </div>
@@ -2277,10 +2318,10 @@ function WorkspaceCardsPageContent() {
         {currentViewMode === "KANBAN" && (
           <div className="rounded-3xl border border-slate-200/90 bg-slate-100/60 p-4 shadow-xs overflow-x-auto min-h-[620px]">
             <div className="flex items-start gap-4 min-w-[1000px] pb-2">
-              {userStages.filter((s) => visibleStages.includes(s.key)).map((stage) => {
+              {activeStages.filter((s) => (isCustomParamStages ? true : visibleStages.includes(s.key))).map((stage) => {
                 const isCollapsed = Boolean(collapsedStages[stage.key]);
                 const colTasks = processedTasks.filter(
-                  (t) => getTaskStageKey(t, userStages) === stage.key
+                  (t) => getTaskStageKey(t, activeStages) === stage.key
                 );
                 const colorCfg = STAGE_COLOR_MAP[stage.color || "blue"] || STAGE_COLOR_MAP.blue;
 
@@ -2364,7 +2405,7 @@ function WorkspaceCardsPageContent() {
                           <p className="text-[10px] text-slate-400 mt-0.5">Tarik kartu tugas ke sini</p>
                         </div>
                       ) : (
-                        colTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView))
+                        colTasks.map((t) => renderCard(t, isPersonalBoard, isDelegatedView, activeStages))
                       )}
                     </div>
                   </div>
@@ -2377,7 +2418,7 @@ function WorkspaceCardsPageContent() {
         {/* VIEW 3: LIST VIEW (TABEL / DAFTAR BARIS KOMPAK ALA NOTION / CLICKUP) */}
         {currentViewMode === "LIST" && (() => {
           const tableTasks = processedTasks.filter((t) =>
-            visibleStages.includes(getTaskStageKey(t, userStages))
+            isCustomParamStages ? true : visibleStages.includes(getTaskStageKey(t, activeStages))
           );
 
           return (
@@ -2489,9 +2530,9 @@ function WorkspaceCardsPageContent() {
                       </tr>
                     ) : (
                       tableTasks.map((task) => {
-                        const stageKey = getTaskStageKey(task, userStages);
+                        const stageKey = getTaskStageKey(task, activeStages);
                         const stageInfo =
-                          userStages.find((s) => s.key === stageKey) || {
+                          activeStages.find((s) => s.key === stageKey) || {
                             key: stageKey,
                             label: stageKey,
                             step: 0,
@@ -3302,26 +3343,35 @@ function WorkspaceCardsPageContent() {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 tracking-wider uppercase">
-                      BigBoard Divisi
-                    </span>
-                    <span className="text-slate-400 text-xs">•</span>
-                    <span className="text-xs font-semibold text-slate-600">
-                      {currentDivisionDef?.label || selectedDivision} ({currentDivisionDef?.sublabel || "Divisi"})
-                    </span>
+                    {/* Breadcrumbs Hierarchy */}
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={backToOverview}
+                        className="font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 transition"
+                      >
+                        <Layers className="h-3.5 w-3.5 text-slate-400" />
+                        <span>BigBoard Difitech</span>
+                      </button>
+                      <span className="text-slate-300 font-bold">/</span>
+                      <span className="font-extrabold text-slate-800 flex items-center gap-1">
+                        <FolderKanban className="h-3.5 w-3.5 text-blue-600" />
+                        <span>BigBoard {currentDivisionDef?.label || selectedDivision}</span>
+                      </span>
+                      {selectedDivision === "SOSMED" && (
+                        <>
+                          <span className="text-slate-300 font-bold">/</span>
+                          <span className="rounded-md bg-pink-100 text-pink-800 text-[10px] font-black px-2 py-0.5">
+                            Kanban 6 Tahap
+                          </span>
+                        </>
+                      )}
+                    </div>
                     {isHomeCard(selectedDivision, user?.department) && (
-                      <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0">
+                      <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0 ml-1">
                         Divisi Saya
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={backToOverview}
-                      className="text-xs font-bold text-slate-400 hover:text-slate-700 hover:underline flex items-center gap-1 transition ml-1 cursor-pointer"
-                    >
-                      <ArrowLeft className="h-3 w-3" />
-                      <span>Semua Divisi</span>
-                    </button>
                   </div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
                     📋 Lembar Tugas Divisi {currentDivisionDef?.label || selectedDivision}
@@ -3329,6 +3379,36 @@ function WorkspaceCardsPageContent() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     Papan kerja kolaboratif dan pipeline pengerjaan tim {currentDivisionDef?.label}. Pantau tugas divisi, progres tim, dan serahkan hasil kerja.
                   </p>
+
+                  {selectedDivision === "SOSMED" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-pink-50/90 via-purple-50/50 to-pink-50/90 border border-pink-200/80 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-pink-600 text-white shadow-2xs shrink-0">
+                          <Clapperboard className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-pink-900 flex items-center gap-1.5">
+                            <span>Kanban Alur Produksi Konten 6 Tahap</span>
+                            <span className="px-1.5 py-0.2 rounded-md bg-pink-200 text-pink-800 text-[10px] font-black">
+                              Sosmed & Admin
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-pink-700/90 font-medium">
+                            1. Brief &rarr; 2. Shooting &rarr; 3. Design &rarr; 4. Video Editing &rarr; 5. Revision &rarr; 6. Approval
+                          </div>
+                        </div>
+                      </div>
+
+                      <Link
+                        href="/dashboard/content-production"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-600 text-white font-bold text-xs hover:bg-pink-700 transition shadow-xs shrink-0"
+                      >
+                        <Clapperboard className="h-3.5 w-3.5" />
+                        <span>Buka Layar Penuh Pipeline</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -3462,6 +3542,7 @@ function WorkspaceCardsPageContent() {
                 isDelegatedView: false,
                 emptyContextText: `di divisi ${currentDivisionDef?.label || ""}`,
                 defaultCardKey: selectedDivision || undefined,
+                stages: selectedDivision === "SOSMED" ? SOSMED_WORKBOARD_STAGES : undefined,
               })}
             </div>
           )}
@@ -3489,7 +3570,13 @@ function WorkspaceCardsPageContent() {
           onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
           onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
           onOpenRevisionModal={(t) => setRevisionModalTask(t)}
-          customStages={userStages}
+          customStages={
+            selectedDivision === "SOSMED" ||
+            selectedTaskForDetail?.departmentCard === "SOSMED" ||
+            selectedTaskForDetail?.isContentProduction
+              ? SOSMED_WORKBOARD_STAGES
+              : userStages
+          }
         />
       )}
 

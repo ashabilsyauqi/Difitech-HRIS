@@ -118,18 +118,35 @@ export const WORKBOARD_STAGES: WorkboardStage[] = [
   { key: "DONE", label: "Done", step: 5, color: "emerald", isDefault: true },
 ];
 
+export const SOSMED_WORKBOARD_STAGES: WorkboardStage[] = [
+  { key: "CONTENT_BRIEF", label: "1. Content Brief", step: 1, color: "blue", isDefault: true },
+  { key: "SHOOTING", label: "2. Shooting", step: 2, color: "purple", isDefault: true },
+  { key: "DESIGN", label: "3. Design", step: 3, color: "pink", isDefault: true },
+  { key: "VIDEO_EDITING", label: "4. Video Editing", step: 4, color: "amber", isDefault: true },
+  { key: "REVISION", label: "5. Revision", step: 5, color: "rose", isDefault: true },
+  { key: "APPROVAL", label: "6. Approval", step: 6, color: "emerald", isDefault: true },
+];
+
 export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): string {
   if (!task) return "NOT_STARTED";
-  if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF") {
+
+  // Check matching custom stage or Sosmed stage directly from task.kanbanStage
+  if (task.kanbanStage) {
     if (customStages && customStages.some((s) => s.key === task.kanbanStage)) {
+      return task.kanbanStage;
+    }
+    if (SOSMED_WORKBOARD_STAGES.some((s) => s.key === task.kanbanStage)) {
       return task.kanbanStage;
     }
     if (["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
       return task.kanbanStage;
     }
-    return task.kanbanStage;
   }
+
   if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED") {
+    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
+      return "APPROVAL";
+    }
     return "DONE";
   }
   if (task.reviewStatus === "REVISION_REQUESTED") {
@@ -140,10 +157,22 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     task.reviewStatus === "UNDER_REVIEW" ||
     task.kanbanStage === "APPROVAL"
   ) {
+    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
+      return "APPROVAL";
+    }
     return "SUBMIT_TO_REVIEW";
   }
   if (task.status === "IN_PROGRESS") {
+    if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF") {
+      return task.kanbanStage;
+    }
+    if (customStages && customStages.some((s) => s.key === "SHOOTING")) {
+      return task.kanbanStage || "SHOOTING";
+    }
     return "ON_PROGRESS";
+  }
+  if (customStages && customStages.some((s) => s.key === "CONTENT_BRIEF")) {
+    return "CONTENT_BRIEF";
   }
   return "NOT_STARTED";
 }
@@ -429,9 +458,33 @@ export default function TaskDetailModal({
     }
   };
 
-  const stagesToRender = customStages && customStages.length > 0 ? customStages : WORKBOARD_STAGES;
+  const isSosmedTask = task?.departmentCard === "SOSMED" || Boolean(task?.isContentProduction);
+  const stagesToRender =
+    customStages && customStages.length > 0
+      ? customStages
+      : isSosmedTask
+      ? SOSMED_WORKBOARD_STAGES
+      : WORKBOARD_STAGES;
   const currentStageKey = getTaskStageKey(task, stagesToRender);
   const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
+
+  const handleMoveKanbanStage = async (newStage: string) => {
+    try {
+      setIsUpdating(true);
+      await fetch(`/api/workspace/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updateKanbanStage: { stage: newStage } }),
+      });
+      fetchLogs(task.id);
+      onUpdate();
+      onClose();
+    } catch (err) {
+      console.error("Failed to move kanban stage:", err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
@@ -1314,6 +1367,128 @@ export default function TaskDetailModal({
           </button>
 
           <div className="flex items-center gap-2">
+            {/* SOSMED STAGE 1: CONTENT_BRIEF */}
+            {currentStageKey === "CONTENT_BRIEF" && (
+              <>
+                {isAssignee || isCreatorOrManager ? (
+                  <button
+                    onClick={() => handleMoveKanbanStage("SHOOTING")}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-purple-700 transition shadow-sm cursor-pointer"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Next: Lanjut Shooting &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-500 font-medium bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200">
+                    Tahap 1: Ideasi & Content Brief
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* SOSMED STAGE 2: SHOOTING */}
+            {currentStageKey === "SHOOTING" && (
+              <>
+                {isAssignee || isCreatorOrManager ? (
+                  <button
+                    onClick={() => handleMoveKanbanStage("DESIGN")}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-pink-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-pink-700 transition shadow-sm cursor-pointer"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Next: Lanjut Desain &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-purple-700 font-bold bg-purple-50 px-3.5 py-2 rounded-xl border border-purple-200">
+                    Tahap 2: Shooting & Rekaman
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* SOSMED STAGE 3: DESIGN */}
+            {currentStageKey === "DESIGN" && (
+              <>
+                {isAssignee || isCreatorOrManager ? (
+                  <button
+                    onClick={() => handleMoveKanbanStage("VIDEO_EDITING")}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-amber-700 transition shadow-sm cursor-pointer"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Next: Lanjut Editing Video &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-pink-700 font-bold bg-pink-50 px-3.5 py-2 rounded-xl border border-pink-200">
+                    Tahap 3: Desain Grafis & Feed
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* SOSMED STAGE 4: VIDEO_EDITING */}
+            {currentStageKey === "VIDEO_EDITING" && (
+              <>
+                {isAssignee && onOpenDeliverableModal ? (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenDeliverableModal(task);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Next: Submit File & Approval &rarr;</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleMoveKanbanStage("APPROVAL")}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Next: Siap Approval &rarr;</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* SOSMED STAGE 6: APPROVAL */}
+            {currentStageKey === "APPROVAL" && (
+              <>
+                {isCreatorOrManager ? (
+                  <div className="flex items-center gap-2">
+                    {onOpenRevisionModal && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onOpenRevisionModal(task);
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Minta Revisi Konten</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleApproveReview}
+                      disabled={isUpdating}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Approve Konten (Done !)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-300">
+                    <Clock className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                    <span>Tahap Approval: Menunggu ACC Reviewer</span>
+                  </span>
+                )}
+              </>
+            )}
+
             {/* STAGE 1: NOT_STARTED */}
             {currentStageKey === "NOT_STARTED" && (
               <>
