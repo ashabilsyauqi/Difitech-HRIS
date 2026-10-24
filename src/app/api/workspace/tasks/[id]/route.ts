@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 
 export async function GET(
   req: NextRequest,
@@ -69,6 +70,8 @@ export async function PATCH(
 
     const body = await req.json();
 
+    await ensureTaskDiscussionAndLogsTables();
+
     // 1. Negosiasi Deadline (Deadline Suggestion dari Penerima Tugas)
     if (body.suggestDeadline) {
       const { suggestedDeadline, reason } = body.suggestDeadline;
@@ -82,6 +85,17 @@ export async function PATCH(
           suggestedDeadline: new Date(suggestedDeadline),
           suggestionReason: reason || null,
           suggestionStatus: "PENDING",
+        },
+      });
+
+      // Log activity
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "DEADLINE_CHANGE",
+          title: "Pengajuan Negosiasi Deadline",
+          description: `${authUser.name} mengajukan saran deadline baru: ${new Date(suggestedDeadline).toLocaleDateString("id-ID")}${reason ? ` (Alasan: "${reason}")` : ""}`,
         },
       });
 
@@ -116,6 +130,17 @@ export async function PATCH(
       const updated = await prisma.task.update({
         where: { id: params.id },
         data: updatedData,
+      });
+
+      // Log activity
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "DEADLINE_CHANGE",
+          title: action === "ACCEPT" ? "Deadline Disetujui" : "Saran Deadline Ditolak",
+          description: `${authUser.name} telah ${action === "ACCEPT" ? "menyetujui" : "menolak"} usulan deadline untuk tugas ini`,
+        },
       });
 
       // Kirim notifikasi ke penerima tugas
@@ -207,6 +232,18 @@ export async function PATCH(
       const { deliverableUrl, completionNote } = body.submitDeliverable;
       const isSelfAssigned = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
 
+      // Log activity
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "SUBMIT_DELIVERABLE",
+          title: "Penyerahan Hasil Kerja",
+          description: `${authUser.name} menyerahkan hasil kerja${completionNote ? `: "${completionNote}"` : ""}`,
+          metadata: JSON.stringify({ deliverableUrl: deliverableUrl || null }),
+        },
+      });
+
       if (isSelfAssigned) {
         // Tugas inisiatif pribadi yang dibuat untuk diri sendiri -> langsung COMPLETED (Done !)
         const updated = await prisma.task.update({
@@ -273,6 +310,16 @@ export async function PATCH(
           },
         });
 
+        await prisma.taskActivityLog.create({
+          data: {
+            taskId: params.id,
+            userId: authUser.userId,
+            actionType: "STAGE_CHANGE",
+            title: "Mulai Review",
+            description: `${authUser.name} mulai memeriksa/mereview hasil kerja tugas ini`,
+          },
+        });
+
         if (existingTask.userId !== authUser.userId) {
           await prisma.notification.create({
             data: {
@@ -297,6 +344,17 @@ export async function PATCH(
             reviewStatus: "APPROVED",
             revisionTag: null,
             reviewedAt: new Date(),
+          },
+        });
+
+        await prisma.taskActivityLog.create({
+          data: {
+            taskId: params.id,
+            userId: authUser.userId,
+            actionType: "APPROVE_TASK",
+            title: "Tugas Disetujui (Done !)",
+            description: `${authUser.name} menyetujui hasil kerja. Tugas resmi selesai (Done !)`,
+            toValue: "DONE",
           },
         });
 
@@ -328,6 +386,17 @@ export async function PATCH(
             revisionTag: "Perlu Revisi",
             revisionNote: revisionNote.trim(),
             reviewedAt: new Date(),
+          },
+        });
+
+        await prisma.taskActivityLog.create({
+          data: {
+            taskId: params.id,
+            userId: authUser.userId,
+            actionType: "REQUEST_REVISION",
+            title: "Permintaan Revisi",
+            description: `${authUser.name} meminta revisi: "${revisionNote.trim()}"`,
+            toValue: "REVISION",
           },
         });
 
@@ -497,6 +566,38 @@ export async function PATCH(
         },
       },
     });
+
+    // Record stage or status change in activity log if changed
+    if (kanbanStage !== undefined && kanbanStage !== existingTask.kanbanStage) {
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "STAGE_CHANGE",
+          title: "Perpindahan Stage",
+          description: `${authUser.name} memindahkan stage ke "${kanbanStage}"`,
+          fromValue: existingTask.kanbanStage || "NOT_STARTED",
+          toValue: kanbanStage,
+        },
+      });
+    } else if (
+      status !== undefined &&
+      status !== existingTask.status &&
+      !body.reviewAction &&
+      !body.submitDeliverable
+    ) {
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "STATUS_CHANGE",
+          title: "Perubahan Status",
+          description: `${authUser.name} mengubah status tugas menjadi "${status}"`,
+          fromValue: existingTask.status,
+          toValue: status,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, task: updated });
   } catch (error) {

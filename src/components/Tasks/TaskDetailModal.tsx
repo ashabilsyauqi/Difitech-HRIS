@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Calendar,
@@ -18,8 +18,67 @@ import {
   Share2,
   Inbox,
   Check,
+  MessageSquare,
+  Paperclip,
+  Send,
+  CornerDownRight,
+  FileText,
+  Download,
+  Image as ImageIcon,
+  History,
+  Loader2,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
+
+export interface TaskCommentItem {
+  id: string;
+  taskId: string;
+  userId: string;
+  message: string;
+  replyToId?: string | null;
+  replyTo?: {
+    id: string;
+    message: string;
+    attachmentName?: string | null;
+    user?: {
+      id: string;
+      name: string;
+      department?: string | null;
+    } | null;
+  } | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
+  attachmentSize?: number | null;
+  createdAt: string;
+  user?: {
+    id: string;
+    name: string;
+    department?: string | null;
+    avatarUrl?: string | null;
+    role?: string;
+  } | null;
+}
+
+export interface TaskActivityLogItem {
+  id: string;
+  taskId: string;
+  userId?: string | null;
+  actionType: string;
+  title: string;
+  description: string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  metadata?: string | null;
+  createdAt: string;
+  user?: {
+    id: string;
+    name: string;
+    department?: string | null;
+    avatarUrl?: string | null;
+    role?: string;
+  } | null;
+}
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -101,6 +160,167 @@ export default function TaskDetailModal({
   customStages,
 }: TaskDetailModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState<"DISCUSSION" | "LOGS">("DISCUSSION");
+  const [comments, setComments] = useState<TaskCommentItem[]>([]);
+  const [logs, setLogs] = useState<TaskActivityLogItem[]>([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [replyingTo, setReplyingTo] = useState<TaskCommentItem | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<{
+    dataUrl: string;
+    name: string;
+    type: string;
+    size: number;
+  } | null>(null);
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const commentsEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const fetchComments = async (taskId: string) => {
+    try {
+      setIsLoadingComments(true);
+      const res = await fetch(`/api/workspace/tasks/${taskId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(data.comments || []);
+      }
+    } catch (err) {
+      console.error("Failed to load task comments:", err);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  const fetchLogs = async (taskId: string) => {
+    try {
+      setIsLoadingLogs(true);
+      const res = await fetch(`/api/workspace/tasks/${taskId}/logs`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to load task logs:", err);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && task?.id) {
+      fetchComments(task.id);
+      fetchLogs(task.id);
+      setChatInput("");
+      setReplyingTo(null);
+      setSelectedAttachment(null);
+    }
+  }, [isOpen, task?.id]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Ukuran file maksimal adalah 10MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedAttachment({
+        dataUrl: reader.result as string,
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        size: file.size,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSendComment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!task?.id || isSendingComment) return;
+
+    const trimmed = chatInput.trim();
+    if (!trimmed && !selectedAttachment) return;
+
+    try {
+      setIsSendingComment(true);
+      const payload = {
+        message: trimmed,
+        replyToId: replyingTo ? replyingTo.id : null,
+        attachmentUrl: selectedAttachment?.dataUrl || null,
+        attachmentName: selectedAttachment?.name || null,
+        attachmentType: selectedAttachment?.type || null,
+        attachmentSize: selectedAttachment?.size || null,
+      };
+
+      const res = await fetch(`/api/workspace/tasks/${task.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comment) {
+          setComments((prev) => [...prev, data.comment]);
+        }
+        setChatInput("");
+        setReplyingTo(null);
+        setSelectedAttachment(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        fetchLogs(task.id);
+        setTimeout(() => {
+          commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Gagal mengirim pesan.");
+      }
+    } catch (err) {
+      console.error("Failed to send comment:", err);
+      alert("Terjadi kesalahan saat mengirim pesan.");
+    } finally {
+      setIsSendingComment(false);
+    }
+  };
+
+  const formatFileSize = (bytes?: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getLogBadge = (actionType: string) => {
+    switch (actionType) {
+      case "STAGE_CHANGE":
+        return { label: "Perpindahan Stage", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+      case "STATUS_CHANGE":
+        return { label: "Status Berubah", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+      case "SUBMIT_DELIVERABLE":
+        return { label: "Hasil Diserahkan", bg: "bg-amber-50 text-amber-700 border-amber-200" };
+      case "APPROVE_TASK":
+        return { label: "ACC & Selesai", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+      case "REQUEST_REVISION":
+        return { label: "Permintaan Revisi", bg: "bg-rose-50 text-rose-700 border-rose-200" };
+      case "DEADLINE_CHANGE":
+        return { label: "Negosiasi Deadline", bg: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+      case "COMMENT_ADDED":
+        return { label: "Diskusi & Chat", bg: "bg-violet-50 text-violet-700 border-violet-200" };
+      case "START_REVIEW":
+        return { label: "Proses Review", bg: "bg-amber-50 text-amber-700 border-amber-200" };
+      default:
+        return { label: "Aktivitas", bg: "bg-slate-50 text-slate-700 border-slate-200" };
+    }
+  };
 
   if (!isOpen || !task) return null;
 
@@ -135,6 +355,7 @@ export default function TaskDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "IN_PROGRESS" }),
       });
+      fetchLogs(task.id);
       onUpdate();
       onClose();
     } catch (err) {
@@ -152,6 +373,7 @@ export default function TaskDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewAction: { action: "START_REVIEW" } }),
       });
+      fetchLogs(task.id);
       onUpdate();
     } catch (err) {
       console.error("Failed to start review:", err);
@@ -168,6 +390,7 @@ export default function TaskDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewAction: { action: "APPROVE" } }),
       });
+      fetchLogs(task.id);
       onUpdate();
       onClose();
     } catch (err) {
@@ -184,6 +407,20 @@ export default function TaskDetailModal({
         day: "numeric",
         month: "short",
         year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  const formatRelativeTime = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
         hour: "2-digit",
         minute: "2-digit",
       });
@@ -521,6 +758,435 @@ export default function TaskDetailModal({
                 )}
               </div>
             )}
+
+            {/* Diskusi & Log Rekap Aktivitas */}
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+              {/* Tab Header Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/90 px-4 py-3">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-xl shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("DISCUSSION")}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      activeTab === "DISCUSSION"
+                        ? "bg-white text-blue-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>Diskusi & Chat</span>
+                    {comments.length > 0 && (
+                      <span className="ml-0.5 rounded-full bg-blue-100 text-blue-800 px-1.5 py-0.2 text-[10px] font-black">
+                        {comments.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("LOGS")}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      activeTab === "LOGS"
+                        ? "bg-white text-indigo-700 shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    <span>Log & Rekap Aktivitas</span>
+                    {logs.length > 0 && (
+                      <span className="ml-0.5 rounded-full bg-indigo-100 text-indigo-800 px-1.5 py-0.2 text-[10px] font-black">
+                        {logs.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-slate-400 font-medium flex items-center gap-2">
+                  <span>
+                    {activeTab === "DISCUSSION"
+                      ? "Koordinasi & instruksi langsung pengerja"
+                      : "Riwayat perpindahan stage & aksi sistem"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeTab === "DISCUSSION") fetchComments(task.id);
+                      else fetchLogs(task.id);
+                    }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition cursor-pointer"
+                    title="Muat ulang data"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isLoadingComments || isLoadingLogs ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* TAB 1: DISCUSSION */}
+              {activeTab === "DISCUSSION" && (
+                <div className="flex flex-col">
+                  {/* Chat Stream List */}
+                  <div className="max-h-[380px] min-h-[160px] overflow-y-auto p-4 space-y-3 bg-slate-50/30">
+                    {isLoadingComments ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                        <span className="text-xs">Memuat obrolan diskusi...</span>
+                      </div>
+                    ) : comments.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 gap-2">
+                        <div className="h-10 w-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                          <MessageSquare className="h-5 w-5" />
+                        </div>
+                        <p className="text-xs font-semibold text-slate-600">Belum ada obrolan atau catatan diskusi</p>
+                        <p className="text-[11px] text-slate-400 max-w-sm">
+                          Gunakan kolom di bawah untuk berdiskusi, memberikan feedback revisi, atau melampirkan file dokumen / screenshot.
+                        </p>
+                      </div>
+                    ) : (
+                      comments.map((comment) => {
+                        const isMe = comment.userId === currentUser?.id;
+                        const isImage =
+                          comment.attachmentType?.startsWith("image/") ||
+                          comment.attachmentUrl?.startsWith("data:image/") ||
+                          Boolean(comment.attachmentName?.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i));
+
+                        return (
+                          <div
+                            key={comment.id}
+                            className={`flex items-start gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}
+                          >
+                            {/* Avatar */}
+                            <div className="h-7 w-7 rounded-full bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0 overflow-hidden shadow-2xs mt-0.5">
+                              {comment.user?.avatarUrl ? (
+                                <img
+                                  src={comment.user.avatarUrl}
+                                  alt={comment.user.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                (comment.user?.name || "?").charAt(0).toUpperCase()
+                              )}
+                            </div>
+
+                            {/* Comment Bubble Container */}
+                            <div className={`flex flex-col max-w-[85%] ${isMe ? "items-end" : "items-start"}`}>
+                              {/* Sender Header */}
+                              <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px]">
+                                <span className="font-bold text-slate-800">
+                                  {isMe ? "Saya" : comment.user?.name || "Anggota Tim"}
+                                </span>
+                                {comment.user?.department && (
+                                  <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.2 text-[9px] font-semibold border border-slate-200">
+                                    {comment.user.department}
+                                  </span>
+                                )}
+                                <span className="text-slate-400 text-[10px]">
+                                  {formatRelativeTime(comment.createdAt)}
+                                </span>
+                              </div>
+
+                              {/* Quoted Reply Banner if this is a reply */}
+                              {comment.replyTo && (
+                                <div className="mb-1 rounded-xl bg-slate-100 border-l-2 border-blue-500 px-2.5 py-1 text-[10px] text-slate-600 max-w-full flex items-center gap-1.5 shadow-2xs">
+                                  <CornerDownRight className="h-3 w-3 text-blue-600 shrink-0" />
+                                  <div className="truncate">
+                                    <span className="font-bold text-slate-800">
+                                      {comment.replyTo.user?.name || "Pengguna"}:{" "}
+                                    </span>
+                                    <span>
+                                      {comment.replyTo.message || comment.replyTo.attachmentName || "Lampiran"}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Main Message Bubble */}
+                              <div
+                                className={`rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs leading-relaxed ${
+                                  isMe
+                                    ? "bg-blue-600 text-white rounded-tr-xs"
+                                    : "bg-white border border-slate-200 text-slate-800 rounded-tl-xs"
+                                }`}
+                              >
+                                {comment.message && (
+                                  <p className="whitespace-pre-wrap select-text">{comment.message}</p>
+                                )}
+
+                                {/* Attachment Card inside Bubble */}
+                                {comment.attachmentUrl && (
+                                  <div className={comment.message ? "mt-2 pt-2 border-t border-black/10" : ""}>
+                                    {isImage ? (
+                                      <div className="space-y-1">
+                                        <div
+                                          onClick={() => setPreviewImageModal(comment.attachmentUrl!)}
+                                          className="relative group rounded-xl overflow-hidden border border-black/10 bg-black/5 cursor-pointer max-w-[260px]"
+                                        >
+                                          <img
+                                            src={comment.attachmentUrl}
+                                            alt={comment.attachmentName || "Lampiran gambar"}
+                                            className="max-h-48 object-cover rounded-xl transition duration-150 group-hover:scale-102"
+                                          />
+                                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                                            <ImageIcon className="h-3.5 w-3.5" />
+                                            <span>Lihat Gambar</span>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px] px-1 opacity-90">
+                                          <span className="truncate max-w-[170px]">{comment.attachmentName || "Gambar"}</span>
+                                          <a
+                                            href={comment.attachmentUrl}
+                                            download={comment.attachmentName || "gambar.png"}
+                                            className={`hover:underline flex items-center gap-0.5 font-bold ${
+                                              isMe ? "text-blue-100" : "text-blue-600"
+                                            }`}
+                                          >
+                                            <Download className="h-2.5 w-2.5" /> Unduh
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        className={`flex items-center gap-2.5 p-2 rounded-xl border ${
+                                          isMe
+                                            ? "bg-white/10 border-white/20 text-white"
+                                            : "bg-slate-50 border-slate-200 text-slate-800"
+                                        }`}
+                                      >
+                                        <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                          <FileText className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-left">
+                                          <p className="text-[11px] font-bold truncate">
+                                            {comment.attachmentName || "Dokumen Lampiran"}
+                                          </p>
+                                          <p className="text-[9px] opacity-75 font-mono">
+                                            {formatFileSize(comment.attachmentSize)}
+                                          </p>
+                                        </div>
+                                        <a
+                                          href={comment.attachmentUrl}
+                                          download={comment.attachmentName || "dokumen"}
+                                          className={`p-1.5 rounded-lg transition shrink-0 ${
+                                            isMe
+                                              ? "bg-white/20 hover:bg-white/30 text-white"
+                                              : "bg-white border border-slate-200 text-slate-600 hover:text-blue-600"
+                                          }`}
+                                          title="Unduh file"
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Footer Action: Reply Button */}
+                              <div className="flex items-center gap-2 mt-1 px-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyingTo(comment);
+                                    textareaRef.current?.focus();
+                                  }}
+                                  className="text-[10px] text-slate-400 hover:text-blue-600 font-bold flex items-center gap-1 transition cursor-pointer"
+                                >
+                                  <CornerDownRight className="h-2.5 w-2.5" />
+                                  <span>Balas</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={commentsEndRef} />
+                  </div>
+
+                  {/* Active Replying Quoted Preview */}
+                  {replyingTo && (
+                    <div className="px-4 py-2 bg-blue-50/90 border-t border-blue-100 flex items-center justify-between text-xs text-blue-900 animate-in fade-in">
+                      <div className="flex items-center gap-2 truncate">
+                        <CornerDownRight className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        <span className="truncate">
+                          Membalas <strong>{replyingTo.user?.name || "Pengguna"}</strong>: "
+                          {replyingTo.message?.substring(0, 60) || replyingTo.attachmentName}..."
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setReplyingTo(null)}
+                        className="text-blue-500 hover:text-blue-800 p-1 cursor-pointer"
+                        title="Batal balas"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Active Selected Attachment Preview */}
+                  {selectedAttachment && (
+                    <div className="px-4 py-2 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between text-xs text-slate-800 animate-in fade-in">
+                      <div className="flex items-center gap-2 truncate">
+                        <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        <span className="font-bold truncate max-w-xs">{selectedAttachment.name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          ({formatFileSize(selectedAttachment.size)})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedAttachment(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        title="Hapus lampiran"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Comment Input Box */}
+                  <form
+                    onSubmit={handleSendComment}
+                    className="p-3 bg-white border-t border-slate-200 flex items-end gap-2"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition cursor-pointer shrink-0"
+                      title="Lampirkan File / Screenshot"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <div className="flex-1">
+                      <textarea
+                        ref={textareaRef}
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendComment();
+                          }
+                        }}
+                        placeholder="Tulis pesan atau instruksi lembar kerja... (Enter kirim, Shift+Enter baris baru)"
+                        className="w-full resize-none rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 min-h-[42px] max-h-32 leading-relaxed"
+                        rows={1}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSendingComment || (!chatInput.trim() && !selectedAttachment)}
+                      className="p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shrink-0 shadow-2xs flex items-center justify-center min-w-[40px]"
+                      title="Kirim pesan"
+                    >
+                      {isSendingComment ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB 2: LOGS & ACTIVITY TIMELINE */}
+              {activeTab === "LOGS" && (
+                <div className="max-h-[420px] min-h-[160px] overflow-y-auto p-4 space-y-3 bg-slate-50/40">
+                  {isLoadingLogs ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                      <span className="text-xs">Memuat rekap riwayat aktivitas...</span>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 gap-2">
+                      <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <History className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-600">Belum ada riwayat aktivitas tercatat</p>
+                      <p className="text-[11px] text-slate-400 max-w-sm">
+                        Setiap perpindahan stage, serah terima deliverable, permintaan revisi, dan aksi akan otomatis tercatat di sini.
+                      </p>
+                    </div>
+                  ) : (
+                    logs.map((log) => {
+                      const badge = getLogBadge(log.actionType);
+                      return (
+                        <div
+                          key={log.id}
+                          className="flex items-start gap-3 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-slate-300 transition"
+                        >
+                          {/* Actor avatar / icon */}
+                          <div className="h-8 w-8 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden border border-slate-200 mt-0.5">
+                            {log.user?.avatarUrl ? (
+                              <img
+                                src={log.user.avatarUrl}
+                                alt={log.user.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              (log.user?.name || "?").charAt(0).toUpperCase()
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span
+                                  className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md border ${badge.bg}`}
+                                >
+                                  {badge.label}
+                                </span>
+                                <span className="text-xs font-bold text-slate-900">{log.title}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {formatDateTime(log.createdAt)}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-normal">
+                              {log.description}
+                            </p>
+
+                            {/* From -> To Stage / Status Chips */}
+                            {log.fromValue && log.toValue && (
+                              <div className="flex items-center gap-1.5 mt-2 text-[10px]">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 font-medium">
+                                  {log.fromValue}
+                                </span>
+                                <span className="text-slate-400 font-bold">&rarr;</span>
+                                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 border border-blue-200 font-bold">
+                                  {log.toValue}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Actor byline */}
+                            <div className="mt-1.5 text-[10px] text-slate-400 flex items-center gap-1">
+                              <span>Oleh:</span>
+                              <span className="font-semibold text-slate-600">
+                                {log.user?.name || "Sistem"}
+                              </span>
+                              {log.user?.department && (
+                                <span>({log.user.department})</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Kolom Kanan: Detail Informasi & Properti */}
@@ -782,6 +1448,30 @@ export default function TaskDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Image Preview Lightbox Modal */}
+      {previewImageModal && (
+        <div
+          className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] bg-transparent" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setPreviewImageModal(null)}
+              className="absolute -top-10 right-0 text-white hover:text-slate-300 p-1 cursor-pointer"
+              title="Tutup preview"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <img
+              src={previewImageModal}
+              alt="Preview attachment"
+              className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain border border-white/20 bg-slate-900"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
