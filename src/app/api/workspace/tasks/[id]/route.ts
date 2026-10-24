@@ -72,92 +72,175 @@ export async function PATCH(
 
     await ensureTaskDiscussionAndLogsTables();
 
-    // 1. Negosiasi Deadline (Deadline Suggestion dari Penerima Tugas)
-    if (body.suggestDeadline) {
-      const { suggestedDeadline, reason } = body.suggestDeadline;
-      if (!suggestedDeadline) {
-        return NextResponse.json({ error: "Tentukan tanggal saran deadline" }, { status: 400 });
+    // 1. Konsolidasi & Negosiasi Deadline Dua Arah (Bilateral Deadline Negotiation)
+    if (body.consolidateDeadline || body.suggestDeadline || body.respondDeadlineSuggestion) {
+      const isCreator = existingTask.creatorId === authUser.userId;
+      const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
+      const isAssignee = existingTask.userId === authUser.userId || existingTask.assignees?.some((a) => a.userId === authUser.userId);
+
+      // Normalisasi request (mendukung format baru consolidateDeadline maupun format lama)
+      let action: "ACCEPT" | "PROPOSE" | "COUNTER_PROPOSE" = "PROPOSE";
+      let proposedDeadline: string | undefined = undefined;
+      let reason: string | undefined = undefined;
+
+      if (body.consolidateDeadline) {
+        action = body.consolidateDeadline.action;
+        proposedDeadline = body.consolidateDeadline.proposedDeadline;
+        reason = body.consolidateDeadline.reason;
+      } else if (body.suggestDeadline) {
+        action = existingTask.suggestedDeadline ? "COUNTER_PROPOSE" : "PROPOSE";
+        proposedDeadline = body.suggestDeadline.suggestedDeadline;
+        reason = body.suggestDeadline.reason;
+      } else if (body.respondDeadlineSuggestion) {
+        action = body.respondDeadlineSuggestion.action === "ACCEPT" ? "ACCEPT" : "COUNTER_PROPOSE";
+        proposedDeadline = body.respondDeadlineSuggestion.counterDeadline;
+        reason = body.respondDeadlineSuggestion.reason;
       }
 
-      const updated = await prisma.task.update({
-        where: { id: params.id },
-        data: {
-          suggestedDeadline: new Date(suggestedDeadline),
-          suggestionReason: reason || null,
-          suggestionStatus: "PENDING",
-        },
-      });
+      // AKSI 1: ACC / SETUJUI DEADLINE INI
+      if (action === "ACCEPT") {
+        const finalAgreedDeadline = existingTask.suggestedDeadline || existingTask.expectedDeadline;
+        if (!finalAgreedDeadline) {
+          return NextResponse.json({ error: "Tidak ada tanggal deadline untuk disepakati" }, { status: 400 });
+        }
 
-      // Log activity
-      await prisma.taskActivityLog.create({
-        data: {
-          taskId: params.id,
-          userId: authUser.userId,
-          actionType: "DEADLINE_CHANGE",
-          title: "Pengajuan Negosiasi Deadline",
-          description: `${authUser.name} mengajukan saran deadline baru: ${new Date(suggestedDeadline).toLocaleDateString("id-ID")}${reason ? ` (Alasan: "${reason}")` : ""}`,
-        },
-      });
-
-      // Kirim notifikasi ke pembuat tugas
-      if (existingTask.creatorId && existingTask.creatorId !== authUser.userId) {
-        await prisma.notification.create({
+        const updated = await prisma.task.update({
+          where: { id: params.id },
           data: {
-            userId: existingTask.creatorId,
-            title: `Saran Deadline Baru: ${existingTask.title}`,
-            message: `${authUser.name} mengajukan saran deadline baru (${new Date(suggestedDeadline).toLocaleDateString("id-ID")}). Alasan: "${reason || "Tidak ada catatan"}"`,
-            type: "DEADLINE_SUGGESTION",
-            link: "/dashboard/workspace",
-            taskId: existingTask.id,
+            expectedDeadline: finalAgreedDeadline,
+            suggestedDeadline: finalAgreedDeadline,
+            suggestionStatus: "AGREED",
+            suggestionReason: reason || existingTask.suggestionReason || "Disepakati bersama",
+          },
+          include: {
+            user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+            creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+            assignees: { include: { user: { select: { id: true, name: true, department: true, avatarUrl: true } } } },
           },
         });
-      }
 
-      return NextResponse.json({ success: true, task: updated });
-    }
+        const formattedDate = new Date(finalAgreedDeadline).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
-    // 2. Respon Pembuat Tugas terhadap Deadline Suggestion (Accept / Reject)
-    if (body.respondDeadlineSuggestion) {
-      const { action } = body.respondDeadlineSuggestion; // 'ACCEPT' | 'REJECT'
-      let updatedData: any = {
-        suggestionStatus: action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
-      };
-
-      if (action === "ACCEPT" && existingTask.suggestedDeadline) {
-        updatedData.expectedDeadline = existingTask.suggestedDeadline;
-      }
-
-      const updated = await prisma.task.update({
-        where: { id: params.id },
-        data: updatedData,
-      });
-
-      // Log activity
-      await prisma.taskActivityLog.create({
-        data: {
-          taskId: params.id,
-          userId: authUser.userId,
-          actionType: "DEADLINE_CHANGE",
-          title: action === "ACCEPT" ? "Deadline Disetujui" : "Saran Deadline Ditolak",
-          description: `${authUser.name} telah ${action === "ACCEPT" ? "menyetujui" : "menolak"} usulan deadline untuk tugas ini`,
-        },
-      });
-
-      // Kirim notifikasi ke penerima tugas
-      if (existingTask.userId !== authUser.userId) {
-        await prisma.notification.create({
+        // Rekam log aktivitas: Deadline Disepakati (ACC)
+        await prisma.taskActivityLog.create({
           data: {
-            userId: existingTask.userId,
-            title: `Saran Deadline ${action === "ACCEPT" ? "Disetujui" : "Ditolak"}: ${existingTask.title}`,
-            message: `${authUser.name} telah ${action === "ACCEPT" ? "menyetujui" : "menolak"} usulan deadline untuk tugas ini.`,
-            type: "DEADLINE_SUGGESTION",
-            link: "/dashboard/my-tasks",
-            taskId: existingTask.id,
+            taskId: params.id,
+            userId: authUser.userId,
+            actionType: "DEADLINE_AGREED",
+            title: "Deadline Disepakati (ACC)",
+            description: `${authUser.name} (${authUser.department || (isCreator ? "Pembuat" : "Pengerja")}) menyetujui target deadline: ${formattedDate}. Status: Disepakati & Terkunci.`,
+            toValue: new Date(finalAgreedDeadline).toISOString(),
+            metadata: JSON.stringify({ agreedDeadline: finalAgreedDeadline, acceptedBy: authUser.userId }),
           },
         });
+
+        // Kirim notifikasi ke pihak lawan
+        const notifyTargetUserIds = isAssignee
+          ? [existingTask.creatorId].filter(Boolean)
+          : [existingTask.userId, ...(existingTask.assignees?.map((a) => a.userId) || [])].filter((uid) => uid && uid !== authUser.userId);
+
+        for (const targetUid of notifyTargetUserIds) {
+          if (targetUid && targetUid !== authUser.userId) {
+            await prisma.notification.create({
+              data: {
+                userId: targetUid,
+                title: `Deadline Disepakati (ACC): ${existingTask.title}`,
+                message: `${authUser.name} telah menyetujui target deadline: ${formattedDate}. Deadline kini resmi terkunci.`,
+                type: "DEADLINE_AGREED",
+                link: "/dashboard/workspace",
+                taskId: existingTask.id,
+              },
+            });
+          }
+        }
+
+        return NextResponse.json({ success: true, task: updated });
       }
 
-      return NextResponse.json({ success: true, task: updated });
+      // AKSI 2: AJUKAN USULAN / TANDINGAN DEADLINE
+      if (action === "PROPOSE" || action === "COUNTER_PROPOSE") {
+        if (!proposedDeadline) {
+          return NextResponse.json({ error: "Tentukan tanggal & jam deadline yang diajukan" }, { status: 400 });
+        }
+
+        // Tentukan giliran konfirmasi berikutnya
+        const nextStatus = isCreator || isManagerOrAdmin
+          ? "WAITING_ASSIGNEE_CONFIRMATION"
+          : "WAITING_CREATOR_CONFIRMATION";
+
+        const updated = await prisma.task.update({
+          where: { id: params.id },
+          data: {
+            suggestedDeadline: new Date(proposedDeadline),
+            suggestionReason: reason ? reason.trim() : null,
+            suggestionStatus: nextStatus,
+          },
+          include: {
+            user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+            creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+            assignees: { include: { user: { select: { id: true, name: true, department: true, avatarUrl: true } } } },
+          },
+        });
+
+        const formattedDate = new Date(proposedDeadline).toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const isCounter = action === "COUNTER_PROPOSE" || Boolean(existingTask.suggestedDeadline);
+
+        // Rekam log aktivitas konsolidasi deadline
+        await prisma.taskActivityLog.create({
+          data: {
+            taskId: params.id,
+            userId: authUser.userId,
+            actionType: "DEADLINE_CONSOLIDATION",
+            title: isCounter ? "Tandingan Deadline Diajukan" : "Usulan Deadline Diajukan",
+            description: `${authUser.name} (${authUser.department || (isCreator ? "Pembuat" : "Pengerja")}) mengajukan ${isCounter ? "tandingan" : "usulan"} deadline ke: ${formattedDate}${reason ? `. Catatan: "${reason.trim()}"` : ""}.`,
+            fromValue: existingTask.expectedDeadline ? new Date(existingTask.expectedDeadline).toISOString() : null,
+            toValue: new Date(proposedDeadline).toISOString(),
+            metadata: JSON.stringify({
+              proposedDeadline,
+              reason: reason ? reason.trim() : null,
+              proposerId: authUser.userId,
+              status: nextStatus,
+            }),
+          },
+        });
+
+        // Kirim notifikasi ke pihak lawan
+        const notifyTargetUserIds = (isCreator || isManagerOrAdmin)
+          ? [existingTask.userId, ...(existingTask.assignees?.map((a) => a.userId) || [])].filter((uid) => uid && uid !== authUser.userId)
+          : [existingTask.creatorId].filter(Boolean);
+
+        for (const targetUid of notifyTargetUserIds) {
+          if (targetUid && targetUid !== authUser.userId) {
+            await prisma.notification.create({
+              data: {
+                userId: targetUid,
+                title: `${isCounter ? "Tandingan" : "Usulan"} Deadline: ${existingTask.title}`,
+                message: `${authUser.name} mengajukan ${isCounter ? "tandingan" : "usulan"} deadline baru (${formattedDate})${reason ? `. Catatan: "${reason.trim()}"` : ""}. Harap tinjau untuk ACC atau ajukan tandingan kembali.`,
+                type: "DEADLINE_CONSOLIDATION",
+                link: "/dashboard/workspace",
+                taskId: existingTask.id,
+              },
+            });
+          }
+        }
+
+        return NextResponse.json({ success: true, task: updated });
+      }
+
+      return NextResponse.json({ error: "Aksi konsolidasi tidak valid" }, { status: 400 });
     }
 
     // 3. Oper Tugas ke Kanban Content Production (Khusus Tim Sosmed)

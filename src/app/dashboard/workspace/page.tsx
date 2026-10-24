@@ -1553,6 +1553,15 @@ function WorkspaceCardsPageContent() {
             <span className="flex items-center gap-1 text-slate-600 font-medium">
               <Clock className="h-2.5 w-2.5 text-slate-400" />
               <span>Target: {formatDateTime(task.expectedDeadline)}</span>
+              {task.suggestionStatus === "AGREED" ? (
+                <span className="text-[8px] font-black px-1 rounded bg-emerald-100 text-emerald-800" title="Deadline Disepakati (ACC)">
+                  ✓ ACC
+                </span>
+              ) : task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" || task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION" ? (
+                <span className="text-[8px] font-black px-1 rounded bg-amber-100 text-amber-800 animate-pulse" title="Sedang Negosiasi / Konsolidasi Deadline">
+                  ⚡ Nego
+                </span>
+              ) : null}
             </span>
           )}
         </div>
@@ -3587,6 +3596,11 @@ function WorkspaceCardsPageContent() {
           taskId={deadlineModalTask.id}
           taskTitle={deadlineModalTask.title}
           currentExpectedDeadline={deadlineModalTask.expectedDeadline}
+          currentlySuggestedDeadline={deadlineModalTask.suggestedDeadline}
+          suggestionReason={deadlineModalTask.suggestionReason}
+          suggestionStatus={deadlineModalTask.suggestionStatus}
+          isCreator={deadlineModalTask.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER"}
+          isAssignee={deadlineModalTask.user?.id === user?.id || deadlineModalTask.assignees?.some((a) => a.user?.id === user?.id)}
           onSuccess={fetchTasks}
         />
       )}

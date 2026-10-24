@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 
 export async function GET(req: NextRequest) {
   try {
@@ -253,8 +254,17 @@ export async function POST(req: NextRequest) {
     const isSelfTask = finalAssigneeIds.length === 1 && primaryAssigneeId === authUser.userId;
     const normalizedDepartmentCard = departmentCard.toUpperCase();
 
+    await ensureTaskDiscussionAndLogsTables();
+
     // Auto flag ke Kanban Content Production jika divisi Sosmed dan opsi diaktifkan
     const isSosmedProduction = normalizedDepartmentCard === "SOSMED" && (isContentProduction === true || isContentProduction === "true");
+
+    const initialDeadline = expectedDeadline ? new Date(expectedDeadline) : null;
+    const initialSuggestionStatus = initialDeadline
+      ? isSelfTask
+        ? "AGREED"
+        : "WAITING_ASSIGNEE_CONFIRMATION"
+      : "NONE";
 
     const newTask = await prisma.task.create({
       data: {
@@ -264,7 +274,10 @@ export async function POST(req: NextRequest) {
         brandName: brandName.trim(),
         userId: primaryAssigneeId,
         creatorId: authUser.userId,
-        expectedDeadline: expectedDeadline ? new Date(expectedDeadline) : null,
+        expectedDeadline: initialDeadline,
+        suggestedDeadline: initialDeadline,
+        suggestionReason: initialDeadline && !isSelfTask ? "Target awal yang diajukan pembuat tugas" : null,
+        suggestionStatus: initialSuggestionStatus,
         priority: priority || "MEDIUM",
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : 1.0,
         status: isSelfTask ? "PENDING" : "REQUESTED",
@@ -289,14 +302,45 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const assigneeNames = newTask.assignees?.map((a: any) => a.user?.name).filter(Boolean) || [];
+    const assigneeStr = assigneeNames.length > 0 ? assigneeNames.join(", ") : newTask.user?.name || "Pengerja";
+
+    const deadlineFmt = initialDeadline
+      ? initialDeadline.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Belum ditentukan";
+
+    // Catat log aktivitas pertama: Tugas Dibuat
+    await prisma.taskActivityLog.create({
+      data: {
+        taskId: newTask.id,
+        userId: authUser.userId,
+        actionType: "TASK_CREATED",
+        title: "Tugas Dibuat",
+        description: `${authUser.name} (${authUser.department || "Pembuat"}) membuat tugas [${normalizedDepartmentCard} - ${brandName.trim()}]: "${title.trim()}" untuk ${assigneeStr}. Target awal deadline: ${deadlineFmt}.`,
+        toValue: isSosmedProduction ? "CONTENT_BRIEF" : "PENDING",
+        metadata: JSON.stringify({
+          initialDeadline: initialDeadline ? initialDeadline.toISOString() : null,
+          suggestionStatus: initialSuggestionStatus,
+          departmentCard: normalizedDepartmentCard,
+          brandName: brandName.trim(),
+        }),
+      },
+    });
+
     // Kirim notifikasi in-app kepada semua penerima tugas (selain pembuat)
     for (const targetUserId of finalAssigneeIds) {
       if (targetUserId !== authUser.userId) {
         await prisma.notification.create({
           data: {
             userId: targetUserId,
-            title: `Tugas Baru dari ${authUser.name} (${authUser.department || "Rekan"})`,
-            message: `Tugas [${normalizedDepartmentCard} - ${brandName}]: "${title}". Harap tinjau di stage User Requested pada Lembar Tugas Anda.`,
+            title: `Tugas Baru: ${title} (Target: ${deadlineFmt})`,
+            message: `${authUser.name} (${authUser.department || "Rekan"}) menugaskan Anda tugas baru. Harap tinjau di lembar tugas dan lakukan ACC atau ajukan negosiasi deadline bila perlu.`,
             type: "TASK_ASSIGNED",
             link: "/dashboard/workspace",
             taskId: newTask.id,

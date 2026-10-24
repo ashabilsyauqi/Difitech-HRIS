@@ -18,6 +18,7 @@ import {
   Share2,
   Inbox,
   Check,
+  ArrowRightLeft,
   MessageSquare,
   Paperclip,
   Send,
@@ -330,6 +331,12 @@ export default function TaskDetailModal({
 
   const getLogBadge = (actionType: string) => {
     switch (actionType) {
+      case "TASK_CREATED":
+        return { label: "Tugas Dibuat", bg: "bg-indigo-100 text-indigo-800 border-indigo-300" };
+      case "DEADLINE_CONSOLIDATION":
+        return { label: "Negosiasi Deadline", bg: "bg-amber-100 text-amber-800 border-amber-300" };
+      case "DEADLINE_AGREED":
+        return { label: "Deadline Disepakati", bg: "bg-emerald-100 text-emerald-800 border-emerald-300" };
       case "STAGE_CHANGE":
         return { label: "Perpindahan Stage", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
       case "STATUS_CHANGE":
@@ -467,6 +474,30 @@ export default function TaskDetailModal({
       : WORKBOARD_STAGES;
   const currentStageKey = getTaskStageKey(task, stagesToRender);
   const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
+
+  const handleAcceptDirectly = async () => {
+    try {
+      setIsUpdating(true);
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consolidateDeadline: {
+            action: "ACCEPT",
+          },
+        }),
+      });
+      if (res.ok) {
+        fetchLogs(task.id);
+        onUpdate();
+        onClose();
+      }
+    } catch (err) {
+      console.error("Failed to accept deadline:", err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleMoveKanbanStage = async (newStage: string) => {
     try {
@@ -1314,37 +1345,147 @@ export default function TaskDetailModal({
               </div>
             </div>
 
-            {/* Target Deadline */}
-            <div className="text-xs space-y-1">
-              <span className="text-slate-500 font-semibold block text-[11px]">Target Deadline:</span>
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200 font-mono text-xs text-slate-800 flex items-center justify-between">
-                <span>{formatDateTime(task.expectedDeadline)}</span>
-                {isAssignee && task.status !== "COMPLETED" && onOpenDeadlineModal && (
-                  <button
-                    onClick={() => onOpenDeadlineModal(task)}
-                    className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
-                  >
-                    Nego
-                  </button>
-                )}
+            {/* Target Deadline & Konsolidasi Negosiasi Dua Arah */}
+            <div className="text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold block text-[11px]">
+                  Target Deadline
+                </span>
+                <span
+                  className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                    task.suggestionStatus === "AGREED"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" ||
+                        task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION"
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-slate-100 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  {task.suggestionStatus === "AGREED"
+                    ? "✓ Disepakati (ACC)"
+                    : task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION"
+                    ? "Menunggu Konfirmasi Pembuat"
+                    : task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION"
+                    ? "Menunggu Konfirmasi Pengerja"
+                    : "Target Awal"}
+                </span>
               </div>
-            </div>
 
-            {/* Usulan Deadline if any */}
-            {task.suggestedDeadline && (
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-2.5 text-[11px] text-blue-900 space-y-1">
-                <div className="flex items-center justify-between font-bold text-[10px]">
-                  <span>Usulan Deadline PIC:</span>
-                  <span className="uppercase px-1 rounded bg-blue-200 text-[9px]">
-                    {task.suggestionStatus}
-                  </span>
+              {/* Main Deadline Box */}
+              <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-slate-700">
+                    <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <span className="font-mono text-xs font-bold text-slate-900">
+                      {formatDateTime(task.expectedDeadline)}
+                    </span>
+                  </div>
+
+                  {task.status !== "COMPLETED" && onOpenDeadlineModal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenDeadlineModal(task)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition cursor-pointer"
+                    >
+                      <ArrowRightLeft className="h-3 w-3" />
+                      <span>{task.suggestionStatus === "AGREED" ? "Konsolidasi Ulang" : "Negosiasi"}</span>
+                    </button>
+                  )}
                 </div>
-                <p className="font-mono text-xs">{formatDateTime(task.suggestedDeadline)}</p>
-                {task.suggestionReason && (
-                  <p className="italic text-[10px] text-blue-700">"{task.suggestionReason}"</p>
+
+                {/* If Agreed */}
+                {task.suggestionStatus === "AGREED" && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span>Batas waktu ini telah disepakati bersama oleh kedua belah pihak.</span>
+                  </div>
                 )}
               </div>
-            )}
+
+              {/* Case 1: Pengerja (Ashabil) melihat usulan dari Pembuat (Avila) */}
+              {task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" && (
+                <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-amber-900">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span>Konfirmasi Target Deadline</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Pembuat tugas menetapkan target awal:{" "}
+                    <strong>{formatDateTime(task.suggestedDeadline || task.expectedDeadline)}</strong>
+                    {task.suggestionReason && <span> ({task.suggestionReason})</span>}.
+                  </p>
+
+                  {isAssignee && task.status !== "COMPLETED" && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAcceptDirectly}
+                        disabled={isUpdating}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        <Check className="h-3 w-3" />
+                        <span>ACC Deadline</span>
+                      </button>
+                      {onOpenDeadlineModal && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenDeadlineModal(task)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-amber-900 font-bold text-[11px] hover:bg-amber-100 transition shadow-2xs cursor-pointer"
+                        >
+                          <ArrowRightLeft className="h-3 w-3" />
+                          <span>Ajukan Negosiasi</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Case 2: Pembuat (Avila) melihat usulan tandingan dari Pengerja (Ashabil) */}
+              {task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION" && (
+                <div className="p-3 rounded-2xl bg-blue-50/90 border border-blue-200 text-blue-950 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-blue-900">
+                    <ArrowRightLeft className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <span>Usulan Perubahan Deadline</span>
+                  </div>
+                  <div className="text-[11px] text-blue-800 space-y-1">
+                    <p>
+                      Pengerja mengusulkan tanggal baru:{" "}
+                      <strong className="text-blue-950">{formatDateTime(task.suggestedDeadline)}</strong>
+                    </p>
+                    {task.suggestionReason && (
+                      <p className="italic text-blue-700 bg-white/70 p-1.5 rounded-lg border border-blue-100">
+                        "{task.suggestionReason}"
+                      </p>
+                    )}
+                  </div>
+
+                  {isCreatorOrManager && task.status !== "COMPLETED" && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAcceptDirectly}
+                        disabled={isUpdating}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        <Check className="h-3 w-3" />
+                        <span>ACC Usulan</span>
+                      </button>
+                      {onOpenDeadlineModal && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenDeadlineModal(task)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl border border-blue-300 bg-white text-blue-900 font-bold text-[11px] hover:bg-blue-100 transition shadow-2xs cursor-pointer"
+                        >
+                          <ArrowRightLeft className="h-3 w-3" />
+                          <span>Ajukan Tandingan</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Prioritas */}
             <div className="text-xs space-y-1">

@@ -11,6 +11,7 @@ import TaskDetailModal, { SOSMED_WORKBOARD_STAGES } from "@/components/Tasks/Tas
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
+import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import {
   Clapperboard,
   Plus,
@@ -143,6 +144,7 @@ export default function ContentProductionKanbanPage() {
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null);
   const [approvalModalTask, setApprovalModalTask] = useState<any | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<any | null>(null);
+  const [deadlineModalTask, setDeadlineModalTask] = useState<any | null>(null);
 
   const fetchSession = async () => {
     try {
@@ -728,8 +730,17 @@ export default function ContentProductionKanbanPage() {
                                   <span className="flex items-center gap-1 text-slate-400">
                                     <Clock className="h-2.5 w-2.5" /> Target:
                                   </span>
-                                  <span className="font-bold text-slate-700">
-                                    {formatDateTime(task.expectedDeadline)}
+                                  <span className="font-bold text-slate-700 flex items-center gap-1">
+                                    <span>{formatDateTime(task.expectedDeadline)}</span>
+                                    {task.suggestionStatus === "AGREED" ? (
+                                      <span className="text-[8px] font-black px-1 rounded bg-emerald-100 text-emerald-800" title="Deadline Disepakati (ACC)">
+                                        ✓ ACC
+                                      </span>
+                                    ) : task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" || task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION" ? (
+                                      <span className="text-[8px] font-black px-1 rounded bg-amber-100 text-amber-800 animate-pulse" title="Sedang Negosiasi / Konsolidasi Deadline">
+                                        ⚡ Nego
+                                      </span>
+                                    ) : null}
                                   </span>
                                 </div>
                               </div>
@@ -1109,9 +1120,26 @@ export default function ContentProductionKanbanPage() {
         currentUser={user}
         customStages={SOSMED_WORKBOARD_STAGES}
         onUpdate={fetchTasks}
+        onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
         onOpenDeliverableModal={(t) => setApprovalModalTask(t)}
         onOpenRevisionModal={(t) => setRevisionModalTask(t)}
       />
+
+      {deadlineModalTask && (
+        <DeadlineSuggestionModal
+          isOpen={Boolean(deadlineModalTask)}
+          onClose={() => setDeadlineModalTask(null)}
+          taskId={deadlineModalTask.id}
+          taskTitle={deadlineModalTask.title}
+          currentExpectedDeadline={deadlineModalTask.expectedDeadline}
+          currentlySuggestedDeadline={deadlineModalTask.suggestedDeadline}
+          suggestionReason={deadlineModalTask.suggestionReason}
+          suggestionStatus={deadlineModalTask.suggestionStatus}
+          isCreator={deadlineModalTask.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER"}
+          isAssignee={deadlineModalTask.user?.id === user?.id || deadlineModalTask.assignees?.some((a: any) => a.user?.id === user?.id)}
+          onSuccess={fetchTasks}
+        />
+      )}
 
       {approvalModalTask && (
         <SubmitDeliverableModal
