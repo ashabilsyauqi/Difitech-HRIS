@@ -222,7 +222,7 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <ShieldCheck className={`h-4 w-4 shrink-0 ${isAdminActive ? "text-white" : "text-indigo-600"}`} />
-                    <span>Dashboard Admin HRIS</span>
+                    <span>Dashboard Admin</span>
                   </div>
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${

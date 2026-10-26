@@ -24,8 +24,6 @@ import {
   Layers,
   ChevronRight,
   ExternalLink,
-  MapPin,
-  Calendar,
   AlertTriangle,
   FolderKanban,
   Check,
@@ -120,11 +118,10 @@ export default function AdminDashboardWidgets({
   isLoading,
   onRefresh,
 }: AdminDashboardWidgetsProps) {
-  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "ATTENDANCE" | "ALL_TASKS" | "TIMERS">("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "ALL_TASKS" | "TIMERS">("OVERVIEW");
   const [taskDivisionFilter, setTaskDivisionFilter] = useState<string>("ALL");
   const [taskStageFilter, setTaskStageFilter] = useState<string>("ALL");
   const [taskSearch, setTaskSearch] = useState<string>("");
-  const [attendanceSearch, setAttendanceSearch] = useState<string>("");
 
   // Helper check deadline status
   const isOverdue = (deadline?: string | null, status?: string) => {
@@ -202,16 +199,6 @@ export default function AdminDashboardWidgets({
     return tasks.filter((t) => t.isTracking || activeTimers[t.id] > 0 || t.status === "IN_PROGRESS");
   }, [tasks, activeTimers]);
 
-  // Attendance Data from managerStats
-  const totalEmployees = managerStats?.totalEmployees ?? 0;
-  const todayAttendances = managerStats?.todayAttendances ?? [];
-  const clockedInCount = managerStats?.totalClockedIn ?? todayAttendances.length;
-  const onTimeCount = managerStats?.onTimeCount ?? todayAttendances.filter((a: any) => a.clockInStatus === "ON_TIME").length;
-  const lateCount = managerStats?.lateCount ?? todayAttendances.filter((a: any) => a.clockInStatus === "LATE").length;
-  const geofenceWarningCount = managerStats?.geofenceViolations ?? todayAttendances.filter((a: any) => a.clockInStatus === "OUT_OF_GEOFENCE").length;
-  const notClockedInCount = Math.max(0, totalEmployees - clockedInCount);
-  const idleEmployees = managerStats?.idleEmployees ?? [];
-
   // Filtered Tasks for ALL_TASKS tab
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -248,18 +235,6 @@ export default function AdminDashboardWidgets({
     });
   }, [tasks, taskDivisionFilter, taskStageFilter, taskSearch]);
 
-  // Filtered Attendance for ATTENDANCE tab
-  const filteredAttendance = useMemo(() => {
-    if (!attendanceSearch.trim()) return todayAttendances;
-    const q = attendanceSearch.toLowerCase();
-    return todayAttendances.filter((a: any) => {
-      const name = (a.user?.name || "").toLowerCase();
-      const email = (a.user?.email || "").toLowerCase();
-      const dept = (a.user?.department || "").toLowerCase();
-      return name.includes(q) || email.includes(q) || dept.includes(q);
-    });
-  }, [todayAttendances, attendanceSearch]);
-
   return (
     <div className="space-y-6 pb-12">
       {/* 1. Executive Command Header */}
@@ -273,11 +248,11 @@ export default function AdminDashboardWidgets({
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-black uppercase tracking-wider">
                 <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-                Executive Command Radar
+                Executive Work Command Radar
               </span>
               <span className="text-slate-500 text-xs">•</span>
               <span className="text-xs font-semibold text-slate-300">
-                Pusat Pemantauan HRIS & Operasional 6 Divisi (Watcher)
+                Pusat Pemantauan Kerja 6 Divisi (Watcher)
               </span>
               {isLoading && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/50 text-[10px] font-bold animate-pulse">
@@ -288,14 +263,14 @@ export default function AdminDashboardWidgets({
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-              <span>Radar Pemantauan HRIS</span>
+              <span>Radar Pemantauan WorkBoard</span>
               <span className="text-xs font-normal px-2.5 py-0.5 rounded-lg bg-white/10 text-slate-300 border border-white/10 hidden sm:inline-block">
                 admin@difitech.id • Watcher Mode
               </span>
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Pantau seluruh aktivitas absensi real-time, pergerakan alur kerja 6 divisi, live time tracker pengerjaan tugas karyawan, dan pantau progres kerja tim dalam satu pusat kontrol.
+              Pantau pergerakan alur kerja 6 divisi, live time tracker pengerjaan tugas karyawan, dan progres kerja tim dalam satu pusat kontrol.
             </p>
           </div>
 
@@ -332,39 +307,14 @@ export default function AdminDashboardWidgets({
         </div>
       </div>
 
-      {/* 2. Top Executive KPI Cards (5 Grid) */}
+      {/* 2. Top Executive KPI Cards (5 Grid - Work Management Focused) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        {/* Card 1: Absensi Hari Ini */}
+        {/* Card 1: Total Pekerjaan Aktif */}
         <div
-          onClick={() => setActiveTab("ATTENDANCE")}
-          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition cursor-pointer group hover:border-blue-300"
-        >
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Kehadiran Hari Ini</span>
-            <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
-              <Users className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{clockedInCount}</span>
-            <span className="text-xs text-slate-400 font-semibold">/ {totalEmployees || clockedInCount} staf</span>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-            <span className="text-emerald-600 font-bold">{onTimeCount} tepat</span>
-            <span>•</span>
-            <span className="text-amber-600 font-bold">{lateCount} telat</span>
-            {geofenceWarningCount > 0 && (
-              <>
-                <span>•</span>
-                <span className="text-rose-600 font-bold">{geofenceWarningCount} luar radius</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Card 2: Total Pekerjaan Aktif */}
-        <div
-          onClick={() => setActiveTab("ALL_TASKS")}
+          onClick={() => {
+            setActiveTab("ALL_TASKS");
+            setTaskStageFilter("ALL");
+          }}
           className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition cursor-pointer group hover:border-blue-300"
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
@@ -382,10 +332,10 @@ export default function AdminDashboardWidgets({
           </div>
         </div>
 
-        {/* Card 3: Sedang Dikerjakan (Live Tracking) */}
+        {/* Card 2: Sedang Dikerjakan (Live Tracking) */}
         <div
           onClick={() => setActiveTab("TIMERS")}
-          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition cursor-pointer group hover:border-blue-300"
+          className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md transition cursor-pointer group hover:border-indigo-300"
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Sedang Berjalan</span>
@@ -403,7 +353,7 @@ export default function AdminDashboardWidgets({
           </div>
         </div>
 
-        {/* Card 4: Sedang Di-Review (Tinjauan Divisi - Watcher) */}
+        {/* Card 3: Sedang Di-Review (Tinjauan Divisi - Watcher) */}
         <div
           onClick={() => {
             setActiveTab("ALL_TASKS");
@@ -427,6 +377,33 @@ export default function AdminDashboardWidgets({
           </div>
           <div className="mt-2.5 text-[10px] text-amber-800 font-medium">
             {reviewTasks.length > 0 ? "Ditinjau oleh PIC / pemberi tugas" : "Tidak ada tugas di-review"}
+          </div>
+        </div>
+
+        {/* Card 4: Selesai / Done */}
+        <div
+          onClick={() => {
+            setActiveTab("ALL_TASKS");
+            setTaskStageFilter("DONE");
+          }}
+          className={`p-4 rounded-2xl border shadow-2xs hover:shadow-md transition cursor-pointer group ${
+            completedTasks.length > 0
+              ? "bg-emerald-50/80 border-emerald-200 hover:border-emerald-300"
+              : "bg-white border-slate-200/90 hover:border-slate-300"
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Tugas Selesai (Done)</span>
+            <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-900">{completedTasks.length}</span>
+            <span className="text-xs text-emerald-700/80 font-semibold">tugas tuntas</span>
+          </div>
+          <div className="mt-2.5 text-[10px] text-emerald-800 font-medium">
+            {totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0}% penyelesaian tugas tim
           </div>
         </div>
 
@@ -464,7 +441,7 @@ export default function AdminDashboardWidgets({
           <button
             type="button"
             onClick={() => setActiveTab("OVERVIEW")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === "OVERVIEW"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -479,26 +456,8 @@ export default function AdminDashboardWidgets({
 
           <button
             type="button"
-            onClick={() => setActiveTab("ATTENDANCE")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-              activeTab === "ATTENDANCE"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            <Users className="h-4 w-4" />
-            <span>Absensi Staf Hari Ini</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-              activeTab === "ATTENDANCE" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"
-            }`}>
-              {clockedInCount} Hadir
-            </span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveTab("ALL_TASKS")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === "ALL_TASKS"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -516,7 +475,7 @@ export default function AdminDashboardWidgets({
           <button
             type="button"
             onClick={() => setActiveTab("TIMERS")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               activeTab === "TIMERS"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -527,7 +486,7 @@ export default function AdminDashboardWidgets({
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
               activeTab === "TIMERS" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-800"
             }`}>
-              {liveTrackingTasks.length}
+              {liveTrackingTasks.filter((t) => t.isTracking).length} Aktif
             </span>
           </button>
         </div>
@@ -660,190 +619,37 @@ export default function AdminDashboardWidgets({
             </div>
           </div>
 
-          {/* Idle Employees Alert Section (if any) */}
-          {idleEmployees.length > 0 && (
-            <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-xs">
-              <div className="flex items-center gap-2.5 mb-2">
-                <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
-                <h3 className="text-sm font-black text-rose-950">
-                  Radar Efisiensi: {idleEmployees.length} Karyawan Telah Absen Masuk &gt; 2 Jam Tanpa Tugas Aktif
-                </h3>
+          {/* Overdue Tasks Alert Section (if any) */}
+          {overdueTasks.length > 0 && (
+            <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-black text-rose-950">
+                    Perhatian: {overdueTasks.length} Tugas Melewati Target Deadline
+                  </h3>
+                  <p className="text-xs text-rose-800 mt-0.5">
+                    Tugas-tugas ini memerlukan koordinasi dan tindak lanjut segera dengan PIC terkait.
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-rose-800 mb-3">
-                Karyawan ini sudah clock-in tetapi belum memiliki tugas berstatus IN_PROGRESS. Anda dapat mendelegasikan tugas sekarang.
-              </p>
-              <div className="flex items-center gap-2 flex-wrap">
-                {idleEmployees.map((emp: any) => (
-                  <span
-                    key={emp.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-rose-200 text-rose-900 text-xs font-bold shadow-2xs"
-                  >
-                    <span>{emp.name}</span>
-                    <span className="text-[10px] text-rose-500 font-normal">({emp.department || "Staf"})</span>
-                  </span>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("ALL_TASKS");
+                  setTaskStageFilter("OVERDUE");
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shrink-0 cursor-pointer shadow-2xs"
+              >
+                Lihat Tugas Overdue &rarr;
+              </button>
             </div>
           )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: ATTENDANCE & HRIS LIVE MONITORING                                  */}
-      {/* ========================================================================= */}
-      {activeTab === "ATTENDANCE" && (
-        <div className="space-y-4 bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Users className="h-5 w-5 text-emerald-600" />
-                <span>Log Kehadiran Karyawan Hari Ini (Real-Time)</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Pantau jam clock-in, foto kehadiran, dan lokasi geofence seluruh karyawan Difitech.
-              </p>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari nama / divisi staf..."
-                value={attendanceSearch}
-                onChange={(e) => setAttendanceSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Quick Metrics Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-1">
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Total Staf</span>
-              <div className="text-xl font-black text-slate-900">{totalEmployees || clockedInCount}</div>
-            </div>
-            <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100">
-              <span className="text-[10px] text-emerald-700 font-bold uppercase">Sudah Hadir</span>
-              <div className="text-xl font-black text-emerald-800">{clockedInCount}</div>
-            </div>
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100">
-              <span className="text-[10px] text-amber-700 font-bold uppercase">Terlambat</span>
-              <div className="text-xl font-black text-amber-800">{lateCount}</div>
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Belum Absen / Off</span>
-              <div className="text-xl font-black text-slate-700">{notClockedInCount}</div>
-            </div>
-          </div>
-
-          {/* Table List of Attendance */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-100">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                  <th className="p-3">Karyawan</th>
-                  <th className="p-3">Divisi / Jabatan</th>
-                  <th className="p-3">Jam Masuk</th>
-                  <th className="p-3">Jam Keluar</th>
-                  <th className="p-3">Status Absensi</th>
-                  <th className="p-3 text-right">Tugas Aktif</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredAttendance.map((att: any) => {
-                  const emp = att.user || {};
-                  const isLate = att.clockInStatus === "LATE";
-                  const isOutGeofence = att.clockInStatus === "OUT_OF_GEOFENCE";
-                  const clockInFormatted = att.clockInTime
-                    ? new Date(att.clockInTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
-                    : "-";
-                  const clockOutFormatted = att.clockOutTime
-                    ? new Date(att.clockOutTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
-                    : "Masih Bekerja";
-
-                  const empTasks = tasks.filter((t) => t.user?.id === emp.id);
-                  const activeTask = empTasks.find((t) => t.isTracking || t.status === "IN_PROGRESS");
-
-                  return (
-                    <tr key={att.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3">
-                        <div className="flex items-center gap-2.5">
-                          {emp.avatarUrl ? (
-                            <img src={emp.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover border" />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-xs">
-                              {(emp.name || "U")[0]}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-bold text-slate-900">{emp.name || "Staf"}</div>
-                            <div className="text-[11px] text-slate-400">{emp.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <span className="font-semibold text-slate-700">{emp.department || "Difitech"}</span>
-                        <div className="text-[10px] text-slate-400">{emp.jobTitle || "Karyawan"}</div>
-                      </td>
-                      <td className="p-3">
-                        <span className="font-mono font-bold text-slate-800">{clockInFormatted}</span>
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`font-mono font-semibold ${
-                            att.clockOutTime ? "text-slate-800" : "text-emerald-600 italic text-[11px]"
-                          }`}
-                        >
-                          {clockOutFormatted}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {isLate ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            Terlambat
-                          </span>
-                        ) : isOutGeofence ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                            Luar Geofence
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            Tepat Waktu
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        {activeTask ? (
-                          <span
-                            onClick={() => onSelectTask(activeTask)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] cursor-pointer transition max-w-[160px] truncate"
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                            <span className="truncate">{activeTask.title}</span>
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">Tidak ada timer aktif</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {filteredAttendance.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-slate-400">
-                      Tidak ada data kehadiran yang sesuai filter.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 3: MONITORING SEMUA TUGAS TIM (GLOBAL TASK FEED)                      */}
+      {/* TAB 2: MONITORING SEMUA TUGAS TIM (GLOBAL TASK FEED)                      */}
       {/* ========================================================================= */}
       {activeTab === "ALL_TASKS" && (
         <div className="space-y-4 bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs">
@@ -1034,7 +840,7 @@ export default function AdminDashboardWidgets({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: LIVE ACTIVITY & TIME TRACKERS TIM                                  */}
+      {/* TAB 3: LIVE ACTIVITY & TIME TRACKERS TIM                                  */}
       {/* ========================================================================= */}
       {activeTab === "TIMERS" && (
         <div className="space-y-4 bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs">
