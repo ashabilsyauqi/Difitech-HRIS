@@ -89,7 +89,7 @@ interface TaskDetailModalProps {
   onClose: () => void;
   task: any | null;
   currentUser: any;
-  onUpdate: () => void;
+  onUpdate: (updatedTask?: any) => void;
   onOpenDeadlineModal?: (task: any) => void;
   onOpenDeliverableModal?: (task: any) => void;
   onOpenRevisionModal?: (task: any) => void;
@@ -217,7 +217,7 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
 export default function TaskDetailModal({
   isOpen,
   onClose,
-  task,
+  task: initialTask,
   currentUser,
   onUpdate,
   onOpenDeadlineModal,
@@ -225,6 +225,12 @@ export default function TaskDetailModal({
   onOpenRevisionModal,
   customStages,
 }: TaskDetailModalProps) {
+  const [task, setTask] = useState<any>(initialTask);
+
+  useEffect(() => {
+    setTask(initialTask);
+  }, [initialTask]);
+
   const [isUpdating, setIsUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<"DISCUSSION" | "LOGS">("DISCUSSION");
   const [comments, setComments] = useState<TaskCommentItem[]>([]);
@@ -455,9 +461,10 @@ export default function TaskDetailModal({
       hasDeliverable);
 
   const handleStartTask = async () => {
+    if (!task?.id) return;
     try {
       setIsUpdating(true);
-      await fetch(`/api/workspace/tasks/${task.id}`, {
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -465,6 +472,7 @@ export default function TaskDetailModal({
           kanbanStage: "ON_PROGRESS",
         }),
       });
+      const data = res.ok ? await res.json() : null;
       await fetch("/api/tasks/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -475,9 +483,15 @@ export default function TaskDetailModal({
         }),
       });
       setIsTracking(true);
+      const updated = data?.task || {
+        ...task,
+        status: "IN_PROGRESS",
+        kanbanStage: "ON_PROGRESS",
+        isTracking: true,
+      };
+      setTask(updated);
       fetchLogs(task.id);
-      onUpdate();
-      onClose();
+      if (onUpdate) onUpdate(updated);
     } catch (err) {
       console.error("Failed to start task:", err);
     } finally {
@@ -486,15 +500,22 @@ export default function TaskDetailModal({
   };
 
   const handleStartReview = async () => {
+    if (!task?.id) return;
     try {
       setIsUpdating(true);
-      await fetch(`/api/workspace/tasks/${task.id}`, {
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewAction: { action: "START_REVIEW" } }),
       });
+      const data = res.ok ? await res.json() : null;
+      const updated = data?.task || {
+        ...task,
+        reviewStatus: "UNDER_REVIEW",
+      };
+      setTask(updated);
       fetchLogs(task.id);
-      onUpdate();
+      if (onUpdate) onUpdate(updated);
     } catch (err) {
       console.error("Failed to start review:", err);
     } finally {
@@ -503,16 +524,24 @@ export default function TaskDetailModal({
   };
 
   const handleApproveReview = async () => {
+    if (!task?.id) return;
     try {
       setIsUpdating(true);
-      await fetch(`/api/workspace/tasks/${task.id}`, {
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewAction: { action: "APPROVE" } }),
       });
+      const data = res.ok ? await res.json() : null;
+      const updated = data?.task || {
+        ...task,
+        status: "COMPLETED",
+        kanbanStage: "DONE",
+        reviewStatus: "APPROVED",
+      };
+      setTask(updated);
       fetchLogs(task.id);
-      onUpdate();
-      onClose();
+      if (onUpdate) onUpdate(updated);
     } catch (err) {
       console.error("Failed to approve task:", err);
     } finally {
@@ -576,10 +605,10 @@ export default function TaskDetailModal({
       if (res.ok) {
         const nextTracking = !isTracking;
         setIsTracking(nextTracking);
+        let updated = { ...task, isTracking: nextTracking, trackedSeconds: activeSeconds };
         if (nextTracking) {
           if (task.status !== "IN_PROGRESS" && task.status !== "COMPLETED") {
-            task.status = "IN_PROGRESS";
-            await fetch(`/api/workspace/tasks/${task.id}`, {
+            const patchRes = await fetch(`/api/workspace/tasks/${task.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -589,10 +618,23 @@ export default function TaskDetailModal({
                   : {}),
               }),
             });
+            const data = patchRes.ok ? await patchRes.json() : null;
+            if (data?.task) {
+              updated = data.task;
+            } else {
+              updated = {
+                ...updated,
+                status: "IN_PROGRESS",
+                ...(currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED"
+                  ? { kanbanStage: "ON_PROGRESS" }
+                  : {}),
+              };
+            }
           }
         }
+        setTask(updated);
         fetchLogs(task.id);
-        onUpdate();
+        if (onUpdate) onUpdate(updated);
       }
     } catch (err) {
       console.error("Failed to toggle timer in modal:", err);
@@ -602,6 +644,7 @@ export default function TaskDetailModal({
   };
 
   const handleAcceptDirectly = async () => {
+    if (!task?.id) return;
     try {
       setIsUpdating(true);
       const res = await fetch(`/api/workspace/tasks/${task.id}`, {
@@ -614,9 +657,11 @@ export default function TaskDetailModal({
         }),
       });
       if (res.ok) {
+        const data = await res.json();
+        const updated = data?.task || { ...task, suggestionStatus: "ACCEPTED" };
+        setTask(updated);
         fetchLogs(task.id);
-        onUpdate();
-        onClose();
+        if (onUpdate) onUpdate(updated);
       }
     } catch (err) {
       console.error("Failed to accept deadline:", err);
@@ -626,16 +671,21 @@ export default function TaskDetailModal({
   };
 
   const handleMoveKanbanStage = async (newStage: string) => {
+    if (!task?.id) return;
     try {
       setIsUpdating(true);
-      await fetch(`/api/workspace/tasks/${task.id}`, {
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ updateKanbanStage: { stage: newStage } }),
       });
-      fetchLogs(task.id);
-      onUpdate();
-      onClose();
+      if (res.ok) {
+        const data = await res.json();
+        const updated = data?.task || { ...task, kanbanStage: newStage };
+        setTask(updated);
+        fetchLogs(task.id);
+        if (onUpdate) onUpdate(updated);
+      }
     } catch (err) {
       console.error("Failed to move kanban stage:", err);
     } finally {
@@ -709,7 +759,22 @@ export default function TaskDetailModal({
               return (
                 <div
                   key={stage.key}
-                  className={`flex-1 py-3 px-4 flex items-center justify-center gap-2.5 text-xs relative transition select-none ${
+                  onClick={() => {
+                    if (isAssignee || isCreatorOrManager) {
+                      if (stage.key === "ON_PROGRESS" && (currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED")) {
+                        handleStartTask();
+                      } else if (stage.key === "DONE" || stage.key === "APPROVAL") {
+                        if (isCreatorOrManager) {
+                          handleApproveReview();
+                        } else {
+                          alert("Pekerjaan harus di-ACC oleh pemberi tugas untuk masuk ke status Selesai.");
+                        }
+                      } else {
+                        handleMoveKanbanStage(stage.key);
+                      }
+                    }
+                  }}
+                  className={`flex-1 py-3 px-4 flex items-center justify-center gap-2.5 text-xs relative transition select-none cursor-pointer hover:bg-slate-50/80 ${
                     isCurrent
                       ? isRevisionStage
                         ? "bg-rose-50/50 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-rose-500"
@@ -832,7 +897,6 @@ export default function TaskDetailModal({
                     {onOpenRevisionModal && (
                       <button
                         onClick={() => {
-                          onClose();
                           onOpenRevisionModal(task);
                         }}
                         className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer shadow-2xs"
@@ -874,7 +938,6 @@ export default function TaskDetailModal({
                   {isAssignee && onOpenDeliverableModal && (
                     <button
                       onClick={() => {
-                        onClose();
                         onOpenDeliverableModal(task);
                       }}
                       className="inline-flex items-center gap-1 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer"
@@ -1752,7 +1815,6 @@ export default function TaskDetailModal({
                 {isAssignee && onOpenDeliverableModal ? (
                   <button
                     onClick={() => {
-                      onClose();
                       onOpenDeliverableModal(task);
                     }}
                     className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-sm cursor-pointer"
@@ -1781,7 +1843,6 @@ export default function TaskDetailModal({
                     {onOpenRevisionModal && (
                       <button
                         onClick={() => {
-                          onClose();
                           onOpenRevisionModal(task);
                         }}
                         className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
@@ -1855,7 +1916,6 @@ export default function TaskDetailModal({
                 {isAssignee && onOpenDeliverableModal ? (
                   <button
                     onClick={() => {
-                      onClose();
                       onOpenDeliverableModal(task);
                     }}
                     className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition shadow-sm cursor-pointer"
@@ -1890,7 +1950,6 @@ export default function TaskDetailModal({
                     {onOpenRevisionModal && (
                       <button
                         onClick={() => {
-                          onClose();
                           onOpenRevisionModal(task);
                         }}
                         className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
@@ -1923,7 +1982,6 @@ export default function TaskDetailModal({
                 {isAssignee && onOpenDeliverableModal ? (
                   <button
                     onClick={() => {
-                      onClose();
                       onOpenDeliverableModal(task);
                     }}
                     className="flex items-center gap-2 rounded-xl bg-rose-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition shadow-sm cursor-pointer"
@@ -1949,7 +2007,6 @@ export default function TaskDetailModal({
                 {isCreatorOrManager && onOpenRevisionModal && (
                   <button
                     onClick={() => {
-                      onClose();
                       onOpenRevisionModal(task);
                     }}
                     className="flex items-center gap-1 rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"

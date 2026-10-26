@@ -13,6 +13,8 @@ import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
 import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
+import EmployeeDashboardWidgets from "@/components/Workspace/EmployeeDashboardWidgets";
+import AdminDashboardWidgets from "@/components/Workspace/AdminDashboardWidgets";
 import {
   Layers,
   Plus,
@@ -478,8 +480,9 @@ function WorkspaceCardsPageContent() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Top-level board mode: "DIVISION" (BigBoard Divisi) vs "PERSONAL" (BigBoard Pribadi)
-  const [boardMode, setBoardMode] = useState<"DIVISION" | "PERSONAL">("DIVISION");
+  // Top-level board mode: "DIVISION" (BigBoard Divisi) vs "PERSONAL" (BigBoard Pribadi) vs "DASHBOARD" (Dashboard Karyawan) vs "ADMIN" (Radar Admin HRIS)
+  const [boardMode, setBoardMode] = useState<"DIVISION" | "PERSONAL" | "DASHBOARD" | "ADMIN">("DIVISION");
+  const [managerStats, setManagerStats] = useState<any>(null);
   // Subtab under Personal BigBoard: "MY_TASKS" | "DELEGATED"
   const [personalTab, setPersonalTab] = useState<"MY_TASKS" | "DELEGATED">("MY_TASKS");
 
@@ -734,8 +737,23 @@ function WorkspaceCardsPageContent() {
       if (data.user?.id) {
         fetchUserCustomStages(data.user.id);
       }
+      if (data.user?.role === "ADMIN" || data.user?.role === "MANAGER") {
+        fetchManagerStats();
+      }
     } catch {
       router.push("/login");
+    }
+  };
+
+  const fetchManagerStats = async () => {
+    try {
+      const res = await fetch("/api/manager/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setManagerStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch manager stats:", err);
     }
   };
 
@@ -751,9 +769,9 @@ function WorkspaceCardsPageContent() {
     }
   };
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const params = new URLSearchParams();
       if (selectedBrand !== "ALL") params.set("brandName", selectedBrand);
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
@@ -763,6 +781,13 @@ function WorkspaceCardsPageContent() {
         const data = await res.json();
         const loadedTasks = data.tasks || [];
         setTasks(loadedTasks);
+
+        // Keep selectedTaskForDetail up to date with fresh data from server
+        setSelectedTaskForDetail((prev) => {
+          if (!prev) return null;
+          const fresh = loadedTasks.find((t: any) => t.id === prev.id);
+          return fresh ? { ...prev, ...fresh } : prev;
+        });
 
         // Sync live active timers
         const timerMap: Record<string, number> = {};
@@ -781,7 +806,7 @@ function WorkspaceCardsPageContent() {
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -823,7 +848,14 @@ function WorkspaceCardsPageContent() {
     const cardParam = searchParams.get("card");
     const tabParam = searchParams.get("tab");
 
-    if (viewParam === "personal") {
+    if (viewParam === "admin") {
+      setBoardMode("ADMIN");
+      setSelectedDivision(null);
+      fetchManagerStats();
+    } else if (viewParam === "dashboard" || viewParam === "karyawan") {
+      setBoardMode("DASHBOARD");
+      setSelectedDivision(null);
+    } else if (viewParam === "personal") {
       setBoardMode("PERSONAL");
       setSelectedDivision(null);
       if (tabParam === "delegated") {
@@ -2953,7 +2985,9 @@ function WorkspaceCardsPageContent() {
 
         <main
           className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col relative ${
-            boardMode === "PERSONAL" || selectedDivision ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
+            boardMode === "PERSONAL" || boardMode === "DASHBOARD" || boardMode === "ADMIN" || selectedDivision
+              ? "overflow-y-auto space-y-4"
+              : "overflow-hidden space-y-2.5"
           }`}
         >
           {/* Top Progress Loading Bar */}
@@ -2963,11 +2997,52 @@ function WorkspaceCardsPageContent() {
             </div>
           )}
 
-
           {/* ========================================================================= */}
-          {/* VIEW MODE 1: BIGBOARD PRIBADI (Tugas Saya & Delegasi Saya)                */}
+          {/* VIEW MODE 0A: DASHBOARD ADMIN HRIS (Executive Radar)                       */}
           {/* ========================================================================= */}
-          {boardMode === "PERSONAL" ? (
+          {boardMode === "ADMIN" ? (
+            <AdminDashboardWidgets
+              user={user}
+              tasks={tasks}
+              managerStats={managerStats}
+              onSelectTask={(task) => setSelectedTaskForDetail(task)}
+              onApproveTask={(taskId) => handleApproveTask(taskId)}
+              onRequestRevision={(task) => setRevisionModalTask(task)}
+              onOpenDivision={(divisionKey) => openDivisionStage(divisionKey)}
+              onOpenCreateTask={(defaultDept) => {
+                setTargetCardForNew(defaultDept);
+                setCreateModalOpen(true);
+              }}
+              activeTimers={activeTimers}
+              formatTimerSeconds={formatTimerSeconds}
+              formatDateTime={formatDateTime}
+              isLoading={isLoading}
+              onRefresh={() => {
+                fetchTasks();
+                fetchManagerStats();
+              }}
+            />
+          ) : boardMode === "DASHBOARD" ? (
+            <EmployeeDashboardWidgets
+              user={user}
+              tasks={tasks}
+              onSelectTask={(task) => setSelectedTaskForDetail(task)}
+              onStartTask={(taskId) => handleStartTask(taskId)}
+              onToggleTimer={(task) => handleToggleTimer(task)}
+              activeTimers={activeTimers}
+              onOpenDivision={(divisionKey) => openDivisionStage(divisionKey)}
+              onOpenCreateTask={(defaultDept) => {
+                setTargetCardForNew(defaultDept);
+                setCreateModalOpen(true);
+              }}
+              onOpenDeliverable={(task) => setDeliverableModalTask(task)}
+              userStages={userStages}
+              cardsDefinition={CARDS_DEFINITION}
+              formatTimerSeconds={formatTimerSeconds}
+              formatDateTime={formatDateTime}
+              isLoading={isLoading}
+            />
+          ) : boardMode === "PERSONAL" ? (
             <div className="space-y-6">
               {/* Header & Sub-Tabs */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
@@ -3810,7 +3885,12 @@ function WorkspaceCardsPageContent() {
           onClose={() => setSelectedTaskForDetail(null)}
           task={selectedTaskForDetail}
           currentUser={user}
-          onUpdate={fetchTasks}
+          onUpdate={(updatedTask) => {
+            if (updatedTask) {
+              setSelectedTaskForDetail((prev) => (prev ? { ...prev, ...updatedTask } : updatedTask));
+            }
+            fetchTasks(true);
+          }}
           onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
           onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
           onOpenRevisionModal={(t) => setRevisionModalTask(t)}
@@ -3836,7 +3916,7 @@ function WorkspaceCardsPageContent() {
           suggestionStatus={deadlineModalTask.suggestionStatus}
           isCreator={deadlineModalTask.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER"}
           isAssignee={deadlineModalTask.user?.id === user?.id || deadlineModalTask.assignees?.some((a) => a.user?.id === user?.id)}
-          onSuccess={fetchTasks}
+          onSuccess={() => fetchTasks(true)}
         />
       )}
 
@@ -3847,7 +3927,7 @@ function WorkspaceCardsPageContent() {
           taskId={revisionModalTask.id}
           taskTitle={revisionModalTask.title}
           brandName={revisionModalTask.brandName || "General"}
-          onSuccess={fetchTasks}
+          onSuccess={() => fetchTasks(true)}
         />
       )}
 
@@ -3858,7 +3938,7 @@ function WorkspaceCardsPageContent() {
           taskId={deliverableModalTask.id}
           taskTitle={deliverableModalTask.title}
           isApprovalAction={deliverableModalTask.reviewStatus === "REVISION_REQUESTED"}
-          onSuccess={fetchTasks}
+          onSuccess={() => fetchTasks(true)}
         />
       )}
     </div>

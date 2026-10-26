@@ -17,6 +17,8 @@ import {
   X,
   ChevronRight,
   FolderKanban,
+  LayoutDashboard,
+  ShieldCheck,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -140,7 +142,15 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
   const isWorkspace = pathname === "/dashboard/workspace";
 
   // Check active state
-  const isDifitechActive = isWorkspace && !currentCard && currentView !== "personal";
+  const isAdminActive = isWorkspace && currentView === "admin";
+  const isDashboardActive = isWorkspace && (currentView === "dashboard" || currentView === "karyawan");
+  const isDifitechActive =
+    isWorkspace &&
+    !currentCard &&
+    currentView !== "personal" &&
+    currentView !== "dashboard" &&
+    currentView !== "karyawan" &&
+    currentView !== "admin";
   const isMyTasksActive = isWorkspace && currentView === "personal" && currentTab !== "delegated";
   const isDelegatedActive = isWorkspace && currentView === "personal" && currentTab === "delegated";
   const isContentActive = pathname.startsWith("/dashboard/content-production");
@@ -192,6 +202,60 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
             >
               <X className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* Section 0: Dashboard Menu */}
+          <div>
+            <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Dashboard
+            </div>
+            <div className="space-y-0.5">
+              {isManagerOrAdmin && (
+                <Link
+                  href="/dashboard/workspace?view=admin"
+                  onClick={onClose}
+                  className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs font-bold transition whitespace-nowrap ${
+                    isAdminActive
+                      ? "bg-indigo-600 text-white shadow-2xs font-black"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ShieldCheck className={`h-4 w-4 shrink-0 ${isAdminActive ? "text-white" : "text-indigo-600"}`} />
+                    <span>Dashboard Admin HRIS</span>
+                  </div>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
+                      isAdminActive ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700"
+                    }`}
+                  >
+                    Super
+                  </span>
+                </Link>
+              )}
+
+              <Link
+                href="/dashboard/workspace?view=dashboard"
+                onClick={onClose}
+                className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs font-bold transition whitespace-nowrap ${
+                  isDashboardActive
+                    ? "bg-blue-600 text-white shadow-2xs font-black"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <LayoutDashboard className={`h-4 w-4 shrink-0 ${isDashboardActive ? "text-white" : "text-blue-600"}`} />
+                  <span>Dashboard Karyawan</span>
+                </div>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
+                    isDashboardActive ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700"
+                  }`}
+                >
+                  Widget
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* Section 1: BigBoard Utama */}
