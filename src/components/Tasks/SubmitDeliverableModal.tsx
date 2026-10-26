@@ -9,6 +9,7 @@ interface SubmitDeliverableModalProps {
   taskId: string;
   taskTitle: string;
   isApprovalAction?: boolean;
+  isSelfAssigned?: boolean;
   onSuccess: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function SubmitDeliverableModal({
   taskId,
   taskTitle,
   isApprovalAction = false,
+  isSelfAssigned = false,
   onSuccess,
 }: SubmitDeliverableModalProps) {
   const [deliverableUrl, setDeliverableUrl] = useState("");
@@ -32,6 +34,12 @@ export default function SubmitDeliverableModal({
     try {
       setIsLoading(true);
       setErrorMsg("");
+
+      if (!deliverableUrl.trim()) {
+        setErrorMsg("Link bukti pengerjaan (Google Drive / Canva / Web) wajib diisi untuk menyelesaikan tugas!");
+        setIsLoading(false);
+        return;
+      }
 
       let payload: any = {};
       if (isApprovalAction) {
@@ -81,7 +89,11 @@ export default function SubmitDeliverableModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">
-                {isApprovalAction ? "Approve & Submit Hasil Akhir" : "Submit Hasil Kerja (Untuk Direview)"}
+                {isSelfAssigned
+                  ? "Submit Bukti Pengerjaan (Selesai)"
+                  : isApprovalAction
+                  ? "Approve & Submit Hasil Akhir"
+                  : "Submit Hasil Kerja (Untuk Direview)"}
               </h3>
               <p className="text-[11px] text-slate-500 truncate max-w-[240px]">{taskTitle}</p>
             </div>
@@ -102,17 +114,26 @@ export default function SubmitDeliverableModal({
             </div>
           )}
 
-          <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-[11px] text-blue-800 leading-relaxed">
-            <span className="font-bold">Info Review Pemberi Tugas:</span> Hasil kerja Anda akan diteruskan ke pemberi tugas untuk direview (status <em>To Be Reviewed</em>). Begitu disetujui, tugas Anda otomatis berstatus <strong>Done !</strong> dan tercatat tuntas di lembar kerja Anda.
-          </div>
+          {isSelfAssigned ? (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-[11px] text-emerald-800 leading-relaxed">
+              <span className="font-bold">Tugas Mandiri / Pribadi:</span> Anda tidak memerlukan proses review dari pihak lain. Cukup lampirkan link bukti hasil kerja (Google Drive, Canva, link website/dokumen) untuk menyelesaikan tugas ini secara resmi (<strong>Done !</strong>).
+            </div>
+          ) : (
+            <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-[11px] text-blue-800 leading-relaxed">
+              <span className="font-bold">Info Review Pemberi Tugas:</span> Hasil kerja Anda akan diteruskan ke pemberi tugas untuk direview (status <em>To Be Reviewed</em>). Begitu disetujui, tugas Anda otomatis berstatus <strong>Done !</strong> dan tercatat tuntas di lembar kerja Anda.
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Link Hasil Akhir / Deliverables (Google Drive, Canva, Video, Dokumen)
+              {isSelfAssigned
+                ? "Link Bukti Hasil Kerja (Wajib diisi)"
+                : "Link Hasil Akhir / Deliverables (Google Drive, Canva, Video, Dokumen)"}
             </label>
             <div className="relative">
               <input
                 type="url"
+                required
                 placeholder="https://drive.google.com/... atau link hasil kerja"
                 value={deliverableUrl}
                 onChange={(e) => setDeliverableUrl(e.target.value)}
@@ -147,10 +168,16 @@ export default function SubmitDeliverableModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>{isApprovalAction ? "Setujui & Selesaikan" : "Kirim Hasil & Ajukan Review"}</span>
+              <span>
+                {isSelfAssigned
+                  ? "Simpan Bukti & Selesai (Done !)"
+                  : isApprovalAction
+                  ? "Setujui & Selesaikan"
+                  : "Kirim Hasil & Ajukan Review"}
+              </span>
             </button>
           </div>
         </form>

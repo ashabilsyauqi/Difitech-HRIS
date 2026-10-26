@@ -3938,6 +3938,11 @@ function WorkspaceCardsPageContent() {
           taskId={deliverableModalTask.id}
           taskTitle={deliverableModalTask.title}
           isApprovalAction={deliverableModalTask.reviewStatus === "REVISION_REQUESTED"}
+          isSelfAssigned={Boolean(
+            (deliverableModalTask.user && deliverableModalTask.creator && deliverableModalTask.user.id === deliverableModalTask.creator.id) ||
+            !deliverableModalTask.creator ||
+            (deliverableModalTask.creator?.id === user?.id && deliverableModalTask.user?.id === user?.id)
+          )}
           onSuccess={() => fetchTasks(true)}
         />
       )}
