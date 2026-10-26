@@ -87,40 +87,50 @@ export async function GET(req: NextRequest) {
       let hrisStatus: "PENDING" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" = "PENDING";
       const stageUpper = (t.kanbanStage || "").toUpperCase();
 
-      // Prioritas 1: Selesai (Done / Approval / Completed)
+      // Prioritas 1: Sedang Dikerjakan (In Progress / Review)
       if (
-        t.status === "COMPLETED" ||
-        stageUpper === "DONE" ||
-        stageUpper === "PUBLISHED" ||
-        stageUpper === "APPROVAL" ||
-        t.reviewStatus === "APPROVED"
-      ) {
-        hrisStatus = "COMPLETED";
-      }
-      // Prioritas 2: Terkendala / Butuh Revisi
-      else if (
-        t.status === "BLOCKED" ||
-        stageUpper.includes("REVISI") ||
-        stageUpper.includes("KENDALA") ||
-        t.reviewStatus === "REVISION_REQUESTED"
-      ) {
-        hrisStatus = "BLOCKED";
-      }
-      // Prioritas 3: Sedang Dikerjakan (In Progress / Review)
-      else if (
-        t.status === "IN_PROGRESS" ||
-        t.isTracking ||
         stageUpper === "ON_PROGRESS" ||
         stageUpper === "SUBMIT_TO_REVIEW" ||
         stageUpper.includes("PROGRESS") ||
         stageUpper.includes("PRODUCTION") ||
         stageUpper.includes("SCRIPTING") ||
         stageUpper.includes("EDITING") ||
-        stageUpper.includes("KERJAIN")
+        stageUpper.includes("KERJAIN") ||
+        t.isTracking
       ) {
         hrisStatus = "IN_PROGRESS";
       }
-      // Prioritas 4: Belum Dikerjakan (Backlog / To-Do)
+      // Prioritas 2: Terkendala / Butuh Revisi
+      else if (
+        stageUpper === "REVISION" ||
+        stageUpper.includes("REVISI") ||
+        stageUpper.includes("KENDALA") ||
+        t.reviewStatus === "REVISION_REQUESTED" ||
+        t.status === "BLOCKED"
+      ) {
+        hrisStatus = "BLOCKED";
+      }
+      // Prioritas 3: Selesai (Done / Approval / Completed)
+      else if (
+        stageUpper === "DONE" ||
+        stageUpper === "PUBLISHED" ||
+        stageUpper === "APPROVAL" ||
+        t.status === "COMPLETED" ||
+        t.reviewStatus === "APPROVED"
+      ) {
+        hrisStatus = "COMPLETED";
+      }
+      // Prioritas 4: Belum Dimulai (Not Started / Content Brief / Draft / Backlog)
+      else if (
+        stageUpper === "NOT_STARTED" ||
+        stageUpper === "CONTENT_BRIEF" ||
+        stageUpper === "BRIEF" ||
+        stageUpper === "TO_DO" ||
+        stageUpper === "BACKLOG"
+      ) {
+        hrisStatus = "PENDING";
+      }
+      // Prioritas 5: Default Belum Dikerjakan
       else {
         hrisStatus = "PENDING";
       }

@@ -570,6 +570,7 @@ export async function PATCH(
         updatedData.reviewStatus = "NONE";
       } else if (kanbanStage === "ON_PROGRESS") {
         updatedData.status = "IN_PROGRESS";
+        updatedData.reviewStatus = "NONE";
       } else if (kanbanStage === "DONE") {
         const isCreator = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
         const isManagerOrAdmin = authUser.role === "ADMIN" || authUser.role === "MANAGER";
@@ -640,11 +641,11 @@ export async function PATCH(
       where: { id: params.id },
       data: updatedData,
       include: {
-        user: { select: { id: true, name: true, department: true, avatarUrl: true } },
-        creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+        user: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
+        creator: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
         assignees: {
           include: {
-            user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+            user: { select: { id: true, name: true, email: true, department: true, avatarUrl: true } },
           },
         },
       },
@@ -679,6 +680,30 @@ export async function PATCH(
           fromValue: existingTask.status,
           toValue: status,
         },
+      });
+    }
+
+    // Realtime stage sync webhook to Staging HRIS
+    if (kanbanStage !== undefined || status !== undefined || body.reviewAction || body.submitDeliverable) {
+      const targetUserEmail = updated.user?.email || authUser.email;
+      const stagingHrisUrl = process.env.STAGING_HRIS_INTERNAL_URL || "http://187.52.127.244:3010";
+      const syncSecret = process.env.INTERNAL_SYNC_SECRET || "difitech_secure_workboard_sync_secret_2026";
+
+      // Fire-and-forget background webhook
+      fetch(`${stagingHrisUrl}/api/tasks/sync-workboard?email=${encodeURIComponent(targetUserEmail)}&secret=${syncSecret}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": syncSecret,
+        },
+        body: JSON.stringify({
+          workboardTaskId: updated.id,
+          email: targetUserEmail,
+          kanbanStage: updated.kanbanStage,
+          status: updated.status,
+        }),
+      }).catch((err: any) => {
+        console.warn("[DWB -> Staging HRIS Realtime Sync] Webhook failed:", err?.message);
       });
     }
 
