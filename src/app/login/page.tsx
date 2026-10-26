@@ -30,7 +30,7 @@ const SLIDES = [
     tag: "BIGBOARD KANBAN 6 DIVISI",
     title: "Kolaborasi Horizontal Lintas Tim Tanpa Sekat",
     desc: "Papan kerja terpadu untuk Sosmed, Web Dev, Ads Performance, SEO, Marketplace, & Bisnis dengan alur delegasi otomatis dan visibilitas menyeluruh.",
-    image: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
     badgeIcon: Layers,
     featureChip: "Corong Delegasi Otomatis",
     metrics: "6 Divisi Terintegrasi"
@@ -50,7 +50,7 @@ const SLIDES = [
     tag: "LEMBAR KERJA & REVIEW GATE",
     title: "Diskusi Berbalas, Lampiran & Validasi Hasil",
     desc: "Lembar kerja lengkap dengan ruang chat berbalas, berbagi lampiran media, histori mutasi pengerjaan, serta gerbang ACC atau Minta Revisi langsung.",
-    image: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
     badgeIcon: MessageSquare,
     featureChip: "Komentar & Attachment Live",
     metrics: "Approval & Revision Gate"
@@ -168,59 +168,61 @@ export default function LoginPage() {
   const BadgeIcon = activeSlide.badgeIcon;
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col lg:grid lg:grid-cols-12 overflow-x-hidden">
+    <div className="min-h-screen w-full bg-slate-50 flex flex-col lg:grid lg:grid-cols-12 overflow-x-hidden selection:bg-red-500 selection:text-white">
       {/* ======================================================== */}
       {/* COLUMN 1: Visual Showcase, Interactive Carousel & Slides */}
       {/* ======================================================== */}
       <div
-        className="relative lg:col-span-7 xl:col-span-7 flex flex-col justify-between p-6 sm:p-10 lg:p-12 overflow-hidden bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-800/80"
+        className="relative lg:col-span-7 xl:col-span-7 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 overflow-hidden bg-slate-100/60 border-b lg:border-b-0 lg:border-r border-slate-200"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        {/* Background Ambient Glows & Image Layers */}
+        {/* Background Light Ambient Glows, Soft Grid & Image Layers */}
         <div className="absolute inset-0 pointer-events-none z-0">
           {SLIDES.map((slide, idx) => (
             <div
               key={slide.id}
               className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                idx === currentSlide ? "opacity-35 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                idx === currentSlide ? "opacity-45 scale-100" : "opacity-0 scale-105 pointer-events-none"
               }`}
             >
               <img
                 src={slide.image}
                 alt={slide.title}
-                className="w-full h-full object-cover object-center filter saturate-150 contrast-125 transition-transform duration-1000"
+                className="w-full h-full object-cover object-center filter contrast-105 brightness-105 transition-transform duration-1000"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-slate-950/60" />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/40 to-transparent" />
+              {/* Soft Bright Overlays for maximum text clarity & airy modern aesthetic */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/80 to-slate-50/40" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-50/95 via-slate-50/80 to-transparent" />
             </div>
           ))}
-          {/* Subtle Grid Accent */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:4rem_4rem]" />
-          <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-600/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-32 right-0 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+          {/* Subtle Clean Grid Pattern */}
+          <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-60" />
+          {/* Delicate Red Corporate Ambient Glows */}
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-red-100/70 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 right-0 w-96 h-96 bg-rose-100/50 rounded-full blur-3xl pointer-events-none" />
         </div>
 
         {/* Top Header inside Column 1 */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 p-2 shadow-lg shadow-red-600/30 border border-red-500/30">
-              <img src="/logo.png" alt="DifWorkBoard" className="h-full w-full object-contain filter brightness-0 invert" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white p-2 shadow-sm border border-slate-200/80 ring-2 ring-red-50">
+              <img src="/logo.png" alt="DifWorkBoard" className="h-full w-full object-contain" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-1.5">
-                <span className="text-red-500">Dif</span>
-                <span className="text-white">WorkBoard</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                <span className="text-red-600">Dif</span>
+                <span className="text-slate-900">WorkBoard</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
                   Agile
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 font-medium">Enterprise Task & Team Coordination</p>
+              <p className="text-xs text-slate-500 font-medium">Enterprise Task & Team Coordination</p>
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur-md text-[11px] text-slate-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-slate-200/80 shadow-xs backdrop-blur-md text-[11px] text-slate-600 font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>difworkboard.difitech.id</span>
           </div>
         </div>
@@ -228,40 +230,40 @@ export default function LoginPage() {
         {/* Center Main Carousel Content */}
         <div className="relative z-10 my-10 sm:my-14 lg:my-16 max-w-2xl">
           {/* Animated Category Tag */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/15 border border-red-500/30 backdrop-blur-md mb-5 text-xs font-bold text-red-400 tracking-wide">
-            <BadgeIcon className="h-4 w-4 text-red-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 border border-red-200 shadow-xs backdrop-blur-md mb-5 text-xs font-bold text-red-700 tracking-wide">
+            <BadgeIcon className="h-4 w-4 text-red-600" />
             <span>{activeSlide.tag}</span>
           </div>
 
           {/* Slide Title & Description */}
-          <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight min-h-[4.5rem]">
+          <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight min-h-[4.5rem]">
             {activeSlide.title}
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
+          <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl font-normal">
             {activeSlide.desc}
           </p>
 
-          {/* Interactive Feature Glass Card Preview */}
-          <div className="mt-8 p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-700/60 backdrop-blur-xl shadow-2xl flex flex-wrap items-center justify-between gap-4">
+          {/* Modern Minimalist Feature Card Preview */}
+          <div className="mt-8 p-4 sm:p-5 rounded-2xl bg-white/90 border border-slate-200 shadow-sm backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400">
+              <div className="h-10 w-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shadow-xs">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-slate-400 font-medium">Fitur Unggulan</p>
-                <p className="text-sm font-bold text-white">{activeSlide.featureChip}</p>
+                <p className="text-xs text-slate-500 font-medium">Fitur Unggulan</p>
+                <p className="text-sm font-bold text-slate-900">{activeSlide.featureChip}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs font-semibold text-emerald-400">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-700 shadow-xs">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <span>{activeSlide.metrics}</span>
             </div>
           </div>
         </div>
 
         {/* Carousel Bottom Controls & Pagination */}
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-slate-800/80">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-slate-200/80">
           <div className="flex items-center gap-2">
             {SLIDES.map((slide, idx) => (
               <button
@@ -270,8 +272,8 @@ export default function LoginPage() {
                 aria-label={`Pindah ke slide ${idx + 1}`}
                 className={`group relative h-2.5 rounded-full transition-all duration-300 ${
                   idx === currentSlide
-                    ? "w-8 bg-red-500 shadow-md shadow-red-500/40"
-                    : "w-2.5 bg-slate-700 hover:bg-slate-600"
+                    ? "w-8 bg-red-600 shadow-sm shadow-red-500/30"
+                    : "w-2.5 bg-slate-300 hover:bg-slate-400"
                 }`}
               />
             ))}
@@ -280,14 +282,14 @@ export default function LoginPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentSlide((prev) => (prev - 1 + SLIDES.length) % SLIDES.length)}
-              className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/70 text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-xs transition"
               title="Slide Sebelumnya"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setCurrentSlide((prev) => (prev + 1) % SLIDES.length)}
-              className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/70 text-slate-300 hover:bg-slate-800 hover:text-white transition"
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-xs transition"
               title="Slide Berikutnya"
             >
               <ChevronRight className="h-4 w-4" />
@@ -297,20 +299,25 @@ export default function LoginPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* COLUMN 2: High-Conversion Production Login Form          */}
+      {/* COLUMN 2: High-Conversion Modern White & Red Login Form  */}
       {/* ======================================================== */}
-      <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-between bg-white p-6 sm:p-10 lg:p-12 xl:p-16">
+      <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-between bg-white p-6 sm:p-10 lg:p-12 xl:p-16 relative">
+        {/* Subtle Ambient Red Tint */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-red-50/50 rounded-full blur-3xl pointer-events-none" />
+
         {/* Top Status & Mobile Brand */}
-        <div>
+        <div className="relative z-10">
           <div className="flex items-center justify-between pb-6 border-b border-slate-100">
             <div className="flex lg:hidden items-center gap-2.5">
-              <img src="/logo.png" alt="DifWorkBoard" className="h-8 w-8 object-contain" />
+              <div className="h-9 w-9 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 ring-1 ring-red-50 flex items-center justify-center">
+                <img src="/logo.png" alt="DifWorkBoard" className="h-full w-full object-contain" />
+              </div>
               <span className="font-black text-slate-900 text-lg">
                 <span className="text-red-600">Dif</span>WorkBoard
               </span>
             </div>
 
-            <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
+            <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Sistem Aktif (v1.0 Pro)</span>
             </div>
@@ -328,7 +335,7 @@ export default function LoginPage() {
 
           {/* Error Banner */}
           {errorMsg && (
-            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-xs text-red-700 font-semibold flex items-center gap-3 animate-in fade-in duration-200">
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 font-semibold flex items-center gap-3 animate-in fade-in duration-200">
               <div className="h-2.5 w-2.5 rounded-full bg-red-600 flex-shrink-0 animate-ping" />
               <span>{errorMsg}</span>
             </div>
@@ -336,9 +343,9 @@ export default function LoginPage() {
 
           {/* Saved Account Card on Local Device */}
           {savedUser && (
-            <div className="mt-6 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-blue-900 shadow-sm">
+            <div className="mt-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-800 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-xs shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 text-white font-bold text-xs shadow-xs">
                   <UserCheck className="h-4 w-4" />
                 </div>
                 <div>
@@ -351,7 +358,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleClearSavedAccount}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-100 hover:text-slate-700 transition"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
                 title="Hapus akun tersimpan di perangkat ini"
               >
                 <X className="h-4 w-4" />
@@ -378,7 +385,7 @@ export default function LoginPage() {
                   placeholder="nama@difitech.id atau email Anda"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none transition shadow-xs"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 hover:bg-white focus:bg-white focus:border-red-600 focus:ring-2 focus:ring-red-600/15 focus:outline-none transition shadow-xs"
                 />
               </div>
             </div>
@@ -401,7 +408,7 @@ export default function LoginPage() {
                   placeholder="Masukkan kata sandi akun Anda"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-11 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:outline-none transition shadow-xs"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-11 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 hover:bg-white focus:bg-white focus:border-red-600 focus:ring-2 focus:ring-red-600/15 focus:outline-none transition shadow-xs"
                 />
                 <button
                   type="button"
@@ -429,7 +436,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-red-600 via-red-600 to-rose-600 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-600/25 transition hover:from-red-700 hover:to-rose-700 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-red-600 py-3.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-red-600/20 transition hover:bg-red-700 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               <span>{isLoading ? "Memverifikasi Kredensial..." : "Masuk ke DifWorkBoard"}</span>
               <ArrowRight className="h-4 w-4" />
@@ -438,7 +445,7 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom Security Badge & Copyright */}
-        <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
+        <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400 relative z-10">
           <div className="flex items-center gap-1.5 font-medium text-slate-500">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             <span>Enkripsi SSL & Sesi JWT Aktif</span>
