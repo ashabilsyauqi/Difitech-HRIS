@@ -561,23 +561,6 @@ export default function CreateTaskModal({
                     <Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   </div>
                 </div>
-
-                {/* 4. Prioritas */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Prioritas Tugas
-                  </label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-red-500 outline-none bg-white font-medium"
-                  >
-                    <option value="LOW">Rendah (Low)</option>
-                    <option value="MEDIUM">Sedang (Medium)</option>
-                    <option value="HIGH">Tinggi (High)</option>
-                    <option value="URGENT">Mendesak (Urgent)</option>
-                  </select>
-                </div>
               </div>
             </div>
           </div>
