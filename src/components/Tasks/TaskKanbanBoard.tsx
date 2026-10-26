@@ -345,14 +345,6 @@ export default function TaskKanbanBoard({
                           </div>
 
                           <div className="flex items-center gap-1.5">
-                            <span
-                              className={`rounded border px-1.5 py-0.2 text-[9px] font-bold uppercase ${getPriorityBadge(
-                                task.priority
-                              )}`}
-                            >
-                              {getPriorityLabel(task.priority)}
-                            </span>
-
                             {!readOnly && task.id && (
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                                 <button

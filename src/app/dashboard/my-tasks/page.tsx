@@ -498,17 +498,6 @@ export default function UnifiedTasksPage() {
                 <option value="HR">HR</option>
               </select>
 
-              <select
-                value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none font-medium"
-              >
-                <option value="ALL">Semua Prioritas</option>
-                <option value="URGENT">Mendesak</option>
-                <option value="HIGH">Tinggi</option>
-                <option value="MEDIUM">Sedang</option>
-                <option value="LOW">Rendah</option>
-              </select>
 
               {(searchQuery || selectedBrand !== "ALL" || selectedDepartment !== "ALL" || selectedPriority !== "ALL" || filterByDate) && (
                 <button
@@ -681,14 +670,6 @@ export default function UnifiedTasksPage() {
                                 </div>
 
                                 <div className="flex items-center gap-1">
-                                  <span
-                                    className={`rounded border px-1.5 py-0.2 text-[9px] font-bold uppercase ${getPriorityBadge(
-                                      task.priority
-                                    )}`}
-                                  >
-                                    {getPriorityLabel(task.priority)}
-                                  </span>
-
                                   <div onClick={(e) => e.stopPropagation()}>
                                     <FollowUpButton
                                       taskId={task.id}
