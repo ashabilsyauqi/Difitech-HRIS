@@ -50,35 +50,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const startOfTargetDate = new Date(`${targetDate}T00:00:00.000Z`);
-    const endOfTargetDate = new Date(`${targetDate}T23:59:59.999Z`);
+    // Batas siklus aktif (Bulan berjalan / Oktober 2026)
+    const activeCycleStart = new Date("2026-10-01T00:00:00.000Z");
 
-    // 2. Tarik tugas di mana user adalah PIC / Assignee atau pemilik task
+    // 2. Tarik tugas di mana user adalah PIC / Assignee atau pemilik task pada siklus aktif
     const rawTasks = await prisma.task.findMany({
       where: {
         OR: [
           { userId: user.id },
           { assignees: { some: { userId: user.id } } },
         ],
-        // Tugas yang aktif ATAU tugas yang diselesaikan pada tanggal ini
-        AND: [
-          {
-            OR: [
-              { status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED", "REQUESTED"] } },
-              {
-                AND: [
-                  { status: "COMPLETED" },
-                  {
-                    updatedAt: {
-                      gte: startOfTargetDate,
-                      lte: endOfTargetDate,
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+        // Hanya ambil tugas siklus aktif (Oktober ke atas) agar tugas kadaluarsa Agustus tidak bocor
+        createdAt: {
+          gte: activeCycleStart,
+        },
       },
       include: {
         assignees: {
@@ -93,31 +78,50 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [
-        { priority: "desc" },
         { updatedAt: "desc" },
       ],
     });
 
     // 3. Petakan ke format konsumsi HRIS
     const mappedTasks = rawTasks.map((t) => {
-      // Pemetaan stage/status ke format standar HRIS (PENDING, IN_PROGRESS, BLOCKED, COMPLETED)
       let hrisStatus: "PENDING" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" = "PENDING";
       const stageUpper = (t.kanbanStage || "").toUpperCase();
 
-      if (t.status === "COMPLETED" || stageUpper === "DONE" || stageUpper === "PUBLISHED") {
+      // Prioritas 1: Selesai (Done / Approval / Completed)
+      if (
+        t.status === "COMPLETED" ||
+        stageUpper === "DONE" ||
+        stageUpper === "PUBLISHED" ||
+        stageUpper === "APPROVAL" ||
+        t.reviewStatus === "APPROVED"
+      ) {
         hrisStatus = "COMPLETED";
-      } else if (t.status === "BLOCKED" || stageUpper.includes("REVISI") || stageUpper.includes("KENDALA")) {
+      }
+      // Prioritas 2: Terkendala / Butuh Revisi
+      else if (
+        t.status === "BLOCKED" ||
+        stageUpper.includes("REVISI") ||
+        stageUpper.includes("KENDALA") ||
+        t.reviewStatus === "REVISION_REQUESTED"
+      ) {
         hrisStatus = "BLOCKED";
-      } else if (
+      }
+      // Prioritas 3: Sedang Dikerjakan (In Progress / Review)
+      else if (
         t.status === "IN_PROGRESS" ||
         t.isTracking ||
+        stageUpper === "ON_PROGRESS" ||
+        stageUpper === "SUBMIT_TO_REVIEW" ||
         stageUpper.includes("PROGRESS") ||
         stageUpper.includes("PRODUCTION") ||
         stageUpper.includes("SCRIPTING") ||
-        stageUpper.includes("EDITING")
+        stageUpper.includes("EDITING") ||
+        stageUpper.includes("KERJAIN")
       ) {
         hrisStatus = "IN_PROGRESS";
-      } else {
+      }
+      // Prioritas 4: Belum Dikerjakan (Backlog / To-Do)
+      else {
         hrisStatus = "PENDING";
       }
 
@@ -131,7 +135,7 @@ export async function GET(req: NextRequest) {
         priority: t.priority || "MEDIUM",
         status: hrisStatus,
         rawWorkboardStatus: t.status,
-        kanbanStage: t.kanbanStage || "To Do",
+        kanbanStage: t.kanbanStage || (hrisStatus === "COMPLETED" ? "Done" : "To Do"),
         estimatedHours: t.estimatedHours || 1,
         expectedDeadline: t.expectedDeadline ? t.expectedDeadline.toISOString() : null,
         suggestionStatus: t.suggestionStatus || "AGREED",
