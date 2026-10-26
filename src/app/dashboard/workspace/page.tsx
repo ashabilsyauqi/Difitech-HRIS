@@ -65,6 +65,7 @@ import {
   Pencil,
   Trash2,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 
 interface TaskItem {
@@ -2440,7 +2441,27 @@ function WorkspaceCardsPageContent() {
               </div>
             </div>
 
-            {displayTasks.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-center gap-2 py-3 bg-blue-50/80 border border-blue-200 rounded-2xl w-fit mx-auto px-5 text-blue-700 shadow-2xs animate-pulse">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600 shrink-0" />
+                  <span className="text-xs font-bold">Menyinkronkan lembar kerja...</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 items-start">
+                  {[1, 2, 3, 4, 5, 6].map((idx) => (
+                    <div key={idx} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
+                      <div className="flex justify-between items-center">
+                        <div className="h-4 bg-slate-200 rounded-md w-24"></div>
+                        <div className="h-4 bg-slate-200 rounded-md w-14"></div>
+                      </div>
+                      <div className="h-5 bg-slate-200 rounded-md w-4/5"></div>
+                      <div className="h-3.5 bg-slate-100 rounded-md w-2/3"></div>
+                      <div className="h-8 bg-slate-100 rounded-xl"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : displayTasks.length === 0 ? (
               <div className="h-72 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 border border-dashed border-slate-200 rounded-3xl">
                 <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs mb-2">
                   <StickyNote className="h-6 w-6 text-slate-400" />
@@ -2555,7 +2576,25 @@ function WorkspaceCardsPageContent() {
                     </div>
 
                     <div className="p-3 flex-1 space-y-3 overflow-y-auto">
-                      {colTasks.length === 0 ? (
+                      {isLoading ? (
+                        <div className="space-y-3 py-1">
+                          <div className="flex items-center justify-center gap-2 py-3 bg-white/80 rounded-2xl border border-slate-200/80 shadow-2xs text-slate-500 animate-pulse">
+                            <Loader2 className="h-4 w-4 animate-spin text-blue-600 shrink-0" />
+                            <span className="text-[11px] font-bold text-slate-600">Memuat kartu...</span>
+                          </div>
+                          <div className="animate-pulse space-y-2.5">
+                            <div className="h-24 bg-white/70 rounded-2xl border border-slate-200/70 p-3 space-y-2">
+                              <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                              <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                              <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                            </div>
+                            <div className="h-20 bg-white/40 rounded-2xl border border-slate-200/50 p-3 space-y-2">
+                              <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+                              <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : colTasks.length === 0 ? (
                         <div className="h-44 flex flex-col items-center justify-center text-center p-3 text-slate-400 border border-dashed border-slate-300/80 rounded-2xl bg-white/40">
                           <p className="text-xs font-bold text-slate-600">Kosong</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">Tarik kartu tugas ke sini</p>
@@ -2674,7 +2713,17 @@ function WorkspaceCardsPageContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                    {tableTasks.length === 0 ? (
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="py-20 text-center">
+                          <div className="flex flex-col items-center justify-center gap-2 text-blue-600">
+                            <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
+                            <p className="font-bold text-slate-700 text-xs">Memuat lembar tugas...</p>
+                            <p className="text-[11px] text-slate-400">Sinkronisasi data real-time dengan server</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : tableTasks.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-20 text-center text-slate-400">
                           <div className="flex flex-col items-center justify-center gap-2">
@@ -2903,10 +2952,16 @@ function WorkspaceCardsPageContent() {
         )}
 
         <main
-          className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col ${
+          className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col relative ${
             boardMode === "PERSONAL" || selectedDivision ? "overflow-y-auto space-y-4" : "overflow-hidden space-y-2.5"
           }`}
         >
+          {/* Top Progress Loading Bar */}
+          {isLoading && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-blue-100 overflow-hidden z-20">
+              <div className="h-full bg-blue-600 animate-pulse w-full"></div>
+            </div>
+          )}
 
 
           {/* ========================================================================= */}
@@ -2925,6 +2980,12 @@ function WorkspaceCardsPageContent() {
                     <span className="text-xs font-semibold text-slate-600">
                       {user?.name} ({user?.department || "Difitech"})
                     </span>
+                    {isLoading && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold animate-pulse shadow-2xs">
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                        <span>Memuat data...</span>
+                      </span>
+                    )}
                   </div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
                     {personalTab === "MY_TASKS" ? "📋 Lembar Tugas Saya (Pengerjaan)" : "🚀 Tugas yang Saya Delegasikan"}
@@ -3039,9 +3100,17 @@ function WorkspaceCardsPageContent() {
                       <Layers className="h-4 w-4" />
                     </div>
                     <div>
-                      <h1 className="text-sm font-black text-slate-900 leading-none whitespace-nowrap">
-                        BigBoard Difitech
-                      </h1>
+                      <div className="flex items-center gap-2">
+                        <h1 className="text-sm font-black text-slate-900 leading-none whitespace-nowrap">
+                          BigBoard Difitech
+                        </h1>
+                        {isLoading && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold animate-pulse shadow-2xs">
+                            <Loader2 className="h-3 w-3 animate-spin text-red-600" />
+                            <span>Memuat data...</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap mt-0.5">
                         Overview 6 Divisi
                       </p>
@@ -3268,7 +3337,20 @@ function WorkspaceCardsPageContent() {
 
                           {/* Sticky Notes Scrollable Body */}
                           <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 custom-scrollbar">
-                            {cardTasks.length === 0 ? (
+                            {isLoading ? (
+                              <div className="p-4 text-center space-y-3 my-2">
+                                <div className="flex items-center justify-center gap-2 text-slate-600 bg-white/80 p-2.5 rounded-xl border border-slate-200 shadow-2xs animate-pulse">
+                                  <Loader2 className="h-4 w-4 animate-spin text-red-500 shrink-0" />
+                                  <span className="text-xs font-bold">Memuat kartu divisi...</span>
+                                </div>
+                                <div className="animate-pulse space-y-2">
+                                  <div className="h-20 bg-white/70 rounded-xl border border-slate-200 p-3 space-y-2">
+                                    <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : cardTasks.length === 0 ? (
                               <div className="p-5 text-center rounded-xl border border-dashed border-slate-300 bg-white/60 space-y-1.5 my-2">
                                 <p className="text-xs font-semibold text-slate-500">
                                   {statusFilter !== "ALL"
@@ -3526,6 +3608,12 @@ function WorkspaceCardsPageContent() {
                     {isHomeCard(selectedDivision, user?.department) && (
                       <span className="rounded-md bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 shrink-0 ml-1">
                         Divisi Saya
+                      </span>
+                    )}
+                    {isLoading && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold animate-pulse shadow-2xs ml-1">
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                        <span>Memuat data...</span>
                       </span>
                     )}
                   </div>
