@@ -131,7 +131,32 @@ export const SOSMED_WORKBOARD_STAGES: WorkboardStage[] = [
 export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): string {
   if (!task) return "NOT_STARTED";
 
-  // Check matching custom stage or Sosmed stage directly from task.kanbanStage
+  // 1. Prioritas Utama: Jika tugas selesai atau disetujui (ACC) -> DONE (atau APPROVAL)
+  if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED" || task.kanbanStage === "DONE") {
+    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
+      return "APPROVAL";
+    }
+    return "DONE";
+  }
+
+  // 2. Jika tugas dalam status revisi
+  if (task.reviewStatus === "REVISION_REQUESTED" || task.kanbanStage === "REVISION") {
+    return "REVISION";
+  }
+
+  // 3. Jika sedang menunggu review dari pemberi tugas
+  if (
+    task.reviewStatus === "TO_BE_REVIEWED" ||
+    task.reviewStatus === "UNDER_REVIEW" ||
+    task.kanbanStage === "APPROVAL"
+  ) {
+    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
+      return "APPROVAL";
+    }
+    return "SUBMIT_TO_REVIEW";
+  }
+
+  // 4. Check matching custom stage or Sosmed stage directly from task.kanbanStage
   if (task.kanbanStage) {
     if (customStages && customStages.some((s) => s.key === task.kanbanStage)) {
       return task.kanbanStage;
@@ -142,26 +167,6 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     if (["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
       return task.kanbanStage;
     }
-  }
-
-  if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED") {
-    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
-      return "APPROVAL";
-    }
-    return "DONE";
-  }
-  if (task.reviewStatus === "REVISION_REQUESTED") {
-    return "REVISION";
-  }
-  if (
-    task.reviewStatus === "TO_BE_REVIEWED" ||
-    task.reviewStatus === "UNDER_REVIEW" ||
-    task.kanbanStage === "APPROVAL"
-  ) {
-    if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
-      return "APPROVAL";
-    }
-    return "SUBMIT_TO_REVIEW";
   }
   if (task.status === "IN_PROGRESS") {
     if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF") {

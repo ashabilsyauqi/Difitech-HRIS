@@ -45,6 +45,27 @@ export async function GET(
   }
 }
 
+function triggerHrisRealtimeSync(userEmail: string, task: any) {
+  const stagingHrisUrl = process.env.STAGING_HRIS_INTERNAL_URL || "http://187.52.127.244:3010";
+  const syncSecret = process.env.INTERNAL_SYNC_SECRET || "difitech_secure_workboard_sync_secret_2026";
+
+  fetch(`${stagingHrisUrl}/api/tasks/sync-workboard?email=${encodeURIComponent(userEmail)}&secret=${syncSecret}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": syncSecret,
+    },
+    body: JSON.stringify({
+      workboardTaskId: task.id,
+      email: userEmail,
+      kanbanStage: task.kanbanStage,
+      status: task.status,
+    }),
+  }).catch((err: any) => {
+    console.warn("[DWB -> Staging HRIS Realtime Sync] Webhook failed:", err?.message);
+  });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -334,12 +355,17 @@ export async function PATCH(
           data: {
             status: "COMPLETED",
             reviewStatus: "APPROVED",
+            kanbanStage: "DONE",
             deliverableUrl: deliverableUrl || null,
             completionNote: completionNote || null,
             revisionTag: null,
             reviewedAt: new Date(),
           },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+          },
         });
+        if (updated.user?.email) triggerHrisRealtimeSync(updated.user.email, updated);
         return NextResponse.json({ success: true, task: updated });
       } else {
         // Ditugaskan oleh rekan/pemberi tugas -> masuk status TO_BE_REVIEWED!
@@ -348,11 +374,16 @@ export async function PATCH(
           data: {
             status: "IN_PROGRESS", // tetap aktif dalam proses review
             reviewStatus: "TO_BE_REVIEWED",
+            kanbanStage: "SUBMIT_TO_REVIEW",
             deliverableUrl: deliverableUrl || null,
             completionNote: completionNote || null,
             revisionTag: null,
           },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+          },
         });
+        if (updated.user?.email) triggerHrisRealtimeSync(updated.user.email, updated);
 
         // Kirim notifikasi ke Pemberi Tugas (Creator)
         if (existingTask.creatorId) {
@@ -425,8 +456,12 @@ export async function PATCH(
           data: {
             status: "COMPLETED",
             reviewStatus: "APPROVED",
+            kanbanStage: "DONE",
             revisionTag: null,
             reviewedAt: new Date(),
+          },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
           },
         });
 
@@ -455,6 +490,11 @@ export async function PATCH(
           });
         }
 
+        // Trigger realtime sync to Staging HRIS
+        if (updated.user?.email) {
+          triggerHrisRealtimeSync(updated.user.email, updated);
+        }
+
         return NextResponse.json({ success: true, task: updated });
       } else if (action === "REVISION") {
         if (!revisionNote || !revisionNote.trim()) {
@@ -466,9 +506,13 @@ export async function PATCH(
           data: {
             status: "IN_PROGRESS",
             reviewStatus: "REVISION_REQUESTED",
+            kanbanStage: "REVISION",
             revisionTag: "Perlu Revisi",
             revisionNote: revisionNote.trim(),
             reviewedAt: new Date(),
+          },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
           },
         });
 
@@ -495,6 +539,11 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+        }
+
+        // Trigger realtime sync to Staging HRIS
+        if (updated.user?.email) {
+          triggerHrisRealtimeSync(updated.user.email, updated);
         }
 
         return NextResponse.json({ success: true, task: updated });
