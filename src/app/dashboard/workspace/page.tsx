@@ -495,6 +495,7 @@ function WorkspaceCardsPageContent() {
   // User-Customizable Workboard Stages
   const [userStages, setUserStages] = useState<WorkboardStage[]>(WORKBOARD_STAGES);
   const [visibleStages, setVisibleStages] = useState<string[]>([
+    "USER_REQUESTED",
     "NOT_STARTED",
     "ON_PROGRESS",
     "SUBMIT_TO_REVIEW",
@@ -524,9 +525,19 @@ function WorkspaceCardsPageContent() {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed.stages) && parsed.stages.length > 0) {
-            setUserStages(parsed.stages);
+            let stages: WorkboardStage[] = parsed.stages;
+            if (!stages.some((s) => s.key === "USER_REQUESTED")) {
+              stages = [
+                { key: "USER_REQUESTED", label: "User Requested", step: 1, color: "purple", isDefault: true },
+                ...stages.map((s, idx) => ({ ...s, step: idx + 2 })),
+              ];
+            }
+            setUserStages(stages);
             if (Array.isArray(parsed.visibleStageKeys) && parsed.visibleStageKeys.length > 0) {
-              setVisibleStages(parsed.visibleStageKeys);
+              const visible = parsed.visibleStageKeys.includes("USER_REQUESTED")
+                ? parsed.visibleStageKeys
+                : ["USER_REQUESTED", ...parsed.visibleStageKeys];
+              setVisibleStages(visible);
             }
           }
         }
@@ -536,14 +547,24 @@ function WorkspaceCardsPageContent() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.stages) && data.stages.length > 0) {
-          setUserStages(data.stages);
-          if (Array.isArray(data.visibleStageKeys) && data.visibleStageKeys.length > 0) {
-            setVisibleStages(data.visibleStageKeys);
+          let stages: WorkboardStage[] = data.stages;
+          if (!stages.some((s) => s.key === "USER_REQUESTED")) {
+            stages = [
+              { key: "USER_REQUESTED", label: "User Requested", step: 1, color: "purple", isDefault: true },
+              ...stages.map((s, idx) => ({ ...s, step: idx + 2 })),
+            ];
           }
+          setUserStages(stages);
+          const visible = Array.isArray(data.visibleStageKeys) && data.visibleStageKeys.length > 0
+            ? (data.visibleStageKeys.includes("USER_REQUESTED")
+                ? data.visibleStageKeys
+                : ["USER_REQUESTED", ...data.visibleStageKeys])
+            : stages.map((s) => s.key);
+          setVisibleStages(visible);
           if (userId) {
             localStorage.setItem(
               `difworkboard_stages_${userId}`,
-              JSON.stringify({ stages: data.stages, visibleStageKeys: data.visibleStageKeys })
+              JSON.stringify({ stages, visibleStageKeys: visible })
             );
           }
         }
@@ -960,15 +981,22 @@ function WorkspaceCardsPageContent() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    if (targetStageKey === "NOT_STARTED" || targetStageKey === "CONTENT_BRIEF") {
+    if (targetStageKey === "USER_REQUESTED") {
+      await handleStatusChange(taskId, "REQUESTED");
+      await fetch(`/api/workspace/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kanbanStage: "USER_REQUESTED" }),
+      });
+      fetchTasks();
+    } else if (targetStageKey === "NOT_STARTED" || targetStageKey === "CONTENT_BRIEF") {
       await handleStatusChange(taskId, "PENDING");
-      if (targetStageKey === "CONTENT_BRIEF") {
-        await fetch(`/api/workspace/tasks/${taskId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kanbanStage: "CONTENT_BRIEF" }),
-        });
-      }
+      await fetch(`/api/workspace/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kanbanStage: targetStageKey }),
+      });
+      fetchTasks();
     } else if (targetStageKey === "ON_PROGRESS" || targetStageKey === "SHOOTING" || targetStageKey === "DESIGN" || targetStageKey === "VIDEO_EDITING") {
       await handleStartTask(taskId);
       if (targetStageKey !== "ON_PROGRESS") {
@@ -1237,7 +1265,7 @@ function WorkspaceCardsPageContent() {
             {isUserRequested && (
               <span className="rounded-full bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 shadow-2xs flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <Inbox className="h-2.5 w-2.5" />
-                User Requested
+                Request: {task.creator?.name ? task.creator.name.split(" ")[0] : "User Lain"}
               </span>
             )}
 
@@ -1407,15 +1435,19 @@ function WorkspaceCardsPageContent() {
                 })}
               </div>
 
-              {/* Quick Action Button for First / Not Started Stage */}
-              {(stageKey === "NOT_STARTED" || (userStages[0] && stageKey === userStages[0].key && task.status === "PENDING")) && isMyTask && (
+              {/* Quick Action Button for First / User Requested / Not Started Stage */}
+              {(stageKey === "USER_REQUESTED" || stageKey === "NOT_STARTED" || (userStages[0] && stageKey === userStages[0].key && task.status === "PENDING")) && isMyTask && (
                 <button
                   type="button"
                   onClick={() => handleStartTask(task.id)}
-                  className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                  className={`w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-white text-[10px] font-bold shadow-2xs transition cursor-pointer ${
+                    stageKey === "USER_REQUESTED"
+                      ? "bg-purple-600 hover:bg-purple-700"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                 >
                   <Play className="h-3 w-3" />
-                  <span>Next: Mulai Kerjakan &rarr;</span>
+                  <span>{stageKey === "USER_REQUESTED" ? "Terima & Mulai Kerjakan \u2192" : "Next: Mulai Kerjakan \u2192"}</span>
                 </button>
               )}
             </div>
@@ -1622,11 +1654,12 @@ function WorkspaceCardsPageContent() {
   };
 
   const stageWeight: Record<string, number> = {
-    NOT_STARTED: 1,
-    ON_PROGRESS: 2,
-    SUBMIT_TO_REVIEW: 3,
-    REVISION: 4,
-    DONE: 5,
+    USER_REQUESTED: 1,
+    NOT_STARTED: 2,
+    ON_PROGRESS: 3,
+    SUBMIT_TO_REVIEW: 4,
+    REVISION: 5,
+    DONE: 6,
   };
 
   const getTaskActionRank = (t: TaskItem): number => {
@@ -1634,6 +1667,7 @@ function WorkspaceCardsPageContent() {
     const isMine = t.user?.id === user?.id || t.assignees?.some((a) => a.user?.id === user?.id);
     const isCreatorOrMgr = t.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER";
 
+    if (stage === "USER_REQUESTED" && isMine) return 0; // Terima & Mulai
     if (stage === "ON_PROGRESS" && isMine) return 1; // Submit deliverable
     if (stage === "REVISION" && isMine) return 2; // Submit revision
     if (stage === "NOT_STARTED" && isMine) return 3; // Mulai

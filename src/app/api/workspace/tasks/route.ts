@@ -316,7 +316,7 @@ export async function POST(req: NextRequest) {
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : 1.0,
         status: isSelfTask ? "PENDING" : "REQUESTED",
         isContentProduction: isSosmedProduction,
-        kanbanStage: isSosmedProduction ? "CONTENT_BRIEF" : null,
+        kanbanStage: isSosmedProduction ? "CONTENT_BRIEF" : isSelfTask ? "NOT_STARTED" : "USER_REQUESTED",
         category: normalizedDepartmentCard,
         assignees: {
           create: finalAssigneeIds.map((uid, index) => ({

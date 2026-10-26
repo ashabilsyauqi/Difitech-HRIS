@@ -112,11 +112,12 @@ export interface WorkboardStage {
 }
 
 export const WORKBOARD_STAGES: WorkboardStage[] = [
-  { key: "NOT_STARTED", label: "Not Started", step: 1, color: "slate", isDefault: true },
-  { key: "ON_PROGRESS", label: "On Progress", step: 2, color: "blue", isDefault: true },
-  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 3, color: "amber", isDefault: true },
-  { key: "REVISION", label: "Revision", step: 4, color: "rose", isDefault: true },
-  { key: "DONE", label: "Done", step: 5, color: "emerald", isDefault: true },
+  { key: "USER_REQUESTED", label: "User Requested", step: 1, color: "purple", isDefault: true },
+  { key: "NOT_STARTED", label: "Not Started", step: 2, color: "slate", isDefault: true },
+  { key: "ON_PROGRESS", label: "On Progress", step: 3, color: "blue", isDefault: true },
+  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 4, color: "amber", isDefault: true },
+  { key: "REVISION", label: "Revision", step: 5, color: "rose", isDefault: true },
+  { key: "DONE", label: "Done", step: 6, color: "emerald", isDefault: true },
 ];
 
 export const SOSMED_WORKBOARD_STAGES: WorkboardStage[] = [
@@ -156,7 +157,12 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     return "SUBMIT_TO_REVIEW";
   }
 
-  // 4. Check matching custom stage or Sosmed stage directly from task.kanbanStage
+  // 4. Jika eksplisit kanbanStage === "USER_REQUESTED" atau "REQUESTED"
+  if (task.kanbanStage === "USER_REQUESTED" || task.kanbanStage === "REQUESTED") {
+    return "USER_REQUESTED";
+  }
+
+  // 5. Check matching custom stage or Sosmed stage directly from task.kanbanStage
   if (task.kanbanStage) {
     if (customStages && customStages.some((s) => s.key === task.kanbanStage)) {
       return task.kanbanStage;
@@ -164,12 +170,14 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     if (SOSMED_WORKBOARD_STAGES.some((s) => s.key === task.kanbanStage)) {
       return task.kanbanStage;
     }
-    if (["NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
+    if (["USER_REQUESTED", "NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
       return task.kanbanStage;
     }
   }
+
+  // 6. Jika tugas sedang berjalan
   if (task.status === "IN_PROGRESS") {
-    if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF") {
+    if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF" && task.kanbanStage !== "USER_REQUESTED") {
       return task.kanbanStage;
     }
     if (customStages && customStages.some((s) => s.key === "SHOOTING")) {
@@ -177,6 +185,26 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     }
     return "ON_PROGRESS";
   }
+
+  // 7. Jika tugas status === "REQUESTED" atau merupakan request dari user lain yang belum dimulai:
+  const isCreatedByOther = Boolean(
+    (task.creatorId && task.userId && task.creatorId !== task.userId) ||
+    (task.creator?.id && task.user?.id && task.creator.id !== task.user.id) ||
+    task.status === "REQUESTED"
+  );
+
+  if (
+    isCreatedByOther &&
+    (!task.status || task.status === "REQUESTED" || task.status === "PENDING") &&
+    (!task.kanbanStage || task.kanbanStage === "USER_REQUESTED" || task.kanbanStage === "NOT_STARTED")
+  ) {
+    if (customStages && customStages.some((s) => s.key === "USER_REQUESTED" || s.key === "REQUESTED")) {
+      const match = customStages.find((s) => s.key === "USER_REQUESTED" || s.key === "REQUESTED");
+      return match ? match.key : "USER_REQUESTED";
+    }
+    return "USER_REQUESTED";
+  }
+
   if (customStages && customStages.some((s) => s.key === "CONTENT_BRIEF")) {
     return "CONTENT_BRIEF";
   }
@@ -1635,7 +1663,28 @@ export default function TaskDetailModal({
               </>
             )}
 
-            {/* STAGE 1: NOT_STARTED */}
+            {/* STAGE: USER_REQUESTED */}
+            {currentStageKey === "USER_REQUESTED" && (
+              <>
+                {isAssignee ? (
+                  <button
+                    onClick={handleStartTask}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-purple-700 transition shadow-sm cursor-pointer"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Terima & Mulai Kerjakan &rarr;</span>
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-purple-700 font-semibold bg-purple-50 px-3.5 py-2 rounded-xl border border-purple-200">
+                    <Inbox className="h-3.5 w-3.5 text-purple-600" />
+                    <span>User Requested: Menunggu Diterima PIC</span>
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* STAGE: NOT_STARTED */}
             {currentStageKey === "NOT_STARTED" && (
               <>
                 {isAssignee ? (

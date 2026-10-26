@@ -614,7 +614,10 @@ export async function PATCH(
     const updatedData: any = {};
     if (kanbanStage !== undefined) {
       updatedData.kanbanStage = kanbanStage;
-      if (kanbanStage === "NOT_STARTED") {
+      if (kanbanStage === "USER_REQUESTED") {
+        updatedData.status = "REQUESTED";
+        updatedData.reviewStatus = "NONE";
+      } else if (kanbanStage === "NOT_STARTED") {
         updatedData.status = "PENDING";
         updatedData.reviewStatus = "NONE";
       } else if (kanbanStage === "ON_PROGRESS") {

@@ -14,11 +14,12 @@ interface UserStageItem {
 }
 
 const DEFAULT_USER_STAGES: UserStageItem[] = [
-  { key: "NOT_STARTED", label: "Not Started", step: 1, color: "slate", isDefault: true },
-  { key: "ON_PROGRESS", label: "On Progress", step: 2, color: "blue", isDefault: true },
-  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 3, color: "amber", isDefault: true },
-  { key: "REVISION", label: "Revision", step: 4, color: "rose", isDefault: true },
-  { key: "DONE", label: "Done", step: 5, color: "emerald", isDefault: true },
+  { key: "USER_REQUESTED", label: "User Requested", step: 1, color: "purple", isDefault: true },
+  { key: "NOT_STARTED", label: "Not Started", step: 2, color: "slate", isDefault: true },
+  { key: "ON_PROGRESS", label: "On Progress", step: 3, color: "blue", isDefault: true },
+  { key: "SUBMIT_TO_REVIEW", label: "Submit to Review", step: 4, color: "amber", isDefault: true },
+  { key: "REVISION", label: "Revision", step: 5, color: "rose", isDefault: true },
+  { key: "DONE", label: "Done", step: 6, color: "emerald", isDefault: true },
 ];
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), "config", "user_stages.json");
@@ -57,9 +58,20 @@ export async function GET(req: NextRequest) {
     const userConfig = store[authUser.userId];
 
     if (userConfig && Array.isArray(userConfig.stages) && userConfig.stages.length > 0) {
+      let stages = userConfig.stages;
+      let visible = userConfig.visibleStageKeys || stages.map((s) => s.key);
+      if (!stages.some((s) => s.key === "USER_REQUESTED")) {
+        stages = [
+          { key: "USER_REQUESTED", label: "User Requested", step: 1, color: "purple", isDefault: true },
+          ...stages.map((s, idx) => ({ ...s, step: idx + 2 })),
+        ];
+        if (!visible.includes("USER_REQUESTED")) {
+          visible = ["USER_REQUESTED", ...visible];
+        }
+      }
       return NextResponse.json({
-        stages: userConfig.stages,
-        visibleStageKeys: userConfig.visibleStageKeys || userConfig.stages.map((s) => s.key),
+        stages,
+        visibleStageKeys: visible,
       });
     }
 
