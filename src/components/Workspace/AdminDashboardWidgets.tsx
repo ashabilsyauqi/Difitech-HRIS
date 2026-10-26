@@ -277,7 +277,7 @@ export default function AdminDashboardWidgets({
               </span>
               <span className="text-slate-500 text-xs">•</span>
               <span className="text-xs font-semibold text-slate-300">
-                Pusat Pemantauan HRIS & Operasional 6 Divisi
+                Pusat Pemantauan HRIS & Operasional 6 Divisi (Watcher)
               </span>
               {isLoading && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-700/50 text-[10px] font-bold animate-pulse">
@@ -290,12 +290,12 @@ export default function AdminDashboardWidgets({
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
               <span>Radar Pemantauan HRIS</span>
               <span className="text-xs font-normal px-2.5 py-0.5 rounded-lg bg-white/10 text-slate-300 border border-white/10 hidden sm:inline-block">
-                admin@difitech.id
+                admin@difitech.id • Watcher Mode
               </span>
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Pantau seluruh aktivitas absensi real-time, pergerakan alur kerja 6 divisi, live time tracker pengerjaan tugas karyawan, dan setujui (ACC) hasil kerja tim dalam satu pusat kontrol.
+              Pantau seluruh aktivitas absensi real-time, pergerakan alur kerja 6 divisi, live time tracker pengerjaan tugas karyawan, dan pantau progres kerja tim dalam satu pusat kontrol.
             </p>
           </div>
 
@@ -403,7 +403,7 @@ export default function AdminDashboardWidgets({
           </div>
         </div>
 
-        {/* Card 4: Menunggu Persetujuan (ACC/Review) */}
+        {/* Card 4: Sedang Di-Review (Tinjauan Divisi - Watcher) */}
         <div
           onClick={() => {
             setActiveTab("ALL_TASKS");
@@ -416,17 +416,17 @@ export default function AdminDashboardWidgets({
           }`}
         >
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Perlu Persetujuan</span>
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Sedang Di-Review</span>
             <div className="h-7 w-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center group-hover:scale-110 transition">
-              <AlertCircle className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-amber-900">{reviewTasks.length}</span>
-            <span className="text-xs text-amber-700/80 font-semibold">tugas siap di-ACC</span>
+            <span className="text-xs text-amber-700/80 font-semibold">tugas dalam review</span>
           </div>
           <div className="mt-2.5 text-[10px] text-amber-800 font-medium">
-            {reviewTasks.length > 0 ? "Menunggu verifikasi admin/manager" : "Tidak ada antrean review"}
+            {reviewTasks.length > 0 ? "Ditinjau oleh PIC / pemberi tugas" : "Tidak ada tugas di-review"}
           </div>
         </div>
 
@@ -548,104 +548,7 @@ export default function AdminDashboardWidgets({
       {/* ========================================================================= */}
       {activeTab === "OVERVIEW" && (
         <div className="space-y-6">
-          {/* Approval Action Center Banner (If tasks need review) */}
-          {reviewTasks.length > 0 && (
-            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-3xl p-5 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                    <AlertCircle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-amber-950">
-                      Antrean Persetujuan / Review Tugas ({reviewTasks.length})
-                    </h3>
-                    <p className="text-xs text-amber-800">
-                      Karyawan telah menyerahkan link deliverable atau meminta ACC penyelesaian tugas.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("ALL_TASKS");
-                    setTaskStageFilter("REVIEW");
-                  }}
-                  className="text-xs font-bold text-amber-900 hover:text-amber-950 underline flex items-center gap-1 self-start sm:self-auto"
-                >
-                  <span>Lihat semua {reviewTasks.length} antrean</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {reviewTasks.slice(0, 3).map((task) => (
-                  <div
-                    key={task.id}
-                    className="bg-white p-3.5 rounded-2xl border border-amber-200 shadow-2xs hover:shadow-sm transition flex flex-col justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
-                          {task.departmentCard || "TUGAS"}
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400">
-                          {task.brandName || "Internal"}
-                        </span>
-                      </div>
-                      <h4 className="text-xs font-black text-slate-900 line-clamp-1 mb-1">{task.title}</h4>
-                      <p className="text-[11px] text-slate-500">
-                        Oleh: <span className="font-bold text-slate-700">{task.user?.name || "Karyawan"}</span>
-                      </p>
-                    </div>
-
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                      {task.deliverableUrl ? (
-                        <a
-                          href={task.deliverableUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 truncate"
-                        >
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                          <span className="truncate">Cek Deliverable</span>
-                        </a>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">Tanpa link URL</span>
-                      )}
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => onApproveTask(task.id)}
-                          className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <Check className="h-3 w-3" />
-                          <span>ACC</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRequestRevision(task)}
-                          className="px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          <span>Revisi</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSelectTask(task)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                          title="Buka Lembar Kerja"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* 6 Division Cards Grid */}
           <div>
@@ -952,7 +855,7 @@ export default function AdminDashboardWidgets({
                 <span>Monitoring Seluruh Tugas Perusahaan ({filteredTasks.length})</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Pantau progres tugas tim di 6 divisi, verifikasi status, dan setujui (ACC) hasil pekerjaan.
+                Pantau progres tugas tim di 6 divisi dan status pengerjaan seluruh perusahaan (Watcher).
               </p>
             </div>
 
@@ -1107,26 +1010,6 @@ export default function AdminDashboardWidgets({
                       </a>
                     )}
 
-                    {isNeedsApproval && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onApproveTask(task.id)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>ACC</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRequestRevision(task)}
-                          className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          <span>Minta Revisi</span>
-                        </button>
-                      </>
-                    )}
 
                     <button
                       type="button"

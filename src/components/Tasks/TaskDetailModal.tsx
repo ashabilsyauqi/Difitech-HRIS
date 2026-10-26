@@ -451,7 +451,8 @@ export default function TaskDetailModal({
         ))
   );
   const isCreator = currentUser && task.creator?.id === currentUser.id;
-  const isCreatorOrManager = Boolean(isCreator || currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER");
+  // Admin is a pure watcher unless they explicitly created the task; only actual creator (or division manager) can approve
+  const isCreatorOrManager = Boolean(isCreator || (currentUser?.role === "MANAGER" && !isAssignee));
   const hasDeliverable = Boolean(task.deliverableUrl || task.deliverableAttachment);
   const isReviewPending =
     task.status !== "COMPLETED" &&
