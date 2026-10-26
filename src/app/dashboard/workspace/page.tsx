@@ -821,6 +821,33 @@ function WorkspaceCardsPageContent() {
     }
   }, [searchParams]);
 
+  // Auto open task detail modal if ?task= or ?taskId= is in URL
+  useEffect(() => {
+    if (!searchParams) return;
+    const taskIdParam = searchParams.get("task") || searchParams.get("taskId");
+    if (!taskIdParam) return;
+
+    if (tasks.length > 0) {
+      const found = tasks.find(
+        (t) => t.id === taskIdParam || t.id.endsWith(taskIdParam)
+      );
+      if (found) {
+        setSelectedTaskForDetail(found);
+        return;
+      }
+    }
+
+    // Direct fetch fallback if not in tasks array yet
+    fetch(`/api/workspace/tasks/${taskIdParam}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.task) {
+          setSelectedTaskForDetail(data.task);
+        }
+      })
+      .catch((err) => console.error("Error fetching task by param:", err));
+  }, [searchParams, tasks]);
+
   useEffect(() => {
     fetchTasks();
   }, [selectedBrand, searchQuery]);
