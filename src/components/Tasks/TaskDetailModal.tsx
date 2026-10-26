@@ -28,6 +28,9 @@ import {
   Image as ImageIcon,
   History,
   Loader2,
+  PlayCircle,
+  PauseCircle,
+  Timer,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
 
@@ -239,6 +242,41 @@ export default function TaskDetailModal({
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
 
+  // Time Tracker State for Modal
+  const [isTracking, setIsTracking] = useState(false);
+  const [activeSeconds, setActiveSeconds] = useState(0);
+  const [isUpdatingTimer, setIsUpdatingTimer] = useState(false);
+
+  useEffect(() => {
+    if (task) {
+      const tracking = Boolean(task.isTracking);
+      setIsTracking(tracking);
+      let sec = Number(task.trackedSeconds) || 0;
+      if (tracking && task.trackingStartedAt) {
+        const elapsed = Math.floor(
+          (Date.now() - new Date(task.trackingStartedAt).getTime()) / 1000
+        );
+        sec += Math.max(0, elapsed);
+      }
+      setActiveSeconds(sec);
+    }
+  }, [task?.id, task?.isTracking, task?.trackingStartedAt, task?.trackedSeconds, isOpen]);
+
+  useEffect(() => {
+    if (!isTracking) return;
+    const interval = setInterval(() => {
+      setActiveSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isTracking]);
+
+  const formatTimerSeconds = (totalSeconds: number) => {
+    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const s = String(totalSeconds % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  };
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -422,8 +460,21 @@ export default function TaskDetailModal({
       await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "IN_PROGRESS" }),
+        body: JSON.stringify({
+          status: "IN_PROGRESS",
+          kanbanStage: "ON_PROGRESS",
+        }),
       });
+      await fetch("/api/tasks/timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task.id,
+          action: "START",
+          trackedSeconds: activeSeconds,
+        }),
+      });
+      setIsTracking(true);
       fetchLogs(task.id);
       onUpdate();
       onClose();
@@ -507,6 +558,48 @@ export default function TaskDetailModal({
       : WORKBOARD_STAGES;
   const currentStageKey = getTaskStageKey(task, stagesToRender);
   const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
+
+  const handleToggleTimerModal = async () => {
+    if (!task?.id) return;
+    try {
+      setIsUpdatingTimer(true);
+      const action = isTracking ? "PAUSE" : "START";
+      const res = await fetch("/api/tasks/timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task.id,
+          action,
+          trackedSeconds: activeSeconds,
+        }),
+      });
+      if (res.ok) {
+        const nextTracking = !isTracking;
+        setIsTracking(nextTracking);
+        if (nextTracking) {
+          if (task.status !== "IN_PROGRESS" && task.status !== "COMPLETED") {
+            task.status = "IN_PROGRESS";
+            await fetch(`/api/workspace/tasks/${task.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: "IN_PROGRESS",
+                ...(currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED"
+                  ? { kanbanStage: "ON_PROGRESS" }
+                  : {}),
+              }),
+            });
+          }
+        }
+        fetchLogs(task.id);
+        onUpdate();
+      }
+    } catch (err) {
+      console.error("Failed to toggle timer in modal:", err);
+    } finally {
+      setIsUpdatingTimer(false);
+    }
+  };
 
   const handleAcceptDirectly = async () => {
     try {
@@ -1520,12 +1613,64 @@ export default function TaskDetailModal({
               )}
             </div>
 
-            {/* Prioritas */}
-            <div className="text-xs space-y-1">
-              <span className="text-slate-500 font-semibold block text-[11px]">Prioritas:</span>
-              <div className="p-2 rounded-xl bg-white border border-slate-200 font-bold text-xs">
-                {task.priority || "MEDIUM"}
+            {/* Tracking Waktu & Tombol Kerjakan */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Timer className="h-3.5 w-3.5 text-blue-600" />
+                  Waktu Pengerjaan
+                </span>
+                {isTracking ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700 animate-pulse border border-blue-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+                    Live Running
+                  </span>
+                ) : activeSeconds > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    Dijeda
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
+                    Belum Mulai
+                  </span>
+                )}
               </div>
+
+              {/* Big Digital Timer Display */}
+              <div className="text-center py-2.5 px-3 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="font-mono text-2xl font-black tracking-wider text-slate-800">
+                  {formatTimerSeconds(activeSeconds)}
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  {task.actualHours ? `Tercatat: ${task.actualHours} jam` : "Jam kerja terlacak"}
+                </div>
+              </div>
+
+              {/* Action Button: Kerjakan / Jeda */}
+              {isAssignee && task.status !== "COMPLETED" && (
+                <button
+                  type="button"
+                  disabled={isUpdatingTimer}
+                  onClick={handleToggleTimerModal}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs transition cursor-pointer shadow-xs disabled:opacity-50 ${
+                    isTracking
+                      ? "bg-amber-500 hover:bg-amber-600 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  {isTracking ? (
+                    <>
+                      <PauseCircle className="h-4 w-4" />
+                      <span>Jeda Pengerjaan (Pause)</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-4 w-4" />
+                      <span>{activeSeconds > 0 ? "Lanjutkan Kerjakan" : "Kerjakan (Mulai Timer)"}</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

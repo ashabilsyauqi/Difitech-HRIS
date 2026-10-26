@@ -91,6 +91,10 @@ interface TaskItem {
   createdAt: string;
   totalTimeSeconds?: number;
   timerStartedAt?: string | null;
+  isTracking?: boolean;
+  trackingStartedAt?: string | null;
+  trackedSeconds?: number;
+  actualHours?: number | null;
   user: {
     id: string;
     name: string;
@@ -762,14 +766,14 @@ function WorkspaceCardsPageContent() {
         // Sync live active timers
         const timerMap: Record<string, number> = {};
         loadedTasks.forEach((t: TaskItem) => {
-          if (t.timerStartedAt && t.status === "IN_PROGRESS") {
+          let baseSec = Number(t.trackedSeconds) || 0;
+          if (t.isTracking && t.trackingStartedAt) {
             const elapsedSinceStart = Math.floor(
-              (Date.now() - new Date(t.timerStartedAt).getTime()) / 1000
+              (Date.now() - new Date(t.trackingStartedAt).getTime()) / 1000
             );
-            timerMap[t.id] = (t.totalTimeSeconds || 0) + Math.max(0, elapsedSinceStart);
-          } else {
-            timerMap[t.id] = t.totalTimeSeconds || 0;
+            baseSec += Math.max(0, elapsedSinceStart);
           }
+          timerMap[t.id] = baseSec;
         });
         setActiveTimers(timerMap);
       }
@@ -784,16 +788,18 @@ function WorkspaceCardsPageContent() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTimers((prev) => {
+        let changed = false;
         const updated = { ...prev };
         tasks.forEach((t) => {
-          if (t.timerStartedAt && t.status === "IN_PROGRESS") {
+          if (t.isTracking && t.trackingStartedAt) {
             const elapsedSinceStart = Math.floor(
-              (Date.now() - new Date(t.timerStartedAt).getTime()) / 1000
+              (Date.now() - new Date(t.trackingStartedAt).getTime()) / 1000
             );
-            updated[t.id] = (t.totalTimeSeconds || 0) + Math.max(0, elapsedSinceStart);
+            updated[t.id] = (Number(t.trackedSeconds) || 0) + Math.max(0, elapsedSinceStart);
+            changed = true;
           }
         });
-        return updated;
+        return changed ? updated : prev;
       });
     }, 1000);
 
@@ -891,13 +897,14 @@ function WorkspaceCardsPageContent() {
   // Timer Toggle (Mulai / Jeda)
   const handleToggleTimer = async (task: TaskItem) => {
     try {
-      const isRunning = Boolean(task.timerStartedAt);
+      const isRunning = Boolean(task.isTracking);
       const res = await fetch("/api/tasks/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id,
           action: isRunning ? "PAUSE" : "START",
+          trackedSeconds: activeTimers[task.id] || task.trackedSeconds || 0,
         }),
       });
 
@@ -1049,7 +1056,19 @@ function WorkspaceCardsPageContent() {
       await fetch(`/api/workspace/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "IN_PROGRESS" }),
+        body: JSON.stringify({
+          status: "IN_PROGRESS",
+          kanbanStage: "ON_PROGRESS",
+        }),
+      });
+      await fetch("/api/tasks/timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          action: "START",
+          trackedSeconds: activeTimers[taskId] || 0,
+        }),
       });
       fetchTasks();
     } catch (err) {
@@ -1217,8 +1236,8 @@ function WorkspaceCardsPageContent() {
 
   // Helper to render individual task cards with multi-assignee avatars and Corong indicators
   const renderCard = (task: TaskItem, isPersonalBoard: boolean = false, isDelegatedView: boolean = false, cardStagesParam?: WorkboardStage[]) => {
-    const isRunning = Boolean(task.timerStartedAt);
-    const elapsed = activeTimers[task.id] || 0;
+    const isRunning = Boolean(task.isTracking);
+    const elapsed = activeTimers[task.id] !== undefined ? activeTimers[task.id] : (Number(task.trackedSeconds) || 0);
     const isMyTask = task.user?.id === user?.id || task.assignees?.some((a) => a.user?.id === user?.id);
     const isCreator = task.creator?.id === user?.id;
 
@@ -1439,7 +1458,10 @@ function WorkspaceCardsPageContent() {
               {(stageKey === "USER_REQUESTED" || stageKey === "NOT_STARTED" || (userStages[0] && stageKey === userStages[0].key && task.status === "PENDING")) && isMyTask && (
                 <button
                   type="button"
-                  onClick={() => handleStartTask(task.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartTask(task.id);
+                  }}
                   className={`w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-white text-[10px] font-bold shadow-2xs transition cursor-pointer ${
                     stageKey === "USER_REQUESTED"
                       ? "bg-purple-600 hover:bg-purple-700"
@@ -1475,7 +1497,10 @@ function WorkspaceCardsPageContent() {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => handleToggleTimer(task)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleTimer(task);
+                  }}
                   className="rounded-lg bg-blue-600 px-2 py-0.5 text-white font-bold hover:bg-blue-700 transition flex items-center gap-1 cursor-pointer"
                 >
                   {isRunning ? <PauseCircle className="h-3 w-3" /> : <PlayCircle className="h-3 w-3" />}
@@ -1483,7 +1508,10 @@ function WorkspaceCardsPageContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDeliverableModalTask(task)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeliverableModalTask(task);
+                  }}
                   className="rounded-lg bg-emerald-600 px-2 py-0.5 text-white font-bold hover:bg-emerald-700 transition flex items-center gap-1 cursor-pointer"
                 >
                   <CheckCircle2 className="h-3 w-3" />

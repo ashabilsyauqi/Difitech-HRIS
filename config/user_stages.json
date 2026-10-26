@@ -1,0 +1,57 @@
+{
+  "cmtbee7fv000rk7dr6svoai4e": {
+    "stages": [
+      {
+        "key": "USER_REQUESTED",
+        "label": "User Requested",
+        "step": 1,
+        "color": "purple",
+        "isDefault": true
+      },
+      {
+        "key": "NOT_STARTED",
+        "label": "Not Started",
+        "step": 2,
+        "color": "slate",
+        "isDefault": true
+      },
+      {
+        "key": "ON_PROGRESS",
+        "label": "lagi di kerjain",
+        "step": 3,
+        "color": "blue",
+        "isDefault": true
+      },
+      {
+        "key": "SUBMIT_TO_REVIEW",
+        "label": "Submit to Review",
+        "step": 4,
+        "color": "amber",
+        "isDefault": true
+      },
+      {
+        "key": "REVISION",
+        "label": "Revision",
+        "step": 5,
+        "color": "rose",
+        "isDefault": true
+      },
+      {
+        "key": "DONE",
+        "label": "Done",
+        "step": 6,
+        "color": "emerald",
+        "isDefault": true
+      }
+    ],
+    "visibleStageKeys": [
+      "USER_REQUESTED",
+      "NOT_STARTED",
+      "ON_PROGRESS",
+      "SUBMIT_TO_REVIEW",
+      "REVISION",
+      "DONE"
+    ],
+    "updatedAt": "2026-10-24T02:02:30.291Z"
+  }
+}
