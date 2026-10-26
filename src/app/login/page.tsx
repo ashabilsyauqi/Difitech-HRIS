@@ -30,7 +30,7 @@ const SLIDES = [
     tag: "BIGBOARD KANBAN 6 DIVISI",
     title: "Kolaborasi Horizontal Lintas Tim Tanpa Sekat",
     desc: "Papan kerja terpadu untuk Sosmed, Web Dev, Ads Performance, SEO, Marketplace, & Bisnis dengan alur delegasi otomatis dan visibilitas menyeluruh.",
-    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1400&q=85",
     badgeIcon: Layers,
     featureChip: "Corong Delegasi Otomatis",
     metrics: "6 Divisi Terintegrasi"
@@ -40,7 +40,7 @@ const SLIDES = [
     tag: "KONSOLIDASI DEADLINE BILATERAL",
     title: "Negosiasi Target Fleksibel & Audit Logs Lengkap",
     desc: "Deadline bukan lagi patokan kaku sepihak. Assignee dan Creator dapat saling bernegosiasi tanggal penyelesaian hingga sepakat dengan riwayat logs transparan.",
-    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1400&q=85",
     badgeIcon: CalendarClock,
     featureChip: "⚡ Nego & ✓ ACC Realtime",
     metrics: "100% Tercatat di Logs"
@@ -50,7 +50,7 @@ const SLIDES = [
     tag: "LEMBAR KERJA & REVIEW GATE",
     title: "Diskusi Berbalas, Lampiran & Validasi Hasil",
     desc: "Lembar kerja lengkap dengan ruang chat berbalas, berbagi lampiran media, histori mutasi pengerjaan, serta gerbang ACC atau Minta Revisi langsung.",
-    image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=85",
     badgeIcon: MessageSquare,
     featureChip: "Komentar & Attachment Live",
     metrics: "Approval & Revision Gate"
@@ -173,80 +173,75 @@ export default function LoginPage() {
       {/* COLUMN 1: Visual Showcase, Interactive Carousel & Slides */}
       {/* ======================================================== */}
       <div
-        className="relative lg:col-span-7 xl:col-span-7 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 overflow-hidden bg-slate-100/60 border-b lg:border-b-0 lg:border-r border-slate-200"
+        className="relative lg:col-span-7 xl:col-span-7 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 overflow-hidden bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
-        {/* Background Light Ambient Glows, Soft Grid & Image Layers */}
-        <div className="absolute inset-0 pointer-events-none z-0">
+        {/* Background Image Layers with Full Clarity & Vividness */}
+        <div className="absolute inset-0 z-0">
           {SLIDES.map((slide, idx) => (
             <div
               key={slide.id}
               className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                idx === currentSlide ? "opacity-45 scale-100" : "opacity-0 scale-105 pointer-events-none"
+                idx === currentSlide ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
               }`}
             >
               <img
                 src={slide.image}
                 alt={slide.title}
-                className="w-full h-full object-cover object-center filter contrast-105 brightness-105 transition-transform duration-1000"
+                className="w-full h-full object-cover object-center transition-transform duration-1000"
               />
-              {/* Soft Bright Overlays for maximum text clarity & airy modern aesthetic */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/80 to-slate-50/40" />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-50/95 via-slate-50/80 to-transparent" />
+              {/* Gentle directional scrim to maintain bright contrast while keeping the photo fully visible */}
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 via-slate-950/15 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-slate-950/20" />
             </div>
           ))}
-          {/* Subtle Clean Grid Pattern */}
-          <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-60" />
-          {/* Delicate Red Corporate Ambient Glows */}
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-red-100/70 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 right-0 w-96 h-96 bg-rose-100/50 rounded-full blur-3xl pointer-events-none" />
         </div>
 
         {/* Top Header inside Column 1 */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white p-2 shadow-sm border border-slate-200/80 ring-2 ring-red-50">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/95 px-4 py-2.5 backdrop-blur-md border border-white/90 shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5 shadow-xs border border-red-100 ring-2 ring-red-50">
               <img src="/logo.png" alt="DifWorkBoard" className="h-full w-full object-contain" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                 <span className="text-red-600">Dif</span>
                 <span className="text-slate-900">WorkBoard</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
                   Agile
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 font-medium">Enterprise Task & Team Coordination</p>
+              <p className="text-[11px] text-slate-500 font-medium">Enterprise Task & Team Coordination</p>
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-slate-200/80 shadow-xs backdrop-blur-md text-[11px] text-slate-600 font-medium">
+          <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/95 border border-white/90 shadow-md backdrop-blur-md text-[11px] text-slate-700 font-medium">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>difworkboard.difitech.id</span>
           </div>
         </div>
 
         {/* Center Main Carousel Content */}
-        <div className="relative z-10 my-10 sm:my-14 lg:my-16 max-w-2xl">
+        <div className="relative z-10 my-8 sm:my-12 lg:my-14 max-w-xl rounded-3xl bg-white/95 p-6 sm:p-8 backdrop-blur-xl border border-white/90 shadow-2xl shadow-slate-900/15">
           {/* Animated Category Tag */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 border border-red-200 shadow-xs backdrop-blur-md mb-5 text-xs font-bold text-red-700 tracking-wide">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200/80 shadow-xs mb-4 text-xs font-bold text-red-700 tracking-wide">
             <BadgeIcon className="h-4 w-4 text-red-600" />
             <span>{activeSlide.tag}</span>
           </div>
 
           {/* Slide Title & Description */}
-          <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight min-h-[4.5rem]">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight">
             {activeSlide.title}
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl font-normal">
+          <p className="mt-3.5 text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
             {activeSlide.desc}
           </p>
 
           {/* Modern Minimalist Feature Card Preview */}
-          <div className="mt-8 p-4 sm:p-5 rounded-2xl bg-white/90 border border-slate-200 shadow-sm backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-6 p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shadow-xs">
+              <div className="h-10 w-10 rounded-xl bg-red-100/80 border border-red-200/60 flex items-center justify-center text-red-600 shadow-xs">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
@@ -263,8 +258,8 @@ export default function LoginPage() {
         </div>
 
         {/* Carousel Bottom Controls & Pagination */}
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-slate-200/80">
-          <div className="flex items-center gap-2">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4">
+          <div className="flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 backdrop-blur-md border border-white/90 shadow-md">
             {SLIDES.map((slide, idx) => (
               <button
                 key={slide.id}
@@ -282,14 +277,14 @@ export default function LoginPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentSlide((prev) => (prev - 1 + SLIDES.length) % SLIDES.length)}
-              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-xs transition"
+              className="p-2 rounded-xl bg-white/95 border border-white/90 text-slate-700 hover:text-slate-950 hover:bg-white shadow-md backdrop-blur-md transition"
               title="Slide Sebelumnya"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setCurrentSlide((prev) => (prev + 1) % SLIDES.length)}
-              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-xs transition"
+              className="p-2 rounded-xl bg-white/95 border border-white/90 text-slate-700 hover:text-slate-950 hover:bg-white shadow-md backdrop-blur-md transition"
               title="Slide Berikutnya"
             >
               <ChevronRight className="h-4 w-4" />
