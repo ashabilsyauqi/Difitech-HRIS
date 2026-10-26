@@ -77,6 +77,7 @@ interface TaskItem {
   priority: string;
   expectedDeadline?: string | null;
   suggestedDeadline?: string | null;
+  targetDate?: string | null;
   suggestionReason?: string | null;
   suggestionStatus?: string;
   isContentProduction: boolean;
@@ -505,6 +506,8 @@ function WorkspaceCardsPageContent() {
   const [sortField, setSortField] = useState<SortField>("DEADLINE");
   const [sortDirection, setSortDirection] = useState<SortDirection>("ASC");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
+  const [startDateFilter, setStartDateFilter] = useState<string>("");
+  const [endDateFilter, setEndDateFilter] = useState<string>("");
 
   // Stage Customizer Inline Form State
   const [isAddingStage, setIsAddingStage] = useState(false);
@@ -1697,6 +1700,36 @@ function WorkspaceCardsPageContent() {
     });
   };
 
+  const applyDateRangeFilter = (items: TaskItem[]): TaskItem[] => {
+    if (!startDateFilter && !endDateFilter) return items;
+
+    const startMs = startDateFilter ? new Date(`${startDateFilter}T00:00:00`).getTime() : null;
+    const endMs = endDateFilter ? new Date(`${endDateFilter}T23:59:59.999`).getTime() : null;
+
+    return items.filter((t) => {
+      const deadlineMs = t.expectedDeadline
+        ? new Date(t.expectedDeadline).getTime()
+        : t.targetDate
+        ? new Date(`${t.targetDate}T23:59:59`).getTime()
+        : null;
+      const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
+
+      // If task has both creation and deadline: check if task overlaps the selected range
+      if (deadlineMs !== null && createdMs !== null) {
+        if (startMs !== null && deadlineMs < startMs && createdMs < startMs) return false;
+        if (endMs !== null && createdMs > endMs && deadlineMs > endMs) return false;
+        return true;
+      }
+
+      // If task only has deadline or only creation:
+      const singleDateMs = deadlineMs ?? createdMs;
+      if (singleDateMs === null) return true;
+      if (startMs !== null && singleDateMs < startMs) return false;
+      if (endMs !== null && singleDateMs > endMs) return false;
+      return true;
+    });
+  };
+
   const applyPriorityFilter = (items: TaskItem[]): TaskItem[] => {
     if (priorityFilter === "ALL") return items;
     if (priorityFilter === "URGENT") return items.filter((t) => t.priority === "URGENT");
@@ -1710,7 +1743,8 @@ function WorkspaceCardsPageContent() {
   };
 
   const filterAndSortTasks = (rawTasks: TaskItem[]): TaskItem[] => {
-    const filtered = applyPriorityFilter(rawTasks);
+    const dateFiltered = applyDateRangeFilter(rawTasks);
+    const filtered = applyPriorityFilter(dateFiltered);
     return sortTasks(filtered, sortField, sortDirection);
   };
 
@@ -2167,29 +2201,53 @@ function WorkspaceCardsPageContent() {
 
   const renderPriorityAndSortControls = () => (
     <>
-      <select
-        value={priorityFilter}
-        onChange={(e) => setPriorityFilter(e.target.value)}
-        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
-      >
-        <option value="ALL">Semua Prioritas</option>
-        <option value="URGENT">🔥 Urgent</option>
-        <option value="HIGH">⚡ Tinggi</option>
-        <option value="NORMAL">Normal / Rendah</option>
-      </select>
+      {/* Filter Rentang Tanggal Mulai & Akhir */}
+      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs shrink-0">
+        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-1">
+          <input
+            type="date"
+            value={startDateFilter}
+            onChange={(e) => setStartDateFilter(e.target.value)}
+            title="Tanggal Mulai"
+            placeholder="Mulai"
+            className="bg-transparent text-xs text-slate-700 font-bold focus:outline-none cursor-pointer w-24 sm:w-28"
+          />
+          <span className="text-slate-400 font-bold">s/d</span>
+          <input
+            type="date"
+            value={endDateFilter}
+            onChange={(e) => setEndDateFilter(e.target.value)}
+            title="Tanggal Akhir"
+            placeholder="Akhir"
+            className="bg-transparent text-xs text-slate-700 font-bold focus:outline-none cursor-pointer w-24 sm:w-28"
+          />
+        </div>
+        {(startDateFilter || endDateFilter) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStartDateFilter("");
+              setEndDateFilter("");
+            }}
+            title="Reset rentang tanggal"
+            className="text-slate-400 hover:text-red-600 p-0.5 rounded transition cursor-pointer"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
 
       <select
         value={getCurrentSortValue()}
         onChange={(e) => handleSortSelectChange(e.target.value)}
         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 font-bold focus:border-red-500 focus:bg-white focus:outline-none transition cursor-pointer shrink-0"
       >
-        <option value="DEADLINE_ASC">📅 Deadline Terdekat</option>
-        <option value="DEADLINE_DESC">📅 Deadline Terjauh</option>
+        <option value="DEADLINE_ASC">📅 Tanggal Akhir / Deadline Terdekat</option>
+        <option value="DEADLINE_DESC">📅 Tanggal Akhir / Deadline Terjauh</option>
+        <option value="CREATED_AT_DESC">🕐 Tanggal Mulai / Terbaru Dibuat</option>
+        <option value="CREATED_AT_ASC">🕐 Tanggal Mulai / Terlama Dibuat</option>
         <option value="ACTION_ASC">⚡ Tombol Aksi / Butuh Tindakan</option>
-        <option value="PRIORITY_DESC">🔥 Prioritas Tertinggi</option>
-        <option value="PRIORITY_ASC">Prioritas Terendah</option>
-        <option value="CREATED_AT_DESC">🕐 Terbaru Dibuat</option>
-        <option value="CREATED_AT_ASC">🕐 Terlama Dibuat</option>
         <option value="TITLE_ASC">🔤 Judul (A-Z)</option>
         <option value="TITLE_DESC">🔤 Judul (Z-A)</option>
         <option value="STAGE_ASC">Stage (1 ➔ 5)</option>
