@@ -71,12 +71,12 @@ export default function LoginPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Auto-play slider
+  // Auto-play slider (3 detik)
   useEffect(() => {
     if (isPaused) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
-    }, 5000);
+    }, 3000);
     return () => clearInterval(timer);
   }, [isPaused]);
 
