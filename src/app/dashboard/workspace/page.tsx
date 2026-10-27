@@ -4065,16 +4065,18 @@ function WorkspaceCardsPageContent() {
       </div>
 
       {/* Modals */}
-      <CreateTaskModal
-        isOpen={createModalOpen}
-        onClose={() => {
-          setCreateModalOpen(false);
-          setTargetCardForNew(undefined);
-        }}
-        onSuccess={fetchTasks}
-        initialDepartment={targetCardForNew}
-        defaultToSelf={boardMode === "PERSONAL" || boardMode === "DASHBOARD"}
-      />
+      {createModalOpen && (
+        <CreateTaskModal
+          isOpen={createModalOpen}
+          onClose={() => {
+            setCreateModalOpen(false);
+            setTargetCardForNew(undefined);
+          }}
+          onSuccess={fetchTasks}
+          initialDepartment={targetCardForNew}
+          defaultToSelf={boardMode === "PERSONAL" || boardMode === "DASHBOARD"}
+        />
+      )}
 
       {selectedTaskForDetail && (
         <TaskDetailModal
