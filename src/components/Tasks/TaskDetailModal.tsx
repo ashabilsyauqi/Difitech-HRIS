@@ -142,19 +142,24 @@ export const SOSMED_WORKBOARD_STAGES: WorkboardStage[] = [
 ];
 
 export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): string {
-  if (!task) return "NOT_STARTED";
+  if (!task) return customStages && customStages.length > 0 ? customStages[0].key : "NOT_STARTED";
 
   // 1. Prioritas Utama: Jika tugas selesai atau disetujui (ACC) -> DONE (atau APPROVAL)
   if (task.status === "COMPLETED" || task.reviewStatus === "APPROVED" || task.kanbanStage === "DONE") {
     if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
       return "APPROVAL";
     }
-    return "DONE";
+    if (customStages && customStages.some((s) => s.key === "DONE")) {
+      return "DONE";
+    }
+    return customStages && customStages.length > 0 ? customStages[customStages.length - 1].key : "DONE";
   }
 
   // 2. Jika tugas dalam status revisi
   if (task.reviewStatus === "REVISION_REQUESTED" || task.kanbanStage === "REVISION") {
-    return "REVISION";
+    if (customStages && customStages.some((s) => s.key === "REVISION")) {
+      return "REVISION";
+    }
   }
 
   // 3. Jika sedang menunggu review dari pemberi tugas
@@ -166,39 +171,35 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     if (customStages && customStages.some((s) => s.key === "APPROVAL")) {
       return "APPROVAL";
     }
-    return "SUBMIT_TO_REVIEW";
+    if (customStages && customStages.some((s) => s.key === "SUBMIT_TO_REVIEW")) {
+      return "SUBMIT_TO_REVIEW";
+    }
+    if (!customStages) return "SUBMIT_TO_REVIEW";
   }
 
-  // 4. Jika eksplisit kanbanStage === "USER_REQUESTED" atau "REQUESTED"
-  if (task.kanbanStage === "USER_REQUESTED" || task.kanbanStage === "REQUESTED") {
-    return "USER_REQUESTED";
+  // 4. Jika kanbanStage secara eksplisit cocok dengan customStages yang sedang dirender
+  if (task.kanbanStage && customStages && customStages.some((s) => s.key === task.kanbanStage)) {
+    return task.kanbanStage;
   }
 
-  // 5. Check matching custom stage or Sosmed stage directly from task.kanbanStage
-  if (task.kanbanStage) {
-    if (customStages && customStages.some((s) => s.key === task.kanbanStage)) {
-      return task.kanbanStage;
-    }
-    if (SOSMED_WORKBOARD_STAGES.some((s) => s.key === task.kanbanStage)) {
-      return task.kanbanStage;
-    }
-    if (["USER_REQUESTED", "NOT_STARTED", "ON_PROGRESS", "SUBMIT_TO_REVIEW", "REVISION", "DONE"].includes(task.kanbanStage)) {
-      return task.kanbanStage;
-    }
-  }
-
-  // 6. Jika tugas sedang berjalan
-  if (task.status === "IN_PROGRESS") {
-    if (task.kanbanStage && task.kanbanStage !== "CONTENT_BRIEF" && task.kanbanStage !== "USER_REQUESTED") {
-      return task.kanbanStage;
-    }
-    if (customStages && customStages.some((s) => s.key === "SHOOTING")) {
-      return task.kanbanStage || "SHOOTING";
+  // 5. Jika tugas sedang berjalan (IN_PROGRESS atau sedang ditracking)
+  if (task.status === "IN_PROGRESS" || task.isTracking) {
+    if (customStages && customStages.length > 0) {
+      if (task.kanbanStage && customStages.some((s) => s.key === task.kanbanStage)) {
+        return task.kanbanStage;
+      }
+      if (customStages.some((s) => s.key === "ON_PROGRESS")) {
+        return "ON_PROGRESS";
+      }
+      if (customStages.some((s) => s.key === "CONTENT_BRIEF")) {
+        return "CONTENT_BRIEF";
+      }
+      return customStages[0].key;
     }
     return "ON_PROGRESS";
   }
 
-  // 7. Jika tugas status === "REQUESTED" atau merupakan request dari user lain yang belum dimulai:
+  // 6. Jika tugas status === "REQUESTED" atau merupakan request dari user lain yang belum dimulai:
   const isCreatedByOther = Boolean(
     (task.creatorId && task.userId && task.creatorId !== task.userId) ||
     (task.creator?.id && task.user?.id && task.creator.id !== task.user.id) ||
@@ -217,9 +218,22 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
     return "USER_REQUESTED";
   }
 
-  if (customStages && customStages.some((s) => s.key === "CONTENT_BRIEF")) {
-    return "CONTENT_BRIEF";
+  // 7. Jika task.kanbanStage cocok dengan generic default stages tanpa customStages
+  if (task.kanbanStage && !customStages) {
+    return task.kanbanStage;
   }
+
+  // 8. Fallback untuk customStages: pastikan selalu me-return stage yang valid
+  if (customStages && customStages.length > 0) {
+    if (customStages.some((s) => s.key === "CONTENT_BRIEF")) {
+      return "CONTENT_BRIEF";
+    }
+    if (customStages.some((s) => s.key === "NOT_STARTED")) {
+      return "NOT_STARTED";
+    }
+    return customStages[0].key;
+  }
+
   return "NOT_STARTED";
 }
 
@@ -482,16 +496,34 @@ export default function TaskDetailModal({
       task.kanbanStage === "APPROVAL" ||
       (hasDeliverable && task.reviewStatus !== "APPROVED"));
 
+  const isSosmedTask = task?.departmentCard === "SOSMED" || Boolean(task?.isContentProduction);
+  const stagesToRender =
+    customStages && customStages.length > 0
+      ? customStages
+      : isSosmedTask
+      ? SOSMED_WORKBOARD_STAGES
+      : isSelfAssigned
+      ? PERSONAL_WORKBOARD_STAGES
+      : WORKBOARD_STAGES;
+  const currentStageKey = getTaskStageKey(task, stagesToRender);
+  const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
+
   const handleStartTask = async () => {
     if (!task?.id) return;
     try {
       setIsUpdating(true);
+      const targetStage = stagesToRender.some((s) => s.key === "ON_PROGRESS")
+        ? "ON_PROGRESS"
+        : task.kanbanStage && stagesToRender.some((s) => s.key === task.kanbanStage)
+        ? task.kanbanStage
+        : stagesToRender[0]?.key || "ON_PROGRESS";
+
       const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: "IN_PROGRESS",
-          kanbanStage: "ON_PROGRESS",
+          kanbanStage: targetStage,
         }),
       });
       const data = res.ok ? await res.json() : null;
@@ -508,7 +540,7 @@ export default function TaskDetailModal({
       const updated = data?.task || {
         ...task,
         status: "IN_PROGRESS",
-        kanbanStage: "ON_PROGRESS",
+        kanbanStage: targetStage,
         isTracking: true,
       };
       setTask(updated);
@@ -600,18 +632,6 @@ export default function TaskDetailModal({
     }
   };
 
-  const isSosmedTask = task?.departmentCard === "SOSMED" || Boolean(task?.isContentProduction);
-  const stagesToRender =
-    customStages && customStages.length > 0
-      ? customStages
-      : isSosmedTask
-      ? SOSMED_WORKBOARD_STAGES
-      : isSelfAssigned
-      ? PERSONAL_WORKBOARD_STAGES
-      : WORKBOARD_STAGES;
-  const currentStageKey = getTaskStageKey(task, stagesToRender);
-  const currentStageIndex = stagesToRender.findIndex((s) => s.key === currentStageKey);
-
   const handleToggleTimerModal = async () => {
     if (!task?.id) return;
     try {
@@ -632,13 +652,19 @@ export default function TaskDetailModal({
         let updated = { ...task, isTracking: nextTracking, trackedSeconds: activeSeconds };
         if (nextTracking) {
           if (task.status !== "IN_PROGRESS" && task.status !== "COMPLETED") {
+            const targetStage = stagesToRender.some((s) => s.key === "ON_PROGRESS")
+              ? "ON_PROGRESS"
+              : task.kanbanStage && stagesToRender.some((s) => s.key === task.kanbanStage)
+              ? task.kanbanStage
+              : stagesToRender[0]?.key || "ON_PROGRESS";
+
             const patchRes = await fetch(`/api/workspace/tasks/${task.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 status: "IN_PROGRESS",
                 ...(currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED"
-                  ? { kanbanStage: "ON_PROGRESS" }
+                  ? { kanbanStage: targetStage }
                   : {}),
               }),
             });
@@ -650,7 +676,7 @@ export default function TaskDetailModal({
                 ...updated,
                 status: "IN_PROGRESS",
                 ...(currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED"
-                  ? { kanbanStage: "ON_PROGRESS" }
+                  ? { kanbanStage: targetStage }
                   : {}),
               };
             }
@@ -698,6 +724,29 @@ export default function TaskDetailModal({
     if (!task?.id) return;
     try {
       setIsUpdating(true);
+      const targetStatus =
+        newStage === "DONE" || newStage === "APPROVAL"
+          ? (isSelfAssigned ? "COMPLETED" : "IN_PROGRESS")
+          : task.status === "COMPLETED"
+          ? "IN_PROGRESS"
+          : task.status;
+      const targetReviewStatus =
+        newStage === "REVISION"
+          ? "REVISION_REQUESTED"
+          : newStage === "APPROVAL"
+          ? (isSelfAssigned ? "APPROVED" : "TO_BE_REVIEWED")
+          : task.reviewStatus === "REVISION_REQUESTED"
+          ? "NONE"
+          : task.reviewStatus;
+
+      // Optimistic update for instant visual feedback on the stepper
+      setTask((prev: any) => ({
+        ...prev,
+        kanbanStage: newStage,
+        status: targetStatus,
+        reviewStatus: targetReviewStatus,
+      }));
+
       const res = await fetch(`/api/workspace/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -705,7 +754,12 @@ export default function TaskDetailModal({
       });
       if (res.ok) {
         const data = await res.json();
-        const updated = data?.task || { ...task, kanbanStage: newStage };
+        const updated = data?.task || {
+          ...task,
+          kanbanStage: newStage,
+          status: targetStatus,
+          reviewStatus: targetReviewStatus,
+        };
         setTask(updated);
         fetchLogs(task.id);
         if (onUpdate) onUpdate(updated);
@@ -791,8 +845,10 @@ export default function TaskDetailModal({
               return (
                 <div
                   key={stage.key}
+                  title={`Tahap ${stage.step}: ${stage.label} (Klik untuk pindah ke tahap ini)`}
                   onClick={() => {
-                    if (isAssignee || isCreatorOrManager) {
+                    const canEdit = isAssignee || isCreatorOrManager || currentUser?.role === "ADMIN";
+                    if (canEdit) {
                       if (stage.key === "ON_PROGRESS" && (currentStageKey === "USER_REQUESTED" || currentStageKey === "NOT_STARTED")) {
                         handleStartTask();
                       } else if (stage.key === "DONE" || stage.key === "APPROVAL") {
@@ -806,7 +862,7 @@ export default function TaskDetailModal({
                           } else {
                             handleApproveReview();
                           }
-                        } else if (isCreatorOrManager) {
+                        } else if (isCreatorOrManager || currentUser?.role === "ADMIN") {
                           handleApproveReview();
                         } else {
                           alert("Pekerjaan harus di-ACC oleh pemberi tugas untuk masuk ke status Selesai.");

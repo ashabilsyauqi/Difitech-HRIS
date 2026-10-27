@@ -338,6 +338,13 @@ export async function PATCH(
       } else if (isRevisionStage) {
         nextStatus = "IN_PROGRESS";
         nextReviewStatus = "REVISION_REQUESTED";
+      } else {
+        if (nextStatus === "REQUESTED" || nextStatus === "PENDING") {
+          nextStatus = "IN_PROGRESS";
+        }
+        if (nextReviewStatus === "REVISION_REQUESTED") {
+          nextReviewStatus = "NONE";
+        }
       }
 
       const updated = await prisma.task.update({
@@ -351,6 +358,18 @@ export async function PATCH(
           ...(completionNote !== undefined ? { completionNote: completionNote || null } : {}),
         },
       });
+
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "STAGE_CHANGE",
+          title: "Perpindahan Stage",
+          description: `${authUser.name} memindahkan stage ke "${stage}"`,
+          fromValue: existingTask.kanbanStage || "NONE",
+          toValue: stage,
+        },
+      }).catch(() => {});
 
       // Jika stage mencapai APPROVAL -> kirim notifikasi ke pembuat tugas asal
       if (isApprovalStage) {
