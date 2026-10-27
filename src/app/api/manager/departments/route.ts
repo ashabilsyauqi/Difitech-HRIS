@@ -11,19 +11,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Admin or Manager only" }, { status: 403 });
     }
 
-    // Ensure requested divisions exist (Ads, Creative, Operational, Website)
+    // Ensure all official divisions exist in Department table
     const requiredDepts = [
-      { id: "dept_ads", name: "Ads", code: "ADS", description: "Divisi Advertising & Media Buying", color: "#f59e0b" },
-      { id: "dept_creative", name: "Creative", code: "CRTV", description: "Divisi Creative & Content Design", color: "#8b5cf6" },
-      { id: "dept_operational", name: "Operational", code: "OPS", description: "Divisi Operasional & Administrasi", color: "#0ea5e9" },
-      { id: "dept_website", name: "Website", code: "WEB", description: "Divisi Website & Software Engineering", color: "#dc2626" },
+      { id: "dept_website", name: "Website", code: "WEB", description: "Divisi Website & Software Engineering", color: "#10b981" },
+      { id: "dept_ads", name: "Ads", code: "ADS", description: "Divisi Advertising & Media Buying", color: "#3b82f6" },
+      { id: "dept_seo", name: "SEO", code: "SEO", description: "Divisi Search Engine Optimization & Content", color: "#f59e0b" },
+      { id: "dept_sosmed", name: "Sosmed", code: "SMD", description: "Divisi Social Media & Content Production", color: "#ec4899" },
+      { id: "dept_hrd", name: "HRD", code: "HRD", description: "Divisi Human Resources & People Operations", color: "#64748b" },
+      { id: "dept_dm_executive", name: "DM Executive", code: "DME", description: "Digital Marketing Executive", color: "#6366f1" },
+      { id: "dept_ceo", name: "CEO", code: "CEO", description: "Chief Executive Officer & Executive Board", color: "#8b5cf6" },
+      { id: "dept_marketplace", name: "Marketplace", code: "MKT", description: "Divisi Marketplace & E-Commerce", color: "#a855f7" },
+      { id: "dept_operational", name: "Operational", code: "OPS", description: "Divisi Operasional & Bisnis", color: "#0ea5e9" },
     ];
 
     for (const rd of requiredDepts) {
       try {
         await prisma.department.upsert({
           where: { name: rd.name },
-          update: {},
+          update: { code: rd.code, description: rd.description, color: rd.color },
           create: rd,
         });
       } catch (e) {}

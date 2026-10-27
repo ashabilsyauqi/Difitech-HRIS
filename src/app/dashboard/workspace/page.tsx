@@ -377,6 +377,18 @@ const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
   ) {
     return true;
   }
+  if (
+    key === "DM_EXECUTIVE" &&
+    (dept.includes("dm executive") || dept.includes("digital marketing") || dept.includes("dme"))
+  ) {
+    return true;
+  }
+  if (
+    key === "CEO" &&
+    (dept.includes("ceo") || dept.includes("chief") || dept.includes("eksekutif"))
+  ) {
+    return true;
+  }
   return false;
 };
 

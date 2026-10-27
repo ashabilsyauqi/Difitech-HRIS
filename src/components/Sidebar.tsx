@@ -108,6 +108,18 @@ const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
   ) {
     return true;
   }
+  if (
+    key === "DM_EXECUTIVE" &&
+    (dept.includes("dm executive") || dept.includes("digital marketing") || dept.includes("dme"))
+  ) {
+    return true;
+  }
+  if (
+    key === "CEO" &&
+    (dept.includes("ceo") || dept.includes("chief") || dept.includes("eksekutif"))
+  ) {
+    return true;
+  }
   return false;
 };
 
@@ -176,9 +188,11 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
     }
     // Regular employee strictly sees ONLY their home division (e.g. BigBoard Web Dev)
     const homeOnly = DIVISION_BOARDS.filter((div) => isHomeCard(div.key, userDept));
-    return homeOnly.length > 0
-      ? homeOnly
-      : [DIVISION_BOARDS.find((d) => d.key === "WEB") || DIVISION_BOARDS[0]];
+    if (homeOnly.length > 0) return homeOnly;
+    // If user's home card is an executive board (HR, DM_EXECUTIVE, CEO), return empty array so they see their dedicated executive board
+    const isExecUser = isHomeCard("HR", userDept) || isHomeCard("DM_EXECUTIVE", userDept) || isHomeCard("CEO", userDept);
+    if (isExecUser) return [];
+    return [DIVISION_BOARDS.find((d) => d.key === "WEB") || DIVISION_BOARDS[0]];
   }, [isManagerOrAdmin, userDept]);
 
   // Filter board eksekutif & manajemen (HANYA tampil untuk Pak Wijaya, CEO, HR, Mba Rima - TANPA icon gembok)
@@ -311,48 +325,50 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
           </div>
 
           {/* Section 2: BigBoard per Divisi (Disesuaikan berdasarkan divisi karyawan) */}
-          <div>
-            <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
-              {isManagerOrAdmin ? "BigBoard Divisi (Semua)" : "BigBoard Divisi"}
-            </div>
-            <nav className="space-y-0.5">
-              {visibleDivisions.map((div) => {
-                const Icon = div.icon;
-                const isActive = isWorkspace && currentCard === div.key;
+          {visibleDivisions.length > 0 && (
+            <div>
+              <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {isManagerOrAdmin ? "BigBoard Divisi (Semua)" : "BigBoard Divisi"}
+              </div>
+              <nav className="space-y-0.5">
+                {visibleDivisions.map((div) => {
+                  const Icon = div.icon;
+                  const isActive = isWorkspace && currentCard === div.key;
 
-                return (
-                  <Link
-                    key={div.key}
-                    href={`/dashboard/workspace?card=${div.key}`}
-                    onClick={onClose}
-                    className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition whitespace-nowrap group ${
-                      isActive
-                        ? "bg-slate-900 text-white shadow-2xs font-bold"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 border text-[10px] ${
-                          isActive ? "bg-white/20 border-white/20 text-white" : div.color
-                        }`}
-                      >
-                        <Icon className="h-3 w-3" />
-                      </div>
-                      <span className="truncate">
-                        {!isManagerOrAdmin ? `BigBoard ${div.label}` : div.label}
-                      </span>
-                    </div>
-                    <ChevronRight
-                      className={`h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 ${
-                        isActive ? "text-white opacity-100" : "text-slate-300 opacity-60"
+                  return (
+                    <Link
+                      key={div.key}
+                      href={`/dashboard/workspace?card=${div.key}`}
+                      onClick={onClose}
+                      className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition whitespace-nowrap group ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       }`}
-                    />
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 border text-[10px] ${
+                            isActive ? "bg-white/20 border-white/20 text-white" : div.color
+                          }`}
+                        >
+                          <Icon className="h-3 w-3" />
+                        </div>
+                        <span className="truncate">
+                          {!isManagerOrAdmin ? `BigBoard ${div.label}` : div.label}
+                        </span>
+                      </div>
+                      <ChevronRight
+                        className={`h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                          isActive ? "text-white opacity-100" : "text-slate-300 opacity-60"
+                        }`}
+                      />
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
 
           {/* Section: Executive & Manajemen (HANYA tampil untuk Pak Wijaya, CEO, HR, Mba Rima - TANPA icon gembok) */}
           {visibleExecutiveBoards.length > 0 && (
