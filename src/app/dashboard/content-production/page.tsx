@@ -1137,6 +1137,11 @@ export default function ContentProductionKanbanPage() {
           suggestionStatus={deadlineModalTask.suggestionStatus}
           isCreator={deadlineModalTask.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER"}
           isAssignee={deadlineModalTask.user?.id === user?.id || deadlineModalTask.assignees?.some((a: any) => a.user?.id === user?.id)}
+          isSelfAssigned={Boolean(
+            (deadlineModalTask.user && deadlineModalTask.creator && deadlineModalTask.user.id === deadlineModalTask.creator.id) ||
+            !deadlineModalTask.creator ||
+            (deadlineModalTask.creator?.id === user?.id && deadlineModalTask.user?.id === user?.id)
+          )}
           onSuccess={fetchTasks}
         />
       )}

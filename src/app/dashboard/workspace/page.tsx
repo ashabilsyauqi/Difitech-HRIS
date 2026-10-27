@@ -11,6 +11,7 @@ import CreateTaskModal from "@/components/Tasks/CreateTaskModal";
 import TaskDetailModal, { WORKBOARD_STAGES, SOSMED_WORKBOARD_STAGES, getTaskStageKey, WorkboardStage } from "@/components/Tasks/TaskDetailModal";
 import FollowUpButton from "@/components/Tasks/FollowUpButton";
 import DeadlineSuggestionModal from "@/components/Tasks/DeadlineSuggestionModal";
+import DeadlineAlertModal from "@/components/Tasks/DeadlineAlertModal";
 import RequestRevisionModal from "@/components/Tasks/RequestRevisionModal";
 import SubmitDeliverableModal from "@/components/Tasks/SubmitDeliverableModal";
 import EmployeeDashboardWidgets from "@/components/Workspace/EmployeeDashboardWidgets";
@@ -723,6 +724,36 @@ function WorkspaceCardsPageContent() {
   const [deadlineModalTask, setDeadlineModalTask] = useState<TaskItem | null>(null);
   const [revisionModalTask, setRevisionModalTask] = useState<TaskItem | null>(null);
   const [deliverableModalTask, setDeliverableModalTask] = useState<TaskItem | null>(null);
+  const [isDeadlineAlertOpen, setIsDeadlineAlertOpen] = useState(false);
+
+  // List tugas H-1 mendekati deadline untuk peringatan pop-up login pertama
+  const h1DeadlineTasks = useMemo(() => {
+    if (!user || !tasks || tasks.length === 0) return [];
+    const now = new Date();
+    return tasks.filter((t) => {
+      const isMyTask =
+        t.user?.id === user.id ||
+        t.assignees?.some((a: any) => (a.user?.id || a.userId) === user.id);
+      if (!isMyTask) return false;
+      if (t.status === "COMPLETED" || t.kanbanStage === "DONE") return false;
+      if (!t.expectedDeadline) return false;
+      const deadline = new Date(t.expectedDeadline);
+      const diffHours = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+      return diffHours <= 36;
+    });
+  }, [tasks, user]);
+
+  // Trigger pop-up deadline H-1 pada login pertama per session
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (h1DeadlineTasks.length > 0) {
+      const alreadyShown = sessionStorage.getItem("dif_h1_deadline_alert_shown");
+      if (!alreadyShown) {
+        sessionStorage.setItem("dif_h1_deadline_alert_shown", "true");
+        setIsDeadlineAlertOpen(true);
+      }
+    }
+  }, [h1DeadlineTasks]);
 
   const fetchSession = async () => {
     try {
@@ -2985,7 +3016,9 @@ function WorkspaceCardsPageContent() {
 
         <main
           className={`flex-1 min-h-0 min-w-0 p-3 sm:p-4 w-full flex flex-col relative ${
-            boardMode === "PERSONAL" || boardMode === "DASHBOARD" || boardMode === "ADMIN" || selectedDivision
+            boardMode === "DASHBOARD"
+              ? "overflow-y-auto lg:overflow-hidden space-y-3"
+              : boardMode === "PERSONAL" || boardMode === "ADMIN" || selectedDivision
               ? "overflow-y-auto space-y-4"
               : "overflow-hidden space-y-2.5"
           }`}
@@ -3036,6 +3069,7 @@ function WorkspaceCardsPageContent() {
                 setCreateModalOpen(true);
               }}
               onOpenDeliverable={(task) => setDeliverableModalTask(task)}
+              onOpenDeadlineModal={(task) => setDeadlineModalTask(task)}
               userStages={userStages}
               cardsDefinition={CARDS_DEFINITION}
               formatTimerSeconds={formatTimerSeconds}
@@ -3877,6 +3911,7 @@ function WorkspaceCardsPageContent() {
         }}
         onSuccess={fetchTasks}
         initialDepartment={targetCardForNew}
+        defaultToSelf={boardMode === "PERSONAL" || boardMode === "DASHBOARD"}
       />
 
       {selectedTaskForDetail && (
@@ -3916,6 +3951,11 @@ function WorkspaceCardsPageContent() {
           suggestionStatus={deadlineModalTask.suggestionStatus}
           isCreator={deadlineModalTask.creator?.id === user?.id || user?.role === "ADMIN" || user?.role === "MANAGER"}
           isAssignee={deadlineModalTask.user?.id === user?.id || deadlineModalTask.assignees?.some((a) => a.user?.id === user?.id)}
+          isSelfAssigned={Boolean(
+            (deadlineModalTask.user && deadlineModalTask.creator && deadlineModalTask.user.id === deadlineModalTask.creator.id) ||
+            !deadlineModalTask.creator ||
+            (deadlineModalTask.creator?.id === user?.id && deadlineModalTask.user?.id === user?.id)
+          )}
           onSuccess={() => fetchTasks(true)}
         />
       )}
@@ -3946,6 +3986,16 @@ function WorkspaceCardsPageContent() {
           onSuccess={() => fetchTasks(true)}
         />
       )}
+
+      {/* Pop-up Alert Peringatan Deadline H-1 Login Pertama */}
+      <DeadlineAlertModal
+        isOpen={isDeadlineAlertOpen}
+        onClose={() => setIsDeadlineAlertOpen(false)}
+        tasks={h1DeadlineTasks}
+        onSelectTask={(task) => setSelectedTaskForDetail(task)}
+        onOpenDeadlineModal={(task) => setDeadlineModalTask(task)}
+        formatDateTime={formatDateTime}
+      />
     </div>
   );
 }

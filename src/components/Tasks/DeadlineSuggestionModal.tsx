@@ -24,6 +24,7 @@ interface DeadlineSuggestionModalProps {
   suggestionStatus?: string | null;
   isCreator?: boolean;
   isAssignee?: boolean;
+  isSelfAssigned?: boolean;
   onSuccess: () => void;
 }
 
@@ -38,8 +39,10 @@ export default function DeadlineSuggestionModal({
   suggestionStatus,
   isCreator = false,
   isAssignee = false,
+  isSelfAssigned = false,
   onSuccess,
 }: DeadlineSuggestionModalProps) {
+  const isSelf = Boolean(isSelfAssigned || (isCreator && isAssignee));
   const [proposedDeadline, setProposedDeadline] = useState("");
   const [reason, setReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -129,7 +132,7 @@ export default function DeadlineSuggestionModal({
       setErrorMsg("Pilih tanggal dan jam deadline yang diajukan.");
       return;
     }
-    if (!reason.trim()) {
+    if (!isSelf && !reason.trim()) {
       setErrorMsg("Tuliskan catatan atau alasan penyesuaian deadline.");
       return;
     }
@@ -142,16 +145,16 @@ export default function DeadlineSuggestionModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           consolidateDeadline: {
-            action: currentlySuggestedDeadline ? "COUNTER_PROPOSE" : "PROPOSE",
+            action: isSelf ? "PROPOSE" : currentlySuggestedDeadline ? "COUNTER_PROPOSE" : "PROPOSE",
             proposedDeadline,
-            reason: reason.trim(),
+            reason: reason.trim() || (isSelf ? "Penyesuaian target waktu mandiri" : undefined),
           },
         }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Gagal mengajukan perubahan deadline");
+        throw new Error(data.error || "Gagal memperbarui deadline");
       }
 
       onSuccess();
@@ -174,7 +177,7 @@ export default function DeadlineSuggestionModal({
             </div>
             <div>
               <h3 className="font-extrabold text-slate-900 text-sm">
-                Konsolidasi & Negosiasi Deadline
+                {isSelf ? "Atur Target Waktu Mandiri" : "Konsolidasi & Negosiasi Deadline"}
               </h3>
               <p className="text-[11px] text-slate-500 truncate max-w-[280px]">
                 {taskTitle}
@@ -197,6 +200,12 @@ export default function DeadlineSuggestionModal({
             </div>
           )}
 
+          {isSelf && (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 text-[11px] text-emerald-800 leading-relaxed">
+              <span className="font-bold">Tugas Mandiri / Pribadi:</span> Anda dapat langsung mengatur atau mengubah target batas waktu pengerjaan tugas Anda sendiri tanpa memerlukan negosiasi persetujuan dari pihak lain.
+            </div>
+          )}
+
           {/* Current Status Banner */}
           <div className="rounded-2xl bg-slate-50 border border-slate-200/90 p-3.5 space-y-2">
             <div className="flex items-center justify-between">
@@ -205,14 +214,16 @@ export default function DeadlineSuggestionModal({
               </span>
               <span
                 className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                  suggestionStatus === "AGREED"
+                  isSelf || suggestionStatus === "AGREED"
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                     : isPendingCreatorApproval || isPendingAssigneeApproval
                     ? "bg-amber-100 text-amber-800 border-amber-300"
                     : "bg-slate-100 text-slate-700 border-slate-200"
                 }`}
               >
-                {suggestionStatus === "AGREED"
+                {isSelf
+                  ? "✓ Target Mandiri"
+                  : suggestionStatus === "AGREED"
                   ? "✓ Disepakati (ACC)"
                   : isPendingCreatorApproval
                   ? "Menunggu Konfirmasi Pembuat"
@@ -232,7 +243,7 @@ export default function DeadlineSuggestionModal({
                 </span>
               </div>
 
-              {currentlySuggestedDeadline && (
+              {!isSelf && currentlySuggestedDeadline && (
                 <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200">
                   <span className="text-[10px] font-bold text-blue-600 block mb-0.5">
                     Ajuan Terkini
@@ -253,7 +264,7 @@ export default function DeadlineSuggestionModal({
           </div>
 
           {/* Direct ACC Button if the other party proposed and waiting for response */}
-          {canDirectlyAccept && activeProposalDate && suggestionStatus !== "AGREED" && (
+          {!isSelf && canDirectlyAccept && activeProposalDate && suggestionStatus !== "AGREED" && (
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
@@ -285,10 +296,16 @@ export default function DeadlineSuggestionModal({
           <form onSubmit={handleSubmitProposal} className="space-y-3.5 pt-1">
             <div className="border-t border-slate-100 pt-3">
               <span className="text-xs font-bold text-slate-800 block mb-1">
-                {currentlySuggestedDeadline ? "Ajukan Tandingan Deadline Baru" : "Ajukan Usulan Deadline Baru"}
+                {isSelf
+                  ? "Pilih Batas Waktu Baru"
+                  : currentlySuggestedDeadline
+                  ? "Ajukan Tandingan Deadline Baru"
+                  : "Ajukan Usulan Deadline Baru"}
               </span>
               <p className="text-[11px] text-slate-400 mb-2.5">
-                Tentukan tanggal baru jika ajuan saat ini belum sesuai dengan alur pengerjaan tim.
+                {isSelf
+                  ? "Tentukan tanggal dan jam target selesai untuk tugas mandiri Anda."
+                  : "Tentukan tanggal baru jika ajuan saat ini belum sesuai dengan alur pengerjaan tim."}
               </p>
             </div>
 
@@ -310,12 +327,16 @@ export default function DeadlineSuggestionModal({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Alasan / Pertimbangan Penyesuaian <span className="text-red-500">*</span>
+                {isSelf ? "Catatan Tambahan (Opsional)" : "Alasan / Pertimbangan Penyesuaian"} {!isSelf && <span className="text-red-500">*</span>}
               </label>
               <textarea
-                required
+                required={!isSelf}
                 rows={2}
-                placeholder="Misal: butuh waktu shooting tambahan 2 hari, antrean render video, review aset klien, dsb..."
+                placeholder={
+                  isSelf
+                    ? "Keterangan opsional untuk pengingat pribadi Anda..."
+                    : "Misal: butuh waktu shooting tambahan 2 hari, antrean render video, review aset klien, dsb..."
+                }
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
@@ -339,10 +360,14 @@ export default function DeadlineSuggestionModal({
                 {isLoading ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Send className="h-3.5 w-3.5" />
+                  <Check className="h-3.5 w-3.5" />
                 )}
                 <span>
-                  {currentlySuggestedDeadline ? "Kirim Tandingan Deadline" : "Kirim Usulan Deadline"}
+                  {isSelf
+                    ? "Simpan Target Waktu Baru"
+                    : currentlySuggestedDeadline
+                    ? "Kirim Tandingan Deadline"
+                    : "Kirim Usulan Deadline"}
                 </span>
               </button>
             </div>

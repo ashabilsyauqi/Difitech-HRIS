@@ -33,6 +33,7 @@ import {
   Timer,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
+import { parseDeliverableAttachments } from "@/lib/deliverable-utils";
 
 export interface TaskCommentItem {
   id: string;
@@ -469,7 +470,8 @@ export default function TaskDetailModal({
   );
   // Admin is a pure watcher unless they explicitly created the task; only actual creator (or division manager) can approve
   const isCreatorOrManager = Boolean(isCreator || (currentUser?.role === "MANAGER" && !isAssignee));
-  const hasDeliverable = Boolean(task.deliverableUrl || task.deliverableAttachment);
+  const deliverableScreenshots = parseDeliverableAttachments(task.deliverableAttachment);
+  const hasDeliverable = Boolean(task.deliverableUrl || task.deliverableAttachment || deliverableScreenshots.length > 0);
   const isReviewPending =
     !isSelfAssigned &&
     task.status !== "COMPLETED" &&
@@ -896,7 +898,7 @@ export default function TaskDetailModal({
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition shrink-0 shadow-2xs"
                     >
-                      <span>Periksa Hasil Kerja</span>
+                      <span>Buka Tautan Hasil</span>
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
@@ -904,7 +906,7 @@ export default function TaskDetailModal({
 
                 <div className="text-xs text-amber-900 space-y-1">
                   <p>
-                    <strong>{task.user?.name || "Pengerja"}</strong> telah menyelesaikan tugas ini dan menyerahkan deliverable.
+                    <strong>{task.user?.name || "Pengerja"}</strong> telah menyelesaikan tugas ini dan menyerahkan bukti kerja.
                   </p>
                   {task.completionNote && (
                     <p className="italic bg-amber-100/70 p-2.5 rounded-xl border border-amber-200 text-amber-950 font-medium">
@@ -912,6 +914,38 @@ export default function TaskDetailModal({
                     </p>
                   )}
                 </div>
+
+                {/* Screenshot Bukti Kerja */}
+                {deliverableScreenshots.length > 0 && (
+                  <div className="pt-1">
+                    <div className="flex items-center gap-1.5 mb-2 text-[11px] font-bold text-amber-950">
+                      <ImageIcon className="h-3.5 w-3.5 text-amber-700" />
+                      <span>Screenshot Bukti Kerja ({deliverableScreenshots.length} gambar - klik untuk zoom):</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {deliverableScreenshots.map((ss: string, idx: number) => (
+                        <div
+                          key={idx}
+                          onClick={() => setPreviewImageModal(ss)}
+                          className="group relative aspect-video rounded-xl border border-amber-300 bg-white overflow-hidden shadow-2xs hover:border-amber-500 transition cursor-pointer"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={ss}
+                            alt={`Screenshot ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                          <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+                            SS #{idx + 1}
+                          </span>
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">Zoom 🔍</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Aksi Pemberi Tugas (Reviewer) */}
                 {isCreatorOrManager ? (
@@ -999,21 +1033,53 @@ export default function TaskDetailModal({
 
             {/* Banner Tugas Selesai (Done !) */}
             {task.status === "COMPLETED" && (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-300 p-3.5 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
-                  <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
-                  <span>{isSelfAssigned ? "Tugas Selesai & Tuntas (Done !)" : "Tugas Telah Disetujui & Tuntas (Done !)"}</span>
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-300 p-3.5 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+                    <span>{isSelfAssigned ? "Tugas Selesai & Tuntas (Done !)" : "Tugas Telah Disetujui & Tuntas (Done !)"}</span>
+                  </div>
+                  {task.deliverableUrl && (
+                    <a
+                      href={task.deliverableUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                    >
+                      <span>Buka Tautan Hasil</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
-                {task.deliverableUrl && (
-                  <a
-                    href={task.deliverableUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
-                  >
-                    <span>Buka Deliverable</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                {deliverableScreenshots.length > 0 && (
+                  <div className="pt-2 border-t border-emerald-200">
+                    <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-bold text-emerald-900">
+                      <ImageIcon className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Screenshot Bukti Deliverable ({deliverableScreenshots.length} gambar - klik untuk zoom):</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {deliverableScreenshots.map((ss: string, idx: number) => (
+                        <div
+                          key={idx}
+                          onClick={() => setPreviewImageModal(ss)}
+                          className="group relative aspect-video rounded-xl border border-emerald-300 bg-white overflow-hidden shadow-2xs hover:border-emerald-500 transition cursor-pointer"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={ss}
+                            alt={`Screenshot ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+                            SS #{idx + 1}
+                          </span>
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">Zoom 🔍</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1037,23 +1103,49 @@ export default function TaskDetailModal({
             </div>
 
             {/* Bukti Deliverable & Hasil Akhir */}
-            {task.deliverableUrl && task.status !== "COMPLETED" && !isReviewPending && (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
-                <div className="flex items-center justify-between">
+            {(task.deliverableUrl || deliverableScreenshots.length > 0) && task.status !== "COMPLETED" && !isReviewPending && (
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     <span>Hasil Akhir Pekerjaan Telah Diserahkan</span>
                   </div>
-                  <a
-                    href={task.deliverableUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-2xs"
-                  >
-                    <span>Buka Tautan Hasil</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                  {task.deliverableUrl && (
+                    <a
+                      href={task.deliverableUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-2xs"
+                    >
+                      <span>Buka Tautan Hasil</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
+                {deliverableScreenshots.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {deliverableScreenshots.map((ss: string, idx: number) => (
+                      <div
+                        key={idx}
+                        onClick={() => setPreviewImageModal(ss)}
+                        className="group relative aspect-video rounded-xl border border-emerald-300 bg-white overflow-hidden shadow-2xs hover:border-emerald-500 transition cursor-pointer"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={ss}
+                          alt={`Screenshot ${idx + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <span className="absolute bottom-1 right-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+                          SS #{idx + 1}
+                        </span>
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">Zoom 🔍</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1616,7 +1708,13 @@ export default function TaskDetailModal({
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition cursor-pointer"
                       >
                         <ArrowRightLeft className="h-3 w-3" />
-                        <span>{task.suggestionStatus === "AGREED" ? "Konsolidasi Ulang" : "Negosiasi"}</span>
+                        <span>
+                          {isSelfAssigned
+                            ? "Ubah Deadline"
+                            : task.suggestionStatus === "AGREED"
+                            ? "Konsolidasi Ulang"
+                            : "Negosiasi"}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -1625,13 +1723,17 @@ export default function TaskDetailModal({
                   {task.suggestionStatus === "AGREED" && (
                     <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>Batas waktu ini telah disepakati bersama oleh kedua belah pihak.</span>
+                      <span>
+                        {isSelfAssigned
+                          ? "Target batas waktu mandiri yang Anda tetapkan sendiri."
+                          : "Batas waktu ini telah disepakati bersama oleh kedua belah pihak."}
+                      </span>
                     </div>
                   )}
                 </div>
 
                 {/* Case 1: Pengerja (Ashabil) melihat usulan dari Pembuat (Avila) */}
-                {task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" && (
+                {!isSelfAssigned && task.suggestionStatus === "WAITING_ASSIGNEE_CONFIRMATION" && (
                   <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-black text-amber-900">
                       <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
@@ -1670,7 +1772,7 @@ export default function TaskDetailModal({
                 )}
 
                 {/* Case 2: Pembuat (Avila) melihat usulan tandingan dari Pengerja (Ashabil) */}
-                {task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION" && (
+                {!isSelfAssigned && task.suggestionStatus === "WAITING_CREATOR_CONFIRMATION" && (
                   <div className="p-3 rounded-2xl bg-blue-50/90 border border-blue-200 text-blue-950 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-black text-blue-900">
                       <ArrowRightLeft className="h-3.5 w-3.5 text-blue-600 shrink-0" />
@@ -1788,7 +1890,19 @@ export default function TaskDetailModal({
             Tutup
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Tombol Follow Up Besar di samping tombol submit/aksi */}
+            {!isSelfAssigned && task.status !== "COMPLETED" && (
+              <FollowUpButton
+                taskId={task.id}
+                taskTitle={task.title}
+                initialFollowUps={task.followUps}
+                onFollowUpSuccess={onUpdate}
+                variant="large"
+                popoverPlacement="top"
+              />
+            )}
+
             {/* SOSMED STAGE 1: CONTENT_BRIEF */}
             {currentStageKey === "CONTENT_BRIEF" && (
               <>

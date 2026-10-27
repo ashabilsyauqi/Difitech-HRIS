@@ -877,6 +877,11 @@ export default function UnifiedTasksPage() {
           taskId={deadlineModalTask.id}
           taskTitle={deadlineModalTask.title}
           currentExpectedDeadline={deadlineModalTask.expectedDeadline}
+          isSelfAssigned={Boolean(
+            (deadlineModalTask.user && deadlineModalTask.creator && deadlineModalTask.user.id === deadlineModalTask.creator.id) ||
+            !deadlineModalTask.creator ||
+            (deadlineModalTask.creator?.id === user?.id && deadlineModalTask.user?.id === user?.id)
+          )}
           onSuccess={fetchTasks}
         />
       )}

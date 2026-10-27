@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { TaskItem } from "./TaskFormModal";
 import { getWIBDateString } from "@/lib/date-utils";
+import { parseDeliverableAttachments } from "@/lib/deliverable-utils";
 
 interface TaskKanbanBoardProps {
   tasks: TaskItem[];
@@ -436,16 +437,25 @@ export default function TaskKanbanBoard({
                         {/* Deliverable Proof of work link & screenshot */}
                         {(task.deliverableUrl || task.deliverableAttachment) && (
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            {task.deliverableAttachment && (
-                              <button
-                                type="button"
-                                onClick={() => setPreviewImage(task.deliverableAttachment!)}
-                                className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
-                              >
-                                <ImageIcon className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                <span>Lihat SS</span>
-                              </button>
-                            )}
+                            {(() => {
+                              const ssList = parseDeliverableAttachments(task.deliverableAttachment);
+                              if (ssList.length === 0) return null;
+                              return ssList.map((imgUrl, sIdx) => (
+                                <button
+                                  key={sIdx}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPreviewImage(imgUrl);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                                  title={`Buka Screenshot #${sIdx + 1}`}
+                                >
+                                  <ImageIcon className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                  <span>SS #{sIdx + 1}</span>
+                                </button>
+                              ));
+                            })()}
                             {task.deliverableUrl && (
                               <a
                                 href={task.deliverableUrl}

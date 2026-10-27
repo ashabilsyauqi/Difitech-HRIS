@@ -71,6 +71,9 @@ export default function CreateTaskModal({
   defaultToSelf = false,
   initialIsContentProduction = false,
 }: CreateTaskModalProps) {
+  const [taskMode, setTaskMode] = useState<"PERSONAL" | "TEAM">(
+    initialIsContentProduction ? "TEAM" : defaultToSelf ? "PERSONAL" : "PERSONAL"
+  );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentCard, setDepartmentCard] = useState(
@@ -94,12 +97,14 @@ export default function CreateTaskModal({
     if (initialIsContentProduction) {
       setIsContentProduction(true);
       setDepartmentCard("SOSMED");
+      setTaskMode("TEAM");
     } else {
       setIsContentProduction(false);
       if (initialDepartment) setDepartmentCard(initialDepartment);
+      setTaskMode(defaultToSelf ? "PERSONAL" : "PERSONAL");
     }
     if (initialBrand) setBrandName(initialBrand);
-  }, [initialDepartment, initialBrand, initialIsContentProduction, isOpen]);
+  }, [initialDepartment, initialBrand, initialIsContentProduction, isOpen, defaultToSelf]);
 
   useEffect(() => {
     if (isOpen) {
@@ -171,7 +176,12 @@ export default function CreateTaskModal({
       setErrorMsg("Nama Brand wajib diisi.");
       return;
     }
-    if (selectedAssigneeIds.length === 0) {
+    const finalAssigneeIds =
+      taskMode === "PERSONAL" && currentUser
+        ? [currentUser.id]
+        : selectedAssigneeIds;
+
+    if (finalAssigneeIds.length === 0) {
       setErrorMsg("Pilih minimal satu penerima tugas (Assignee).");
       return;
     }
@@ -186,8 +196,8 @@ export default function CreateTaskModal({
           description,
           departmentCard,
           brandName,
-          assigneeIds: selectedAssigneeIds,
-          assigneeId: selectedAssigneeIds[0],
+          assigneeIds: finalAssigneeIds,
+          assigneeId: finalAssigneeIds[0],
           expectedDeadline: expectedDeadline || null,
           priority,
           estimatedHours,
@@ -246,22 +256,30 @@ export default function CreateTaskModal({
                 <h3 className="font-bold text-slate-900 text-base">
                   {isContentProduction
                     ? "Lembar Kerja: Request Konten Baru (Sosmed)"
-                    : !isSelfAssigned
-                    ? `Tambah / Delegasikan Tugas ke Tim ${currentDeptConfig.label}`
-                    : "Lembar Kerja Tambah Tugas"}
+                    : taskMode === "PERSONAL"
+                    ? "Lembar Kerja: Catat Tugas Pribadi"
+                    : `Tambah / Delegasikan Tugas ke Tim ${currentDeptConfig.label}`}
                 </h3>
                 <span className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
                   isContentProduction
                     ? "bg-pink-100 text-pink-700 border-pink-200"
+                    : taskMode === "PERSONAL"
+                    ? "bg-blue-100 text-blue-700 border-blue-200"
                     : currentDeptConfig.color
                 }`}>
-                  {isContentProduction ? "🎬 Kanban Konten (Sosmed)" : `Card ${currentDeptConfig.label}`}
+                  {isContentProduction
+                    ? "🎬 Kanban Konten (Sosmed)"
+                    : taskMode === "PERSONAL"
+                    ? "👤 Tugas Mandiri"
+                    : `Card ${currentDeptConfig.label}`}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
                 {isContentProduction
                   ? "Pipeline Produksi Konten Tim Sosmed & Kreatif • DifWorkBoard System"
-                  : "Workspace Task Management • DifWorkBoard System"}
+                  : taskMode === "PERSONAL"
+                  ? "To-Do & Catatan Kerja Mandiri • Tanpa antrean review, langsung tuntas ke Done"
+                  : `Workspace Task Management Tim ${currentDeptConfig.label} • DifWorkBoard System`}
               </p>
             </div>
           </div>
@@ -292,6 +310,8 @@ export default function CreateTaskModal({
                         idx === 0
                           ? isContentProduction
                             ? "bg-pink-600 text-white shadow-xs font-bold"
+                            : taskMode === "PERSONAL"
+                            ? "bg-blue-600 text-white shadow-xs font-bold"
                             : "bg-red-600 text-white shadow-xs font-bold"
                           : "bg-slate-800 text-slate-400"
                       }`}
@@ -312,6 +332,44 @@ export default function CreateTaskModal({
             </span>
           </div>
         </div>
+
+        {/* Segmented Switcher: Mode Tugas Pribadi vs Tugas Tim/Kolaborasi */}
+        {!isContentProduction && (
+          <div className="bg-slate-100/90 border-b border-slate-200 px-6 py-2 flex items-center justify-center shrink-0">
+            <div className="inline-flex items-center bg-slate-200/90 p-1 rounded-2xl w-full max-w-lg shadow-2xs gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskMode("PERSONAL");
+                  if (currentUser) setSelectedAssigneeIds([currentUser.id]);
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition cursor-pointer select-none whitespace-nowrap ${
+                  taskMode === "PERSONAL"
+                    ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <User className="h-4 w-4 text-blue-600 shrink-0" />
+                <span className="whitespace-nowrap">Tugas Pribadi (Mandiri)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskMode("TEAM");
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition cursor-pointer select-none whitespace-nowrap ${
+                  taskMode === "TEAM"
+                    ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Users className="h-4 w-4 text-purple-600 shrink-0" />
+                <span className="whitespace-nowrap">Tugas Tim / Kolaborasi</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Form Body: 2-Column Worksheet */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col justify-between">
@@ -410,117 +468,144 @@ export default function CreateTaskModal({
                   </span>
                 </div>
 
-                {/* 1. Penerima Tugas: Multi-Assignee Selector */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-slate-500" />
-                      <span>{isContentProduction ? "Tim Konten / PIC (Bisa >1 Orang)" : "Penerima Tugas (Bisa >1 Orang)"}</span>
-                      <span className="text-red-500">*</span>
-                    </label>
-                    {currentUser && (
-                      <button
-                        type="button"
-                        onClick={selectOnlySelf}
-                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer"
-                      >
-                        Pilih Saya Sendiri
-                      </button>
-                    )}
+                {/* 1. Penerima Tugas: Personal vs Team Multi-Assignee */}
+                {taskMode === "PERSONAL" ? (
+                  <div className="rounded-2xl bg-blue-50/90 border border-blue-200 p-3.5 space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden shrink-0">
+                        {currentUser?.avatarUrl ? (
+                          <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                        ) : (
+                          (currentUser?.name || "U").charAt(0)
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider">
+                          Pelaksana Tugas (PIC):
+                        </span>
+                        <h4 className="text-xs font-black text-slate-900 truncate">
+                          {currentUser?.name || "Saya Sendiri"} (Anda)
+                        </h4>
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {currentUser?.department || currentDeptConfig.label}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-blue-900 bg-white/90 p-2.5 rounded-xl border border-blue-100 space-y-1">
+                      <p className="font-bold flex items-center gap-1.5 text-blue-800 text-[11px]">
+                        <span>✨ Alur Lembar Kerja Mandiri</span>
+                      </p>
+                      <p className="text-[10px] text-slate-600 leading-relaxed">
+                        Tugas ini otomatis masuk ke <strong>BigBoard Pribadi</strong> dan terpajang di <strong>BigBoard Divisi {currentDeptConfig.label}</strong>. Tanpa review dari orang lain, Anda dapat menyelesaikannya sendiri secara fleksibel dengan submit bukti pengerjaan.
+                      </p>
+                    </div>
                   </div>
-
-                  {/* Selected Assignees Chips */}
-                  <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-white rounded-xl border border-slate-200 min-h-[42px] items-center">
-                    {selectedAssigneeIds.map((id) => {
-                      const emp = employees.find((e) => e.id === id) || (currentUser?.id === id ? currentUser : null);
-                      const isSelf = currentUser?.id === id;
-                      return (
-                        <span
-                          key={id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200"
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-slate-500" />
+                        <span>{isContentProduction ? "Tim Konten / PIC (Bisa >1 Orang)" : "Penerima Tugas (Bisa >1 Orang)"}</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      {currentUser && (
+                        <button
+                          type="button"
+                          onClick={selectOnlySelf}
+                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer"
                         >
-                          <span className="w-5 h-5 rounded-full bg-slate-200 text-[10px] font-bold flex items-center justify-center overflow-hidden">
-                            {emp?.avatarUrl ? (
-                              <img src={emp.avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
-                            ) : (
-                              (emp?.name || "?").charAt(0)
+                          Pilih Saya Sendiri
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Selected Assignees Chips */}
+                    <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-white rounded-xl border border-slate-200 min-h-[42px] items-center">
+                      {selectedAssigneeIds.map((id) => {
+                        const emp = employees.find((e) => e.id === id) || (currentUser?.id === id ? currentUser : null);
+                        const isSelf = currentUser?.id === id;
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200"
+                          >
+                            <span className="w-5 h-5 rounded-full bg-slate-200 text-[10px] font-bold flex items-center justify-center overflow-hidden">
+                              {emp?.avatarUrl ? (
+                                <img src={emp.avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                              ) : (
+                                (emp?.name || "?").charAt(0)
+                              )}
+                            </span>
+                            <span>{isSelf ? `${emp?.name || "Saya"} (Saya)` : emp?.name || "Anggota"}</span>
+                            {selectedAssigneeIds.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => toggleAssignee(id)}
+                                className="text-slate-400 hover:text-red-500 text-xs font-bold ml-0.5 cursor-pointer"
+                              >
+                                ×
+                              </button>
                             )}
                           </span>
-                          <span>{isSelf ? `${emp?.name || "Saya"} (Saya)` : emp?.name || "Anggota"}</span>
-                          {selectedAssigneeIds.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => toggleAssignee(id)}
-                              className="text-slate-400 hover:text-red-500 text-xs font-bold ml-0.5 cursor-pointer"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
 
-                  {/* Search filter for team members */}
-                  <div className="relative mb-1.5">
-                    <input
-                      type="text"
-                      placeholder="Cari anggota tim (klik untuk tambah/kurang)..."
-                      value={assigneeSearch}
-                      onChange={(e) => setAssigneeSearch(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-1.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
-                    />
-                    <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                  </div>
+                    {/* Search filter for team members */}
+                    <div className="relative mb-1.5">
+                      <input
+                        type="text"
+                        placeholder="Cari anggota tim (klik untuk tambah/kurang)..."
+                        value={assigneeSearch}
+                        onChange={(e) => setAssigneeSearch(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 pl-8 pr-3.5 py-1.5 text-xs text-slate-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
+                      />
+                      <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    </div>
 
-                  {/* Scrollable Members List */}
-                  <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-white p-1.5">
-                    {filteredEmployees.map((emp) => {
-                      const isChecked = selectedAssigneeIds.includes(emp.id);
-                      const isMe = currentUser?.id === emp.id;
-                      return (
-                        <button
-                          key={emp.id}
-                          type="button"
-                          onClick={() => toggleAssignee(emp.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition text-left cursor-pointer ${
-                            isChecked
-                              ? "bg-slate-900 text-white font-medium"
-                              : "hover:bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              isChecked ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                            }`}>
-                              {emp.name.charAt(0)}
-                            </span>
-                            <span className="truncate">
-                              {emp.name} {isMe ? "(Saya)" : ""}
-                            </span>
-                            <span className={`text-[10px] truncate ${isChecked ? "text-slate-300" : "text-slate-400"}`}>
-                              • {emp.jobTitle || emp.department || "Karyawan"}
-                            </span>
-                          </div>
-                          {isChecked && <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    {/* Scrollable Members List */}
+                    <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-white p-1.5">
+                      {filteredEmployees.map((emp) => {
+                        const isChecked = selectedAssigneeIds.includes(emp.id);
+                        const isMe = currentUser?.id === emp.id;
+                        return (
+                          <button
+                            key={emp.id}
+                            type="button"
+                            onClick={() => toggleAssignee(emp.id)}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition text-left cursor-pointer ${
+                              isChecked
+                                ? "bg-slate-900 text-white font-medium"
+                                : "hover:bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                isChecked ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                              }`}>
+                                {emp.name.charAt(0)}
+                              </span>
+                              <span className="truncate">
+                                {emp.name} {isMe ? "(Saya)" : ""}
+                              </span>
+                              <span className={`text-[10px] truncate ${isChecked ? "text-slate-300" : "text-slate-400"}`}>
+                                • {emp.jobTitle || emp.department || "Karyawan"}
+                              </span>
+                            </div>
+                            {isChecked && <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                  {/* Corong Funnel Explainer */}
-                  <div className="mt-2 text-[10px]">
-                    {isSelfOnly ? (
-                      <p className="text-blue-700 bg-blue-50/80 border border-blue-200/80 p-2 rounded-lg leading-relaxed">
-                        ✨ <strong>Tugas Pribadi:</strong> Masuk ke <strong>BigBoard Pribadi Anda</strong> dan terpajang di <strong>BigBoard Divisi {currentDeptConfig.label}</strong>.
-                      </p>
-                    ) : (
+                    {/* Corong Funnel Explainer */}
+                    <div className="mt-2 text-[10px]">
                       <p className="text-purple-700 bg-purple-50/80 border border-purple-200/80 p-2 rounded-lg leading-relaxed">
                         🌪️ <strong>Corong Tim:</strong> Otomatis terpajang di <strong>BigBoard Divisi {currentDeptConfig.label}</strong> dan masuk ke <strong>BigBoard Pribadi {assignedNamesSummary}</strong>. Anda dapat memantau & mereview hasilnya di tab <strong>Delegasi Saya</strong>.
                       </p>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* 2. Label Nama Brand */}
                 <div>
@@ -579,22 +664,32 @@ export default function CreateTaskModal({
               type="submit"
               disabled={isLoading}
               className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-50 transition cursor-pointer ${
-                isContentProduction ? "bg-pink-600 hover:bg-pink-700" : "bg-red-600 hover:bg-red-700"
+                isContentProduction
+                  ? "bg-pink-600 hover:bg-pink-700"
+                  : taskMode === "PERSONAL"
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-purple-600 hover:bg-purple-700"
               }`}
             >
-              {isContentProduction ? <Clapperboard className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              {isContentProduction ? (
+                <Clapperboard className="h-3.5 w-3.5" />
+              ) : taskMode === "PERSONAL" ? (
+                <Check className="h-3.5 w-3.5 stroke-[3]" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
               <span>
                 {isLoading
                   ? isContentProduction
                     ? "Menyimpan Request Konten..."
-                    : !isSelfAssigned
-                    ? "Menyimpan & Mengirim Tugas..."
-                    : "Menyimpan Tugas..."
+                    : taskMode === "PERSONAL"
+                    ? "Menyimpan Tugas Pribadi..."
+                    : "Menyimpan & Mengirim Tugas Tim..."
                   : isContentProduction
                   ? "🎬 Submit Request Konten ke Kanban"
-                  : !isSelfAssigned
-                  ? `Simpan & Kirim Tugas ke ${selectedAssignee?.name || currentDeptConfig.label}`
-                  : "Posting Tugas Baru"}
+                  : taskMode === "PERSONAL"
+                  ? "Simpan ke Board Pribadi"
+                  : `Kirim & Delegasikan ke Tim (${selectedAssigneeIds.length} Orang)`}
               </span>
             </button>
           </div>

@@ -190,7 +190,46 @@ export async function PATCH(
           return NextResponse.json({ error: "Tentukan tanggal & jam deadline yang diajukan" }, { status: 400 });
         }
 
-        // Tentukan giliran konfirmasi berikutnya
+        const isSelfAssigned = !existingTask.creatorId || (existingTask.creatorId === authUser.userId && existingTask.userId === authUser.userId);
+
+        if (isSelfAssigned) {
+          // Tugas mandiri / pribadi: langsung simpan target batas waktu tanpa negosiasi bilateral
+          const updated = await prisma.task.update({
+            where: { id: params.id },
+            data: {
+              expectedDeadline: new Date(proposedDeadline),
+              suggestedDeadline: new Date(proposedDeadline),
+              suggestionStatus: "AGREED",
+              suggestionReason: reason ? reason.trim() : null,
+            },
+            include: {
+              user: { select: { id: true, name: true, department: true, avatarUrl: true } },
+              creator: { select: { id: true, name: true, department: true, avatarUrl: true } },
+              assignees: { include: { user: { select: { id: true, name: true, department: true, avatarUrl: true } } } },
+            },
+          });
+
+          await prisma.taskActivityLog.create({
+            data: {
+              taskId: params.id,
+              userId: authUser.userId,
+              actionType: "DEADLINE_CHANGE",
+              title: "Target Waktu Mandiri Diperbarui",
+              description: `${authUser.name} memperbarui target batas waktu tugas mandiri ke: ${new Date(proposedDeadline).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}`,
+              toValue: new Date(proposedDeadline).toISOString(),
+            },
+          });
+
+          return NextResponse.json({ success: true, task: updated });
+        }
+
+        // Tentukan giliran konfirmasi berikutnya untuk tugas delegasi antar tim
         const nextStatus = isCreator || isManagerOrAdmin
           ? "WAITING_ASSIGNEE_CONFIRMATION"
           : "WAITING_CREATOR_CONFIRMATION";
@@ -280,7 +319,7 @@ export async function PATCH(
 
     // 4. Update Kanban Stage (di Kanban Content Production)
     if (body.updateKanbanStage) {
-      const { stage, deliverableUrl, completionNote } = body.updateKanbanStage;
+      const { stage, deliverableUrl, deliverableAttachment, completionNote } = body.updateKanbanStage;
       const isApprovalStage = stage === "APPROVAL";
       const isRevisionStage = stage === "REVISION";
       const isSelfAssigned = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
@@ -307,8 +346,9 @@ export async function PATCH(
           kanbanStage: stage,
           status: nextStatus,
           reviewStatus: nextReviewStatus,
-          ...(deliverableUrl ? { deliverableUrl } : {}),
-          ...(completionNote ? { completionNote } : {}),
+          ...(deliverableUrl !== undefined ? { deliverableUrl: deliverableUrl || null } : {}),
+          ...(deliverableAttachment !== undefined ? { deliverableAttachment: deliverableAttachment || null } : {}),
+          ...(completionNote !== undefined ? { completionNote: completionNote || null } : {}),
         },
       });
 
@@ -333,8 +373,16 @@ export async function PATCH(
 
     // 5. Submit Hasil Tugas (Deliverable) oleh Pengerja -> Masuk tahap Review jika ada Pemberi Tugas
     if (body.submitDeliverable) {
-      const { deliverableUrl, completionNote } = body.submitDeliverable;
+      const { deliverableUrl, deliverableAttachment, completionNote } = body.submitDeliverable;
       const isSelfAssigned = !existingTask.creatorId || existingTask.creatorId === authUser.userId;
+
+      // Pastikan ada salah satu bukti (Link atau Screenshot)
+      if (!deliverableUrl && !deliverableAttachment) {
+        return NextResponse.json(
+          { error: "Harap lampirkan minimal 1 Screenshot bukti pengerjaan atau Tautan Link!" },
+          { status: 400 }
+        );
+      }
 
       // Log activity
       await prisma.taskActivityLog.create({
@@ -344,7 +392,10 @@ export async function PATCH(
           actionType: "SUBMIT_DELIVERABLE",
           title: "Penyerahan Hasil Kerja",
           description: `${authUser.name} menyerahkan hasil kerja${completionNote ? `: "${completionNote}"` : ""}`,
-          metadata: JSON.stringify({ deliverableUrl: deliverableUrl || null }),
+          metadata: JSON.stringify({
+            deliverableUrl: deliverableUrl || null,
+            hasDeliverableAttachment: Boolean(deliverableAttachment),
+          }),
         },
       });
 
@@ -357,6 +408,7 @@ export async function PATCH(
             reviewStatus: "APPROVED",
             kanbanStage: "DONE",
             deliverableUrl: deliverableUrl || null,
+            deliverableAttachment: deliverableAttachment || null,
             completionNote: completionNote || null,
             revisionTag: null,
             reviewedAt: new Date(),
@@ -376,6 +428,7 @@ export async function PATCH(
             reviewStatus: "TO_BE_REVIEWED",
             kanbanStage: "SUBMIT_TO_REVIEW",
             deliverableUrl: deliverableUrl || null,
+            deliverableAttachment: deliverableAttachment || null,
             completionNote: completionNote || null,
             revisionTag: null,
           },
