@@ -3208,7 +3208,8 @@ function WorkspaceCardsPageContent() {
 
                   <button
                     onClick={() => {
-                      setTargetCardForNew(undefined);
+                      const homeCardKey = CARDS_DEFINITION.find((c) => isHomeCard(c.key, user?.department))?.key;
+                      setTargetCardForNew(selectedDivision || homeCardKey || "WEB");
                       setCreateModalOpen(true);
                     }}
                     className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
@@ -4073,7 +4074,12 @@ function WorkspaceCardsPageContent() {
             setTargetCardForNew(undefined);
           }}
           onSuccess={fetchTasks}
-          initialDepartment={targetCardForNew}
+          initialDepartment={
+            targetCardForNew ||
+            selectedDivision ||
+            CARDS_DEFINITION.find((c) => isHomeCard(c.key, user?.department))?.key ||
+            "WEB"
+          }
           defaultToSelf={boardMode === "PERSONAL" || boardMode === "DASHBOARD"}
         />
       )}

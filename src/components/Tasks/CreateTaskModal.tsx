@@ -72,6 +72,20 @@ const CONTENT_PRODUCTION_STAGES = [
   { key: "APPROVAL", label: "6. Approval" },
 ];
 
+export const getUserHomeDepartmentCard = (dept?: string | null): string => {
+  if (!dept) return "WEB";
+  const d = dept.toLowerCase();
+  if (d.includes("web") || d.includes("dev") || d.includes("software") || d.includes("tech") || d.includes("engineer")) return "WEB";
+  if (d.includes("ads") || d.includes("advert")) return "ADS";
+  if (d.includes("seo")) return "SEO";
+  if (d.includes("sosmed") || d.includes("konten") || d.includes("content") || d.includes("creat") || d.includes("desain") || d.includes("design") || d.includes("video")) return "SOSMED";
+  if (d.includes("hr") || d.includes("human")) return "HR";
+  if (d.includes("dm") || d.includes("executive")) return "DM_EXECUTIVE";
+  if (d.includes("ceo")) return "CEO";
+  if (d.includes("market")) return "MARKETPLACE";
+  return "WEB";
+};
+
 export default function CreateTaskModal({
   isOpen,
   onClose,
@@ -87,7 +101,7 @@ export default function CreateTaskModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentCard, setDepartmentCard] = useState(
-    initialIsContentProduction ? "SOSMED" : initialDepartment || "SOSMED"
+    initialIsContentProduction ? "SOSMED" : initialDepartment || "WEB"
   );
   const [brandName, setBrandName] = useState(initialBrand || "");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
@@ -110,11 +124,15 @@ export default function CreateTaskModal({
       setTaskMode("TEAM");
     } else {
       setIsContentProduction(false);
-      if (initialDepartment) setDepartmentCard(initialDepartment);
+      if (initialDepartment) {
+        setDepartmentCard(initialDepartment);
+      } else if (currentUser?.department) {
+        setDepartmentCard(getUserHomeDepartmentCard(currentUser.department));
+      }
       setTaskMode(defaultToSelf ? "PERSONAL" : "PERSONAL");
     }
     if (initialBrand) setBrandName(initialBrand);
-  }, [initialDepartment, initialBrand, initialIsContentProduction, isOpen, defaultToSelf]);
+  }, [initialDepartment, initialBrand, initialIsContentProduction, isOpen, defaultToSelf, currentUser]);
 
   useEffect(() => {
     if (isOpen) {
@@ -134,6 +152,9 @@ export default function CreateTaskModal({
         const aData = await authRes.json();
         userObj = aData.user;
         setCurrentUser(aData.user);
+        if (!initialDepartment && !initialIsContentProduction && userObj?.department) {
+          setDepartmentCard(getUserHomeDepartmentCard(userObj.department));
+        }
       }
 
       if (metaRes.ok) {
