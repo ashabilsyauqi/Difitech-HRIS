@@ -179,19 +179,49 @@ export default function CreateTaskModal({
     }
   };
 
+  const setAsPic = (id: string) => {
+    setSelectedAssigneeIds((prev) => {
+      const remaining = prev.filter((x) => x !== id);
+      const newIds = [id, ...remaining];
+      const targetEmp = employees.find((e) => e.id === id) || (currentUser?.id === id ? currentUser : null);
+      if (targetEmp?.department) {
+        setDepartmentCard(getUserHomeDepartmentCard(targetEmp.department));
+      }
+      return newIds;
+    });
+  };
+
   const toggleAssignee = (id: string) => {
     if (selectedAssigneeIds.includes(id)) {
       if (selectedAssigneeIds.length > 1) {
-        setSelectedAssigneeIds(selectedAssigneeIds.filter((x) => x !== id));
+        const remaining = selectedAssigneeIds.filter((x) => x !== id);
+        setSelectedAssigneeIds(remaining);
+        const newPic = employees.find((e) => e.id === remaining[0]) || (currentUser?.id === remaining[0] ? currentUser : null);
+        if (newPic?.department) {
+          setDepartmentCard(getUserHomeDepartmentCard(newPic.department));
+        }
       }
     } else {
-      setSelectedAssigneeIds([...selectedAssigneeIds, id]);
+      // Jika creator adalah satu-satunya di list, dan creator memilih rekan kerja lain:
+      // Jadikan rekan kerja baru sebagai PIC utama dan arahkan target card ke divisinya
+      const targetEmp = employees.find((e) => e.id === id);
+      if (selectedAssigneeIds.length === 1 && currentUser && selectedAssigneeIds[0] === currentUser.id && targetEmp) {
+        if (targetEmp.department) {
+          setDepartmentCard(getUserHomeDepartmentCard(targetEmp.department));
+        }
+        setSelectedAssigneeIds([id, currentUser.id]);
+      } else {
+        setSelectedAssigneeIds([...selectedAssigneeIds, id]);
+      }
     }
   };
 
   const selectOnlySelf = () => {
     if (currentUser) {
       setSelectedAssigneeIds([currentUser.id]);
+      if (currentUser.department) {
+        setDepartmentCard(getUserHomeDepartmentCard(currentUser.department));
+      }
     }
   };
 
@@ -575,13 +605,18 @@ export default function CreateTaskModal({
 
                     {/* Selected Assignees Chips */}
                     <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-white rounded-xl border border-slate-200 min-h-[42px] items-center">
-                      {selectedAssigneeIds.map((id) => {
+                      {selectedAssigneeIds.map((id, index) => {
                         const emp = employees.find((e) => e.id === id) || (currentUser?.id === id ? currentUser : null);
                         const isSelf = currentUser?.id === id;
+                        const isPic = index === 0;
                         return (
                           <span
                             key={id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                              isPic
+                                ? "bg-blue-50 text-blue-900 border-blue-200 shadow-2xs font-bold"
+                                : "bg-slate-100 text-slate-800 border-slate-200"
+                            }`}
                           >
                             <span className="w-5 h-5 rounded-full bg-slate-200 text-[10px] font-bold flex items-center justify-center overflow-hidden">
                               {emp?.avatarUrl ? (
@@ -591,6 +626,20 @@ export default function CreateTaskModal({
                               )}
                             </span>
                             <span>{isSelf ? `${emp?.name || "Saya"} (Saya)` : emp?.name || "Anggota"}</span>
+                            {isPic ? (
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-blue-600 text-white shadow-2xs ml-0.5">
+                                PIC
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setAsPic(id)}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer ml-0.5 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100"
+                                title="Jadikan sebagai PIC Utama"
+                              >
+                                Set PIC
+                              </button>
+                            )}
                             {selectedAssigneeIds.length > 1 && (
                               <button
                                 type="button"

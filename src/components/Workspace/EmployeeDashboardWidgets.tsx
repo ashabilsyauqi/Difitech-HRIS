@@ -865,7 +865,7 @@ export default function EmployeeDashboardWidgets({
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Request ({activeIncomingRequests.length})
+                Request Masuk ({activeIncomingRequests.length})
               </button>
               <button
                 type="button"
@@ -876,7 +876,7 @@ export default function EmployeeDashboardWidgets({
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Pribadi ({activePersonalTasks.length})
+                Tugas Mandiri ({activePersonalTasks.length})
               </button>
               <button
                 type="button"

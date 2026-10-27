@@ -477,12 +477,22 @@ export default function TaskDetailModal({
     currentUser &&
       (task.creator?.id === currentUser.id || task.creatorId === currentUser.id)
   );
-  // Self-assigned task (dibuat dari sendiri untuk sendiri):
+  // Self-assigned task (dibuat dari sendiri untuk diri sendiri tanpa anggota lain):
+  const creatorId = task.creatorId || task.creator?.id;
+  const picId = task.userId || task.user?.id;
+  const otherAssigneesExist =
+    Array.isArray(task.assignees) &&
+    task.assignees.some((a: any) => {
+      const aId = a.userId || a.user?.id;
+      return aId && aId !== creatorId;
+    });
+
   const isSelfAssigned = Boolean(
-    (task.userId && task.creatorId && task.userId === task.creatorId) ||
-    (task.user && task.creator && task.user.id === task.creator.id) ||
-    (!task.creatorId && !task.creator && isAssignee) ||
-    (isCreator && isAssignee)
+    !otherAssigneesExist &&
+      ((picId && creatorId && picId === creatorId) ||
+        (task.user && task.creator && task.user.id === task.creator.id) ||
+        (!creatorId && isAssignee) ||
+        (isCreator && isAssignee && (!task.assignees || task.assignees.length <= 1)))
   );
   // Admin is a pure watcher unless they explicitly created the task; only actual creator (or division manager) can approve
   const isCreatorOrManager = Boolean(isCreator || (currentUser?.role === "MANAGER" && !isAssignee));

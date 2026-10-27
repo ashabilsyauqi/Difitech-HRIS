@@ -358,7 +358,7 @@ export default function ReadOnlyTasksPage() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Tugas Saya ({tasks.filter((t) => t.user?.id === user?.id).length})
+                  Tugas Saya ({tasks.filter((t) => t.user?.id === user?.id || t.assignees?.some((a) => a.user?.id === user?.id)).length})
                 </button>
                 <button
                   type="button"

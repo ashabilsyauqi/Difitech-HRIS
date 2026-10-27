@@ -1323,9 +1323,9 @@ function WorkspaceCardsPageContent() {
   // Personal Tasks: Assigned to user (either primary PIC or in assignees)
   const myAssignedTasks = useMemo(() => {
     if (!user) return [];
-    return tasks.filter((t) => {
-      const isDirect = t.user?.id === user.id;
-      const isCoAssignee = t.assignees?.some((a) => a.user?.id === user.id);
+    return tasks.filter((t: any) => {
+      const isDirect = t.user?.id === user.id || t.userId === user.id;
+      const isCoAssignee = t.assignees?.some((a: any) => (a.user?.id || a.userId) === user.id);
       return isDirect || isCoAssignee;
     });
   }, [tasks, user]);
@@ -1333,11 +1333,11 @@ function WorkspaceCardsPageContent() {
   // Delegated Tasks: Created by user where user is NOT the sole assignee
   const myDelegatedTasks = useMemo(() => {
     if (!user) return [];
-    return tasks.filter((t) => {
-      const isCreator = t.creator?.id === user.id;
+    return tasks.filter((t: any) => {
+      const isCreator = (t.creator?.id || t.creatorId) === user.id;
       const isSelfOnly =
-        t.user?.id === user.id &&
-        (!t.assignees || t.assignees.length === 0 || t.assignees.every((a) => a.user?.id === user.id));
+        (t.user?.id === user.id || t.userId === user.id) &&
+        (!t.assignees || t.assignees.length === 0 || t.assignees.every((a: any) => (a.user?.id || a.userId) === user.id));
       return isCreator && !isSelfOnly;
     });
   }, [tasks, user]);
