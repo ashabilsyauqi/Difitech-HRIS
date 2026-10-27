@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   X,
   Send,
@@ -38,13 +38,23 @@ interface CreateTaskModalProps {
   initialIsContentProduction?: boolean;
 }
 
-const DEPARTMENTS = [
+import { canAccessBoard } from "@/lib/executive-boards";
+
+interface DepartmentOption {
+  key: string;
+  label: string;
+  color: string;
+}
+
+const ALL_DEPARTMENTS: DepartmentOption[] = [
   { key: "SOSMED", label: "Sosmed", color: "bg-pink-100 text-pink-700 border-pink-200" },
   { key: "ADS", label: "Ads", color: "bg-blue-100 text-blue-700 border-blue-200" },
   { key: "SEO", label: "SEO", color: "bg-amber-100 text-amber-700 border-amber-200" },
   { key: "WEB", label: "Web", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { key: "MARKETPLACE", label: "Marketplace", color: "bg-purple-100 text-purple-700 border-purple-200" },
   { key: "HR", label: "HR", color: "bg-slate-100 text-slate-700 border-slate-300" },
+  { key: "CEO", label: "CEO", color: "bg-violet-100 text-violet-700 border-violet-200" },
+  { key: "DM_EXECUTIVE", label: "DM Executive", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
 ];
 
 const STANDARD_STAGES = [
@@ -224,9 +234,14 @@ export default function CreateTaskModal({
     }
   };
 
-  if (!isOpen) return null;
+  const availableDepartments = useMemo(() => {
+    return ALL_DEPARTMENTS.filter((d) => canAccessBoard(d.key, currentUser));
+  }, [currentUser]);
 
-  const currentDeptConfig = DEPARTMENTS.find((d) => d.key === departmentCard) || DEPARTMENTS[0];
+  const currentDeptConfig =
+    availableDepartments.find((d) => d.key === departmentCard) ||
+    availableDepartments[0] ||
+    ALL_DEPARTMENTS[0];
   const isSelfOnly =
     currentUser &&
     selectedAssigneeIds.length === 1 &&
@@ -387,15 +402,15 @@ export default function CreateTaskModal({
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Pilih Card Divisi Tujuan <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {DEPARTMENTS.map((dept) => {
+                <div className="flex flex-wrap gap-2">
+                  {availableDepartments.map((dept) => {
                     const isSelected = departmentCard === dept.key;
                     return (
                       <button
                         key={dept.key}
                         type="button"
                         onClick={() => setDepartmentCard(dept.key)}
-                        className={`rounded-xl py-2 px-1 text-xs font-bold transition border text-center cursor-pointer ${
+                        className={`rounded-xl py-2 px-3 text-xs font-bold transition border text-center cursor-pointer ${
                           isSelected
                             ? "bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-900/20"
                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"

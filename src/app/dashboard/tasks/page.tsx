@@ -96,7 +96,9 @@ const STAGE_COLUMNS = [
   },
 ];
 
-const DIVISION_OPTIONS = [
+import { canAccessBoard } from "@/lib/executive-boards";
+
+const ALL_DIVISION_OPTIONS = [
   { key: "ALL", label: "Semua Divisi" },
   { key: "WEB", label: "Web Dev" },
   { key: "SOSMED", label: "Sosmed" },
@@ -104,6 +106,8 @@ const DIVISION_OPTIONS = [
   { key: "SEO", label: "SEO" },
   { key: "MARKETPLACE", label: "Marketplace" },
   { key: "HR", label: "HR & Ops" },
+  { key: "CEO", label: "CEO" },
+  { key: "DM_EXECUTIVE", label: "DM Executive" },
 ];
 
 export default function ReadOnlyTasksPage() {
@@ -375,7 +379,7 @@ export default function ReadOnlyTasksPage() {
                 onChange={(e) => setSelectedDivision(e.target.value)}
                 className="px-2.5 py-1 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none cursor-pointer"
               >
-                {DIVISION_OPTIONS.map((opt) => (
+                {ALL_DIVISION_OPTIONS.filter((opt) => opt.key === "ALL" || canAccessBoard(opt.key, user)).map((opt) => (
                   <option key={opt.key} value={opt.key}>
                     {opt.label}
                   </option>

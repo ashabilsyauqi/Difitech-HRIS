@@ -21,6 +21,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { canAccessBoard } from "@/lib/executive-boards";
+
 interface SidebarProps {
   role: string;
   department?: string | null;
@@ -35,7 +37,12 @@ const DIVISION_BOARDS = [
   { key: "SEO", label: "SEO", icon: Globe, color: "text-amber-600 bg-amber-50 border-amber-200" },
   { key: "WEB", label: "Web Dev", icon: Sparkles, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
   { key: "MARKETPLACE", label: "Marketplace", icon: ShoppingBag, color: "text-purple-600 bg-purple-50 border-purple-200" },
+];
+
+const EXECUTIVE_BOARDS = [
+  { key: "CEO", label: "CEO", icon: ShieldCheck, color: "text-violet-600 bg-violet-50 border-violet-200" },
   { key: "HR", label: "HR", icon: Users, color: "text-slate-700 bg-slate-100 border-slate-300" },
+  { key: "DM_EXECUTIVE", label: "DM Executive", icon: Sparkles, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
 ];
 
 const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
@@ -108,17 +115,23 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [userDept, setUserDept] = useState<string | null>(department || null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    email?: string;
+    role?: string;
+    department?: string | null;
+    jobTitle?: string | null;
+  } | null>(null);
 
   useEffect(() => {
-    if (department !== undefined) {
-      setUserDept(department);
-      return;
-    }
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user?.department) {
-          setUserDept(data.user.department);
+        if (data?.user) {
+          setCurrentUser(data.user);
+          if (data.user.department && department === undefined) {
+            setUserDept(data.user.department);
+          }
         }
       })
       .catch(() => {});
@@ -167,6 +180,15 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
       ? homeOnly
       : [DIVISION_BOARDS.find((d) => d.key === "WEB") || DIVISION_BOARDS[0]];
   }, [isManagerOrAdmin, userDept]);
+
+  // Filter board eksekutif & manajemen (HANYA tampil untuk Pak Wijaya, CEO, HR, Mba Rima - TANPA icon gembok)
+  const visibleExecutiveBoards = useMemo(() => {
+    const userCtx = currentUser || {
+      role,
+      department: userDept,
+    };
+    return EXECUTIVE_BOARDS.filter((board) => canAccessBoard(board.key, userCtx));
+  }, [currentUser, role, userDept]);
 
   return (
     <>
@@ -278,7 +300,7 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
               </div>
               {isManagerOrAdmin ? (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black bg-slate-100 text-slate-600 shrink-0">
-                  6 Divisi
+                  5 Divisi
                 </span>
               ) : (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black bg-slate-100 text-slate-600 shrink-0">
@@ -331,6 +353,50 @@ function SidebarInner({ role, department, isOpen, onClose, relevantDivisionKeys 
               })}
             </nav>
           </div>
+
+          {/* Section: Executive & Manajemen (HANYA tampil untuk Pak Wijaya, CEO, HR, Mba Rima - TANPA icon gembok) */}
+          {visibleExecutiveBoards.length > 0 && (
+            <div>
+              <div className="px-2.5 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                Executive & Manajemen
+              </div>
+              <nav className="space-y-0.5">
+                {visibleExecutiveBoards.map((div) => {
+                  const Icon = div.icon;
+                  const isActive = isWorkspace && currentCard === div.key;
+
+                  return (
+                    <Link
+                      key={div.key}
+                      href={`/dashboard/workspace?card=${div.key}`}
+                      onClick={onClose}
+                      className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold transition whitespace-nowrap group ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`h-5 w-5 rounded-md flex items-center justify-center shrink-0 border text-[10px] ${
+                            isActive ? "bg-white/20 border-white/20 text-white" : div.color
+                          }`}
+                        >
+                          <Icon className="h-3 w-3" />
+                        </div>
+                        <span className="truncate">{div.label}</span>
+                      </div>
+                      <ChevronRight
+                        className={`h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                          isActive ? "text-white opacity-100" : "text-slate-300 opacity-60"
+                        }`}
+                      />
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
 
           {/* Section 3: BigBoard Pribadi */}
           <div>

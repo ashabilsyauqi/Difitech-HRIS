@@ -33,6 +33,18 @@ import {
   Filter,
 } from "lucide-react";
 import { getWIBDateString } from "@/lib/date-utils";
+import { canAccessBoard } from "@/lib/executive-boards";
+
+const ALL_DEPARTMENTS_FILTER = [
+  { key: "SOSMED", label: "Sosmed" },
+  { key: "ADS", label: "Ads" },
+  { key: "SEO", label: "SEO" },
+  { key: "WEB", label: "Web Dev" },
+  { key: "MARKETPLACE", label: "Marketplace" },
+  { key: "HR", label: "HR" },
+  { key: "CEO", label: "CEO" },
+  { key: "DM_EXECUTIVE", label: "DM Executive" },
+];
 
 const COLUMNS = [
   {
@@ -490,12 +502,11 @@ export default function UnifiedTasksPage() {
                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-red-500 focus:outline-none font-medium"
               >
                 <option value="ALL">Semua Divisi</option>
-                <option value="SOSMED">Sosmed</option>
-                <option value="ADS">Ads</option>
-                <option value="SEO">SEO</option>
-                <option value="WEB">Web Dev</option>
-                <option value="MARKETPLACE">Marketplace</option>
-                <option value="HR">HR</option>
+                {ALL_DEPARTMENTS_FILTER.filter((d) => canAccessBoard(d.key, user)).map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.label}
+                  </option>
+                ))}
               </select>
 
 

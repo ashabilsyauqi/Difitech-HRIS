@@ -101,6 +101,22 @@ const DIVISION_CONFIG: Record<
     border: "border-slate-300",
     barColor: "bg-slate-700",
   },
+  CEO: {
+    label: "CEO",
+    icon: ShieldCheck,
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+    border: "border-violet-200",
+    barColor: "bg-violet-600",
+  },
+  DM_EXECUTIVE: {
+    label: "DM Executive",
+    icon: Sparkles,
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    border: "border-indigo-200",
+    barColor: "bg-indigo-600",
+  },
 };
 
 export default function AdminDashboardWidgets({
@@ -165,7 +181,7 @@ export default function AdminDashboardWidgets({
 
   // Division Aggregation
   const divisionBreakdown = useMemo(() => {
-    const keys = ["SOSMED", "ADS", "SEO", "WEB", "MARKETPLACE", "HR"];
+    const keys = ["SOSMED", "ADS", "SEO", "WEB", "MARKETPLACE", "HR", "CEO", "DM_EXECUTIVE"];
     return keys.map((key) => {
       const divTasks = tasks.filter((t) => (t.departmentCard || "HR").toUpperCase() === key);
       const total = divTasks.length;
@@ -672,13 +688,15 @@ export default function AdminDashboardWidgets({
                 onChange={(e) => setTaskDivisionFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
               >
-                <option value="ALL">Semua Divisi (6)</option>
+                <option value="ALL">Semua Divisi</option>
                 <option value="WEB">Web Dev</option>
                 <option value="SOSMED">Sosmed</option>
                 <option value="ADS">Ads</option>
                 <option value="SEO">SEO</option>
                 <option value="MARKETPLACE">Marketplace</option>
                 <option value="HR">HR & Ops</option>
+                <option value="CEO">CEO</option>
+                <option value="DM_EXECUTIVE">DM Executive</option>
               </select>
 
               {/* Filter Stage */}

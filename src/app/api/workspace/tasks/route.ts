@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
+import { isExecutiveBoard, canAccessBoard, EXECUTIVE_BOARDS } from "@/lib/executive-boards";
 
 export async function GET(req: NextRequest) {
   try {
@@ -49,9 +50,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Filter 6 Card Besar Divisi
+    // 2. Filter Card Divisi & Proteksi Board Eksekutif (CEO, HR, DM Executive)
     if (departmentCard && departmentCard !== "ALL") {
-      whereClause.departmentCard = departmentCard;
+      const normalizedDept = departmentCard.toUpperCase();
+      if (isExecutiveBoard(normalizedDept)) {
+        if (!canAccessBoard(normalizedDept, authUser)) {
+          return NextResponse.json({
+            tasks: [],
+            counts: { inbox: 0, inProgress: 0, completed: 0, pendingReview: 0, delegated: 0 },
+          });
+        }
+      }
+      whereClause.departmentCard = normalizedDept;
+    } else {
+      // BigBoard Difitech ("WB all div"): Tugas eksekutif TIDAK DIGABUNG ke WB all div!
+      const isPersonalScope = viewScope === "MINE" || viewScope === "DELEGATED" || Boolean(myTasks) || Boolean(myTasksTab);
+      if (!isPersonalScope) {
+        whereClause.departmentCard = { notIn: Array.from(EXECUTIVE_BOARDS) };
+      }
     }
 
     // 3. Filter Brand
@@ -287,6 +303,14 @@ export async function POST(req: NextRequest) {
     const primaryAssigneeId = finalAssigneeIds[0];
     const isSelfTask = finalAssigneeIds.length === 1 && primaryAssigneeId === authUser.userId;
     const normalizedDepartmentCard = departmentCard.toUpperCase();
+
+    // Proteksi pembuatan tugas pada board eksekutif:
+    if (isExecutiveBoard(normalizedDepartmentCard) && !canAccessBoard(normalizedDepartmentCard, authUser)) {
+      return NextResponse.json(
+        { error: "Akses ditolak: Anda tidak memiliki wewenang untuk membuat tugas di board eksekutif ini" },
+        { status: 403 }
+      );
+    }
 
     await ensureTaskDiscussionAndLogsTables();
 

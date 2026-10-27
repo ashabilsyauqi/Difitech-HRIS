@@ -69,7 +69,9 @@ import {
   Trash2,
   RotateCcw,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
+import { canAccessBoard } from "@/lib/executive-boards";
 
 interface TaskItem {
   id: string;
@@ -191,6 +193,31 @@ const CARDS_DEFINITION = [
     accentColor: "text-slate-700",
     icon: Users,
     desc: "Rekrutmen karyawan, absensi, payroll gaji, izin cuti, & operasional internal kantor.",
+    isExecutive: true,
+  },
+  {
+    key: "CEO",
+    label: "CEO",
+    sublabel: "Executive Chopper View",
+    badgeColor: "bg-violet-100 text-violet-700 border-violet-200",
+    headerBg: "bg-gradient-to-r from-violet-600 to-purple-800",
+    borderHover: "hover:border-violet-300",
+    accentColor: "text-violet-600",
+    icon: ShieldCheck,
+    desc: "Chopper view eksekutif & strategic initiatives direksi perusahaan.",
+    isExecutive: true,
+  },
+  {
+    key: "DM_EXECUTIVE",
+    label: "DM Executive",
+    sublabel: "Digital Marketing Executive",
+    badgeColor: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    headerBg: "bg-gradient-to-r from-indigo-600 to-blue-700",
+    borderHover: "hover:border-indigo-300",
+    accentColor: "text-indigo-600",
+    icon: Sparkles,
+    desc: "Strategi digital marketing eksekutif, koordinasi campaign & growth.",
+    isExecutive: true,
   },
 ];
 
@@ -355,6 +382,7 @@ const isHomeCard = (cardKey?: string | null, userDept?: string | null) => {
 
 const isCardRelevantForEmployee = (cardKey: string, user: any, allTasks: TaskItem[]) => {
   if (!user) return false;
+  if (!canAccessBoard(cardKey, user)) return false;
   if (isHomeCard(cardKey, user.department)) return true;
   return allTasks.some(
     (t) =>
@@ -806,6 +834,7 @@ function WorkspaceCardsPageContent() {
       const params = new URLSearchParams();
       if (selectedBrand !== "ALL") params.set("brandName", selectedBrand);
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      if (selectedDivision) params.set("departmentCard", selectedDivision);
 
       const res = await fetch(`/api/workspace/tasks?${params.toString()}`);
       if (res.ok) {
@@ -897,6 +926,12 @@ function WorkspaceCardsPageContent() {
     } else if (cardParam) {
       const found = CARDS_DEFINITION.find((c) => c.key.toLowerCase() === cardParam.toLowerCase());
       if (found) {
+        if ((found as any).isExecutive && user && !canAccessBoard(found.key, user)) {
+          setBoardMode("DIVISION");
+          setSelectedDivision(null);
+          router.replace("/dashboard/workspace");
+          return;
+        }
         setBoardMode("DIVISION");
         setSelectedDivision(found.key);
         if (found.key === "SOSMED") {
@@ -910,7 +945,18 @@ function WorkspaceCardsPageContent() {
       setBoardMode("DIVISION");
       setSelectedDivision(null);
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
+
+  // Guard access ke board eksekutif jika user baru selesai loading
+  useEffect(() => {
+    if (user && selectedDivision) {
+      const found = CARDS_DEFINITION.find((c) => c.key === selectedDivision);
+      if (found && (found as any).isExecutive && !canAccessBoard(selectedDivision, user)) {
+        setSelectedDivision(null);
+        router.replace("/dashboard/workspace");
+      }
+    }
+  }, [user, selectedDivision]);
 
   // Auto open task detail modal if ?task= or ?taskId= is in URL
   useEffect(() => {
@@ -941,7 +987,7 @@ function WorkspaceCardsPageContent() {
 
   useEffect(() => {
     fetchTasks();
-  }, [selectedBrand, searchQuery]);
+  }, [selectedBrand, searchQuery, selectedDivision]);
 
   // Navigate to division stage view
   const openDivisionStage = (divisionKey: string) => {
@@ -3221,7 +3267,7 @@ function WorkspaceCardsPageContent() {
                         )}
                       </div>
                       <p className="text-[10px] text-slate-400 font-medium whitespace-nowrap mt-0.5">
-                        Overview 6 Divisi
+                        Overview 5 Divisi Operasional
                       </p>
                     </div>
                   </div>
@@ -3324,9 +3370,9 @@ function WorkspaceCardsPageContent() {
                 </div>
               </div>
 
-              {/* 6 Columns Kanban Container */}
+              {/* 5 Columns Kanban Container (WB all div hanya operasional, terisolasi dari board eksekutif) */}
               {(() => {
-                const displayedCards = CARDS_DEFINITION;
+                const displayedCards = CARDS_DEFINITION.filter((c) => !(c as any).isExecutive);
 
                 return (
                   <div className="flex-1 min-h-0 w-full flex flex-row items-stretch gap-3.5 sm:gap-4 overflow-x-auto pb-2 kanban-scroll">
@@ -3760,6 +3806,110 @@ function WorkspaceCardsPageContent() {
                         <span>Buka Layar Penuh Pipeline</span>
                         <ExternalLink className="h-3 w-3" />
                       </Link>
+                    </div>
+                  )}
+
+                  {selectedDivision === "CEO" && (
+                    <div className="mt-4 p-4 rounded-3xl bg-gradient-to-r from-violet-900 via-purple-900 to-indigo-950 text-white shadow-md border border-violet-700/50">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-violet-200">
+                            <ShieldCheck className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-black text-white tracking-tight">Executive Chopper View</h3>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-violet-400/20 text-violet-200 border border-violet-400/30">
+                                Helicopter Oversight
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-violet-200/80">
+                              Ringkasan bird&apos;s-eye view operasional seluruh divisi perusahaan & inisiatif strategis direksi.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href="/dashboard/workspace?view=admin"
+                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition flex items-center gap-1.5 border border-white/15"
+                          >
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            <span>Buka Radar Admin</span>
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Chopper Overview Quick KPI Stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3">
+                        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10">
+                          <div className="text-[10px] font-bold text-violet-300 uppercase tracking-wider">Total Tugas Eksekutif</div>
+                          <div className="text-xl font-black text-white mt-0.5">{tasks.length}</div>
+                          <div className="text-[10px] text-violet-200/70 mt-0.5">Inisiatif strategis CEO</div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10">
+                          <div className="text-[10px] font-bold text-blue-300 uppercase tracking-wider">Sedang Berjalan</div>
+                          <div className="text-xl font-black text-white mt-0.5">
+                            {tasks.filter((t) => t.status === "IN_PROGRESS").length}
+                          </div>
+                          <div className="text-[10px] text-blue-200/70 mt-0.5">Eksekusi aktif</div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10">
+                          <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Target Tercapai</div>
+                          <div className="text-xl font-black text-white mt-0.5">
+                            {tasks.filter((t) => t.status === "COMPLETED").length}
+                          </div>
+                          <div className="text-[10px] text-emerald-200/70 mt-0.5">Milestone selesai</div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10">
+                          <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Review Direksi</div>
+                          <div className="text-xl font-black text-white mt-0.5">
+                            {tasks.filter((t) => t.reviewStatus === "TO_BE_REVIEWED" || t.status === "PENDING").length}
+                          </div>
+                          <div className="text-[10px] text-amber-200/70 mt-0.5">Menunggu ACC direksi</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDivision === "DM_EXECUTIVE" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-blue-50/50 to-indigo-50/90 border border-indigo-200/80 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-indigo-600 text-white shadow-2xs shrink-0">
+                          <Sparkles className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                            <span>Digital Marketing Executive Workspace</span>
+                            <span className="px-1.5 py-0.2 rounded-md bg-indigo-200 text-indigo-800 text-[10px] font-black">
+                              Mba Rima & Manajemen
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-indigo-700/90 font-medium">
+                            Papan kerja khusus strategi digital marketing, campaign koordinasi, dan pertumbuhan bisnis.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedDivision === "HR" && (
+                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 border border-slate-300/80 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-slate-800 text-white shadow-2xs shrink-0">
+                          <Users className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                            <span>Human Resources & Internal Operations</span>
+                            <span className="px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-800 text-[10px] font-black">
+                              HR Team & Manajemen
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 font-medium">
+                            Papan kerja tertutup untuk pengelolaan personil, administrasi SDM, rekrutmen, dan kebijakan kantor.
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

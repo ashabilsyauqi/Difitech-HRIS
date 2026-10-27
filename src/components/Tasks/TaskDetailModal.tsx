@@ -104,6 +104,8 @@ const DEPARTMENTS: Record<string, { label: string; color: string }> = {
   WEB: { label: "Web", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   MARKETPLACE: { label: "Marketplace", color: "bg-purple-100 text-purple-700 border-purple-200" },
   HR: { label: "HR", color: "bg-slate-100 text-slate-700 border-slate-300" },
+  CEO: { label: "CEO", color: "bg-violet-100 text-violet-700 border-violet-200" },
+  DM_EXECUTIVE: { label: "DM Executive", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
 };
 
 export interface WorkboardStage {

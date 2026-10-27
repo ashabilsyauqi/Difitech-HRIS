@@ -72,6 +72,8 @@ export async function GET(req: NextRequest) {
       WEB: { total: 0, completed: 0, inProgress: 0, pending: 0 },
       MARKETPLACE: { total: 0, completed: 0, inProgress: 0, pending: 0 },
       HR: { total: 0, completed: 0, inProgress: 0, pending: 0 },
+      CEO: { total: 0, completed: 0, inProgress: 0, pending: 0 },
+      DM_EXECUTIVE: { total: 0, completed: 0, inProgress: 0, pending: 0 },
     };
 
     // Ringkasan per Brand
