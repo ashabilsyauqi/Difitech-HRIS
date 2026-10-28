@@ -15,12 +15,12 @@ Setiap kali menyelesaikan pekerjaan (task baru, refactor, bugfix, atau perubahan
 
 ### 3. VPS Synchronization (`rsync`)
 - Sinkronkan kode terbaru ke VPS staging:
-  `rsync -avz --delete -e "ssh -i ~/.ssh/vps_deploy_key" src/ root@187.52.127.244:/opt/staging-hris-difitech/src/`
+  `rsync -avz --delete -e "ssh -i ~/.ssh/vps_deploy_key" src/ root@31.97.220.128:/opt/staging-hris-difitech/src/`
   serta file konfigurasi pendukung (`next.config.mjs`, `tsconfig.json`, dll).
 
 ### 4. Container Rebuild & Service Reload
 - Rebuild dan restart container aplikasi staging di VPS:
-  `ssh -i ~/.ssh/vps_deploy_key root@187.52.127.244 "cd /opt/staging-hris-difitech && docker compose -f docker-compose.staging.yml build staging-hris-app && docker compose -f docker-compose.staging.yml up -d staging-hris-app"`
+  `ssh -i ~/.ssh/vps_deploy_key root@31.97.220.128 "cd /opt/staging-hris-difitech && docker compose -f docker-compose.staging.yml build staging-hris-app && docker compose -f docker-compose.staging.yml up -d staging-hris-app"`
 
 ### 5. Live Endpoint & Health Double-Check
 - Verifikasi status HTTP endpoint di VPS (port 3005):
