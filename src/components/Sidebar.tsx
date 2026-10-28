@@ -21,6 +21,7 @@ import {
   Layers,
   Clapperboard,
   ActivitySquare,
+  ArrowUpRight,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -63,11 +64,7 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
 
   const employeeLinks = [
     { href: "/dashboard", label: "Presensi Harian", icon: Clock },
-    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
-    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
-    ...(isSosmedMember
-      ? [{ href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard }]
-      : []),
+    { href: "/dashboard/tasks", label: "Papan Tugas (Kanban)", icon: CheckSquare },
     { href: "/dashboard/leave", label: "Pengajuan Izin & Cuti", icon: FileCheck2 },
     { href: "/dashboard/history", label: "Riwayat Presensi", icon: CalendarCheck },
   ];
@@ -75,9 +72,7 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
   const managerLinks = [
     { href: "/manager", label: "Ringkasan Tim & Radar", icon: LayoutDashboard },
     { href: "/manager/task-radar", label: "Radar Tugas CEO & HR", icon: ActivitySquare },
-    { href: "/dashboard/tasks", label: "Lembar Tugas Harian", icon: CheckSquare },
-    { href: "/dashboard/workspace", label: "Divisi Kolaborasi (6 Card)", icon: Layers },
-    { href: "/dashboard/content-production", label: "Kanban Konten (Sosmed)", icon: Clapperboard },
+    { href: "/dashboard/tasks", label: "Papan Tugas (Kanban)", icon: CheckSquare },
     { href: "/manager/employees", label: "Manajemen Karyawan", icon: UserCheck },
     { href: "/manager/live-map", label: "Peta Presensi Live", icon: MapPin },
     { href: "/manager/attendance", label: "Log & Audit Presensi", icon: CalendarCheck },
@@ -129,6 +124,23 @@ export default function Sidebar({ role, department, isOpen, onClose }: SidebarPr
                 </Link>
               );
             })}
+
+            {/* Link Eksternal Terintegrasi ke DifWorkBoard (DWB) */}
+            <div className="pt-2">
+              <a
+                href="https://difworkboard.difitech.id"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/80 transition cursor-pointer group"
+                title="Buka portal kerja kolaborasi DifWorkBoard"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Layers className="h-4 w-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                  <span>DifWorkBoard (DWB)</span>
+                </div>
+                <ArrowUpRight className="h-3.5 w-3.5 text-blue-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </a>
+            </div>
           </nav>
 
           {isManagerOrAdmin && (

@@ -793,19 +793,21 @@ export default function EmployeeDashboardPage() {
 
               <div className="flex items-center gap-2">
                 <Link
-                  href="/dashboard/my-tasks"
+                  href="/dashboard/tasks"
                   className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs flex items-center gap-1.5"
                 >
-                  <Inbox className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Tugas Pribadi</span>
+                  <CheckSquare className="h-3.5 w-3.5 text-red-600" />
+                  <span>Papan Tugas (Kanban)</span>
                 </Link>
-                <Link
-                  href="/dashboard/workspace"
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs flex items-center gap-1.5"
+                <a
+                  href="https://difworkboard.difitech.id"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-2xs flex items-center gap-1.5"
                 >
-                  <Layers className="h-3.5 w-3.5 text-red-600" />
-                  <span>6 Card Divisi</span>
-                </Link>
+                  <Layers className="h-3.5 w-3.5 text-blue-600" />
+                  <span>DifWorkBoard ↗</span>
+                </a>
               </div>
             </div>
 
@@ -988,10 +990,10 @@ export default function EmployeeDashboardPage() {
                       <span className="font-bold text-slate-800">{displayList.length}</span> tugas
                     </p>
                     <Link
-                      href="/dashboard/my-tasks"
+                      href="/dashboard/tasks"
                       className="inline-flex items-center gap-1 font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
                     >
-                      <span>Lihat Semua di Lembar Tugas Harian</span>
+                      <span>Lihat Semua di Papan Tugas (Kanban)</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
