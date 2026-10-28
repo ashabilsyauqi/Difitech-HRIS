@@ -30,8 +30,11 @@ model User {
   attendances             Attendance[]
   tasks                   Task[]
   createdTasks            Task[]          @relation("CreatedTasks")
+  taskAssignments         TaskAssignee[]  @relation("TaskAssigneeUser")
   taskFollowUpsSent       TaskFollowUp[]  @relation("FollowUpSender")
   taskFollowUpsReceived   TaskFollowUp[]  @relation("FollowUpRecipient")
+  taskComments            TaskComment[]   @relation("TaskCommentUser")
+  taskActivityLogs        TaskActivityLog[] @relation("TaskActivityUser")
   notifications           Notification[]
   salaryProfile           SalaryProfile?
   payslips                Payslip[]
@@ -63,6 +66,8 @@ model OfficeLocation {
   lateGraceMinutes           Int          @default(5)       // Toleransi keterlambatan (menit)
   standardWorkDurationHours  Float        @default(8.0)     // Lama jam kerja standar (jam)
   allowedClockInOptions      String       @default("08:00, 09:00, 10:00") // Opsi shift jam masuk (koma separated)
+  cutoffStartDay             Int          @default(17)      // Tanggal mulai siklus cut-off (default: 17)
+  cutoffEndDay               Int          @default(16)      // Tanggal akhir siklus cut-off (default: 16)
   createdAt                  DateTime     @default(now())
   updatedAt                  DateTime     @updatedAt
 
@@ -175,6 +180,23 @@ model Task {
   updatedAt             DateTime        @updatedAt
 
   followUps             TaskFollowUp[]
+  assignees             TaskAssignee[]
+  comments              TaskComment[]
+  activityLogs          TaskActivityLog[]
+}
+
+model TaskAssignee {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation("TaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("MEMBER") // PIC, MEMBER
+  assignedAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
 }
 
 model TaskFollowUp {
@@ -187,6 +209,45 @@ model TaskFollowUp {
   recipient   User?    @relation("FollowUpRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
   message     String?  @default("Tolong dicek dan di-update progres tugas ini ya.")
   createdAt   DateTime @default(now())
+}
+
+model TaskComment {
+  id             String        @id @default(cuid())
+  taskId         String
+  task           Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation("TaskCommentUser", fields: [userId], references: [id], onDelete: Cascade)
+  message        String
+  replyToId      String?
+  replyTo        TaskComment?  @relation("CommentReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        TaskComment[] @relation("CommentReplies")
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentType String?
+  attachmentSize Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model TaskActivityLog {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation("TaskActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+  actionType  String   // STAGE_CHANGE, STATUS_CHANGE, SUBMIT_DELIVERABLE, REQUEST_REVISION, APPROVE_TASK, DEADLINE_CHANGE, COMMENT_ADDED, CREATED
+  title       String
+  description String
+  fromValue   String?
+  toValue     String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
+  @@index([userId])
 }
 
 model Notification {

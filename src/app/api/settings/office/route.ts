@@ -37,6 +37,8 @@ export async function PATCH(req: NextRequest) {
       lateGraceMinutes,
       standardWorkDurationHours,
       allowedClockInOptions,
+      cutoffStartDay,
+      cutoffEndDay,
     } = body;
 
     let office = await prisma.officeLocation.findFirst({
@@ -58,6 +60,8 @@ export async function PATCH(req: NextRequest) {
           lateGraceMinutes: lateGraceMinutes !== undefined ? Number(lateGraceMinutes) : 5,
           standardWorkDurationHours: standardWorkDurationHours !== undefined ? Number(standardWorkDurationHours) : 8.0,
           allowedClockInOptions: allowedClockInOptions || "08:00, 09:00, 10:00",
+          cutoffStartDay: cutoffStartDay !== undefined ? Number(cutoffStartDay) : 17,
+          cutoffEndDay: cutoffEndDay !== undefined ? Number(cutoffEndDay) : 16,
         },
       });
     } else {
@@ -76,6 +80,8 @@ export async function PATCH(req: NextRequest) {
           ...(lateGraceMinutes !== undefined && { lateGraceMinutes: Number(lateGraceMinutes) }),
           ...(standardWorkDurationHours !== undefined && { standardWorkDurationHours: Number(standardWorkDurationHours) }),
           ...(allowedClockInOptions !== undefined && { allowedClockInOptions }),
+          ...(cutoffStartDay !== undefined && { cutoffStartDay: Math.min(28, Math.max(1, Number(cutoffStartDay))) }),
+          ...(cutoffEndDay !== undefined && { cutoffEndDay: Math.min(31, Math.max(1, Number(cutoffEndDay))) }),
         },
       });
     }

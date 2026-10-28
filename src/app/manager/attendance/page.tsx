@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import PhotoViewerModal from "@/components/CamStamp/PhotoViewerModal";
+import AttendanceCalendarView from "@/components/AttendanceCalendarView";
 import {
   CalendarCheck,
   Search,
@@ -50,6 +51,7 @@ export default function ManagerAttendanceLogsPage() {
   const [selectedAttendance, setSelectedAttendance] = useState<any>(null);
   const [photoViewType, setPhotoViewType] = useState<"CLOCK_IN" | "CLOCK_OUT">("CLOCK_IN");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"CALENDAR" | "TABLE">("CALENDAR");
 
   const applyPreset = (preset: "TODAY" | "WEEK" | "MONTH" | "ALL") => {
     setActivePreset(preset);
@@ -249,6 +251,33 @@ export default function ManagerAttendanceLogsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("CALENDAR")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    viewMode === "CALENDAR"
+                      ? "bg-white text-red-600 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>Kalender & Cut-off</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("TABLE")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    viewMode === "TABLE"
+                      ? "bg-white text-red-600 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  <span>Tabel Audit</span>
+                </button>
+              </div>
+
               <button
                 onClick={handleExportExcel}
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition active:scale-[0.99]"
@@ -259,7 +288,28 @@ export default function ManagerAttendanceLogsPage() {
             </div>
           </div>
 
-          {/* Quick Metrics Banner */}
+          {viewMode === "CALENDAR" ? (
+            <AttendanceCalendarView
+              attendances={attendances}
+              usersList={usersList}
+              selectedUser={selectedUser}
+              onSelectUser={setSelectedUser}
+              startDate={startDate}
+              endDate={endDate}
+              onDateRangeChange={(s, e) => {
+                setStartDate(s);
+                setEndDate(e);
+              }}
+              onViewPhoto={(att, type) => {
+                setSelectedAttendance(att);
+                setPhotoViewType(type);
+                setPhotoViewerOpen(true);
+              }}
+              isLoading={isLoading}
+            />
+          ) : (
+            <>
+              {/* Quick Metrics Banner */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Presensi</p>
@@ -609,6 +659,8 @@ export default function ManagerAttendanceLogsPage() {
               </table>
             </div>
           </div>
+          </>
+          )}
         </main>
       </div>
 
