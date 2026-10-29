@@ -112,6 +112,14 @@ const KNOWN_ACCOUNTS: Record<
     basicSalary: 8000000,
     avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
   },
+  "fadhil@difitech.co.id": {
+    name: "Fadhil",
+    role: "EMPLOYEE",
+    department: "Ads",
+    jobTitle: "Ads Specialist",
+    basicSalary: 6000000,
+    avatarUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80",
+  },
   "fdhlfebriaan@gmail.com": {
     name: "Fadhil",
     role: "EMPLOYEE",
@@ -141,7 +149,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    let cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail === "fdhlfebriaan@gmail.com") {
+      cleanEmail = "fadhil@difitech.co.id";
+    }
 
     let user = await prisma.user.findUnique({
       where: { email: cleanEmail },
@@ -149,9 +160,15 @@ export async function POST(req: NextRequest) {
 
     // Auto-bootstrap akun tim Difitech jika belum ada di database dan login dengan password default
     const knownConfig = KNOWN_ACCOUNTS[cleanEmail];
-    const isDefaultPass = password === "password123" || password === "Password123" || password.toLowerCase() === "password123";
+    const isDefaultPass =
+      password === "password123" ||
+      password === "Password123" ||
+      password.toLowerCase() === "password123" ||
+      (cleanEmail === "fadhil@difitech.co.id" && password === "@Difitech2026");
+
     if (!user && knownConfig && isDefaultPass) {
-      const passwordHash = await bcrypt.hash("password123", 10);
+      const defaultPass = cleanEmail === "fadhil@difitech.co.id" ? "@Difitech2026" : "password123";
+      const passwordHash = await bcrypt.hash(defaultPass, 10);
       user = await prisma.user.upsert({
         where: { email: cleanEmail },
         update: {

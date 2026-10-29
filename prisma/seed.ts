@@ -57,6 +57,11 @@ async function main() {
 
   // 3. Seed Seluruh Karyawan Riil
   for (const member of REAL_TEAM_MEMBERS) {
+    const memberPasswordHash =
+      member.email === "fadhil@difitech.co.id"
+        ? await bcrypt.hash("@Difitech2026", 10)
+        : defaultPasswordHash;
+
     const user = await prisma.user.upsert({
       where: { email: member.email },
       update: {
@@ -65,7 +70,7 @@ async function main() {
         department: member.department,
         jobTitle: member.jobTitle,
         avatarUrl: member.avatarUrl,
-        passwordHash: defaultPasswordHash,
+        passwordHash: memberPasswordHash,
       },
       create: {
         email: member.email,
@@ -74,7 +79,7 @@ async function main() {
         department: member.department,
         jobTitle: member.jobTitle,
         avatarUrl: member.avatarUrl,
-        passwordHash: defaultPasswordHash,
+        passwordHash: memberPasswordHash,
       },
     });
 
