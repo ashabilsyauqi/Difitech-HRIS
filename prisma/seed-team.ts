@@ -45,7 +45,7 @@ export const REAL_TEAM_MEMBERS = [
     targetCard: "ADS",
   },
   {
-    email: "fdhlfebriaan@gmail.com",
+    email: "fadhil@difitech.co.id",
     name: "Fadhil",
     role: "EMPLOYEE",
     department: "Ads",
@@ -179,6 +179,11 @@ async function main() {
 
   // 2. Seed / Update Karyawan Riil
   for (const member of REAL_TEAM_MEMBERS) {
+    const memberPasswordHash =
+      member.email === "fadhil@difitech.co.id"
+        ? await bcrypt.hash("@Difitech2026", 10)
+        : defaultPasswordHash;
+
     const user = await prisma.user.upsert({
       where: { email: member.email },
       update: {
@@ -187,7 +192,7 @@ async function main() {
         department: member.department,
         jobTitle: member.jobTitle,
         avatarUrl: member.avatarUrl,
-        passwordHash: defaultPasswordHash,
+        passwordHash: memberPasswordHash,
       },
       create: {
         email: member.email,
@@ -196,7 +201,7 @@ async function main() {
         department: member.department,
         jobTitle: member.jobTitle,
         avatarUrl: member.avatarUrl,
-        passwordHash: defaultPasswordHash,
+        passwordHash: memberPasswordHash,
       },
     });
 
