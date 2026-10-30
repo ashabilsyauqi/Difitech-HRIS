@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
+import { dispatchUserNotificationWA } from "@/lib/whatsapp";
 
 export async function GET(
   req: NextRequest,
@@ -161,6 +162,43 @@ export async function POST(
         }),
       },
     });
+
+    // Auto-dispatch in-app notification & WhatsApp to task participants
+    const notifyUserIds = new Set<string>();
+    if (task.creatorId && task.creatorId !== authUser.userId) {
+      notifyUserIds.add(task.creatorId);
+    }
+    if (task.userId && task.userId !== authUser.userId) {
+      notifyUserIds.add(task.userId);
+    }
+    if (comment.replyTo?.user?.id && comment.replyTo.user.id !== authUser.userId) {
+      notifyUserIds.add(comment.replyTo.user.id);
+    }
+
+    for (const targetUid of Array.from(notifyUserIds)) {
+      const notifTitle = replyToId ? `Balasan Komentar: ${task.title}` : `Komentar Baru: ${task.title}`;
+      const notifMsg = `${authUser.name}: "${logDesc}"`;
+
+      prisma.notification.create({
+        data: {
+          userId: targetUid,
+          title: notifTitle,
+          message: notifMsg,
+          type: "TASK_COMMENT",
+          link: "/dashboard/my-tasks",
+          taskId: task.id,
+        },
+      }).catch(() => {});
+
+      dispatchUserNotificationWA({
+        userId: targetUid,
+        title: notifTitle,
+        message: notifMsg,
+        taskId: task.id,
+        type: "TASK_COMMENT",
+        link: "/dashboard/my-tasks",
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, comment });
   } catch (error) {

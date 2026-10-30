@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
-import { buildTaskSubmittedMessage, sendWhatsAppNotification } from "@/lib/whatsapp";
+import { buildTaskSubmittedMessage, sendWhatsAppNotification, dispatchUserNotificationWA } from "@/lib/whatsapp";
 
 export async function GET(
   req: NextRequest,
@@ -179,6 +179,14 @@ export async function PATCH(
                 taskId: existingTask.id,
               },
             });
+            dispatchUserNotificationWA({
+              userId: targetUid,
+              title: `Deadline Disepakati (ACC): ${existingTask.title}`,
+              message: `${authUser.name} telah menyetujui target deadline: ${formattedDate}. Deadline kini resmi terkunci.`,
+              taskId: existingTask.id,
+              type: "DEADLINE_AGREED",
+              link: "/dashboard/my-tasks",
+            }).catch(() => {});
           }
         }
 
@@ -295,6 +303,14 @@ export async function PATCH(
                 taskId: existingTask.id,
               },
             });
+            dispatchUserNotificationWA({
+              userId: targetUid,
+              title: `${isCounter ? "Tandingan" : "Usulan"} Deadline: ${existingTask.title}`,
+              message: `${authUser.name} mengajukan ${isCounter ? "tandingan" : "usulan"} deadline baru (${formattedDate})${reason ? `. Catatan: "${reason.trim()}"` : ""}.`,
+              taskId: existingTask.id,
+              type: "DEADLINE_CONSOLIDATION",
+              link: "/dashboard/my-tasks",
+            }).catch(() => {});
           }
         }
 
@@ -385,6 +401,14 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+          dispatchUserNotificationWA({
+            userId: existingTask.creatorId,
+            title: `Hasil Konten Siap Direview: ${existingTask.title}`,
+            message: `${authUser.name} telah menyelesaikan produksi konten untuk [${existingTask.departmentCard || "Sosmed"} - ${existingTask.brandName || "Proyek"}]. Harap review hasil kerja di DWB.`,
+            taskId: existingTask.id,
+            type: "TO_BE_REVIEWED",
+            link: "/dashboard/workspace",
+          }).catch(() => {});
         }
       }
 
@@ -560,6 +584,14 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+          dispatchUserNotificationWA({
+            userId: existingTask.userId,
+            title: `Tugas Sedang Di-review: ${existingTask.title}`,
+            message: `${authUser.name} (Pemberi Tugas) sedang mereview hasil kerja Anda.`,
+            taskId: existingTask.id,
+            type: "UNDER_REVIEW",
+            link: "/dashboard/my-tasks",
+          }).catch(() => {});
         }
 
         return NextResponse.json({ success: true, task: updated });
@@ -603,6 +635,14 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+          dispatchUserNotificationWA({
+            userId: existingTask.userId,
+            title: `Tugas Disetujui (Done !): ${existingTask.title}`,
+            message: `Selamat! ${authUser.name} telah menyetujui hasil kerja Anda. Tugas resmi ditandai selesai (Done !).`,
+            taskId: existingTask.id,
+            type: "TASK_APPROVED",
+            link: "/dashboard/my-tasks",
+          }).catch(() => {});
         }
 
         // Trigger realtime sync to Staging HRIS
@@ -654,6 +694,14 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+          dispatchUserNotificationWA({
+            userId: existingTask.userId,
+            title: `Catatan Revisi dari ${authUser.name}: ${existingTask.title}`,
+            message: `Pemberi tugas meminta revisi: "${revisionNote.trim()}". Harap perbaiki dan submit kembali hasil tugas Anda di DWB.`,
+            taskId: existingTask.id,
+            type: "TASK_REVISION",
+            link: "/dashboard/my-tasks",
+          }).catch(() => {});
         }
 
         // Trigger realtime sync to Staging HRIS
@@ -708,6 +756,14 @@ export async function PATCH(
           taskId: revisionTask.id,
         },
       });
+      dispatchUserNotificationWA({
+        userId: existingTask.userId,
+        title: `Permintaan Revisi Konten: ${existingTask.brandName}`,
+        message: `${authUser.name} mengajukan revisi untuk "${existingTask.title}". Task baru telah dibuat di Kanban Content Production.`,
+        taskId: revisionTask.id,
+        type: "REVISION_REQUESTED",
+        link: "/dashboard/content-production",
+      }).catch(() => {});
 
       return NextResponse.json({ success: true, task: revisionTask, originalTaskId: existingTask.id });
     }
