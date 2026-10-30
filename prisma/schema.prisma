@@ -18,6 +18,7 @@ model User {
   jobTitle                String?         @default("Software Engineer")
   employmentStatus        String?         @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
   avatarUrl               String?
+  whatsappNumber          String?
   bankName                String?         @default("BCA")
   bankAccountNumber       String?         @default("8012345678")
   bankAccountHolder       String?
