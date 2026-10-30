@@ -42,9 +42,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Anti-Spoofing: Validate accuracy threshold
-    if (accuracy && accuracy > 350) {
+    // Untuk OFFICE: wajib akurasi tinggi (<= 350m) agar geofence terverifikasi presisi
+    // Untuk WFA / CLIENT_VISIT: diperbolehkan estimasi lokasi jaringan/IP hingga 15.000m
+    const maxAllowedAccuracy = attendanceType === "OFFICE" ? 350 : 15000;
+    if (accuracy && accuracy > maxAllowedAccuracy) {
       return NextResponse.json(
-        { error: `Akurasi GPS terlalu rendah (±${Math.round(accuracy)}m). Sinyal GPS yang lebih presisi diperlukan untuk presensi.` },
+        {
+          error:
+            attendanceType === "OFFICE"
+              ? `Akurasi GPS terlalu rendah (±${Math.round(accuracy)}m). Sinyal GPS fisik yang presisi diperlukan untuk presensi kantor.`
+              : `Akurasi sinyal lokasi terlalu rendah (±${Math.round(accuracy)}m).`,
+        },
         { status: 400 }
       );
     }
