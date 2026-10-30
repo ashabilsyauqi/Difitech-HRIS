@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Kirim notifikasi in-app kepada semua penerima tugas (selain pembuat)
+    // Kirim notifikasi in-app & WhatsApp kepada semua penerima tugas (selain pembuat)
     for (const targetUserId of finalAssigneeIds) {
       if (targetUserId !== authUser.userId) {
         await prisma.notification.create({
@@ -405,6 +405,53 @@ export async function POST(req: NextRequest) {
             taskId: newTask.id,
           },
         });
+
+        // Kirim WhatsApp notification
+        try {
+          const targetUser = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { id: true, name: true, whatsappNumber: true, department: true },
+          });
+
+          if (targetUser?.whatsappNumber) {
+            const waMessage = buildTaskAssignedMessage({
+              assigneeName: targetUser.name,
+              creatorName: authUser.name,
+              taskTitle: title.trim(),
+              department: normalizedDepartmentCard,
+              brand: brandName.trim(),
+              deadlineStr: deadlineFmt,
+              priority: priority || "MEDIUM",
+              description: description ? description.trim() : null,
+              taskId: newTask.id,
+            });
+
+            const waResult = await sendWhatsAppNotification({
+              to: targetUser.whatsappNumber,
+              message: waMessage,
+              recipientName: targetUser.name,
+              taskId: newTask.id,
+              actionType: "TASK_ASSIGNED",
+            });
+
+            await prisma.taskActivityLog.create({
+              data: {
+                taskId: newTask.id,
+                userId: authUser.userId,
+                actionType: "WA_NOTIF",
+                title: `Notifikasi WhatsApp (${waResult.status})`,
+                description: `Pesan tugas baru diteruskan ke WhatsApp ${targetUser.name} (${waResult.recipientPhone || targetUser.whatsappNumber}): ${waResult.detail}`,
+                metadata: JSON.stringify({
+                  waResult,
+                  recipientId: targetUser.id,
+                  recipientPhone: waResult.recipientPhone,
+                }),
+              },
+            }).catch(() => {});
+          }
+        } catch (waErr: any) {
+          console.error("WhatsApp notification dispatch error in task create:", waErr?.message);
+        }
       }
     }
 

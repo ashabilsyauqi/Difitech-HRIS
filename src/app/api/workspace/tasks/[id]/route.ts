@@ -458,7 +458,7 @@ export async function PATCH(
         });
         if (updated.user?.email) triggerHrisRealtimeSync(updated.user.email, updated);
 
-        // Kirim notifikasi ke Pemberi Tugas (Creator)
+        // Kirim notifikasi in-app & WhatsApp ke Pemberi Tugas (Creator)
         if (existingTask.creatorId) {
           await prisma.notification.create({
             data: {
@@ -470,6 +470,48 @@ export async function PATCH(
               taskId: existingTask.id,
             },
           });
+
+          // Kirim notifikasi WhatsApp ke Creator
+          try {
+            const creator = await prisma.user.findUnique({
+              where: { id: existingTask.creatorId },
+              select: { id: true, name: true, whatsappNumber: true },
+            });
+
+            if (creator?.whatsappNumber) {
+              const waMessage = buildTaskSubmittedMessage({
+                creatorName: creator.name,
+                assigneeName: authUser.name,
+                taskTitle: existingTask.title,
+                department: existingTask.departmentCard,
+                brand: existingTask.brandName,
+                deliverableUrl: deliverableUrl || null,
+                completionNote: completionNote || null,
+                taskId: existingTask.id,
+              });
+
+              const waResult = await sendWhatsAppNotification({
+                to: creator.whatsappNumber,
+                message: waMessage,
+                recipientName: creator.name,
+                taskId: existingTask.id,
+                actionType: "SUBMIT_DELIVERABLE",
+              });
+
+              await prisma.taskActivityLog.create({
+                data: {
+                  taskId: existingTask.id,
+                  userId: authUser.userId,
+                  actionType: "WA_NOTIF",
+                  title: `Notifikasi WhatsApp Review (${waResult.status})`,
+                  description: `Hasil tugas dilaporkan ke WhatsApp ${creator.name} (${waResult.recipientPhone || creator.whatsappNumber}): ${waResult.detail}`,
+                  metadata: JSON.stringify({ waResult }),
+                },
+              }).catch(() => {});
+            }
+          } catch (waErr: any) {
+            console.error("WhatsApp notification dispatch error in task submit:", waErr?.message);
+          }
         }
 
         return NextResponse.json({ success: true, task: updated });
