@@ -285,7 +285,7 @@ async function simulate() {
     orderBy: { createdAt: "asc" },
   });
 
-  logs.forEach((l, i) => {
+  logs.forEach((l: any, i: number) => {
     console.log(`[Log #${i + 1}] [${l.actionType}] ${l.title} -> ${l.description}`);
   });
 
