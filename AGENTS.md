@@ -13,17 +13,30 @@ Setiap kali menyelesaikan pekerjaan (task baru, refactor, bugfix, atau perubahan
 - Pastikan `typescript.ignoreBuildErrors` di `next.config.mjs` tetap `false` agar tidak ada error TypeScript yang terlewat.
 - Jalankan `npm run build` untuk memverifikasi proses bundling Next.js, static page generation, dan chunk optimization.
 
-### 3. VPS Synchronization (`rsync`)
-- Sinkronkan kode terbaru ke VPS staging:
-  `rsync -avz --delete -e "ssh -i ~/.ssh/vps_deploy_key" src/ root@31.97.220.128:/opt/staging-hris-difitech/src/`
-  serta file konfigurasi pendukung (`next.config.mjs`, `tsconfig.json`, dll).
+### 3. VPS Synchronization & Git Branch Integrity
+- **PENTING: Bedakan HRIS dan DWB**:
+  - **HRIS Production** (`https://hris.difitech.id`):
+    - Direktori: `/opt/hris-difitech`
+    - Git Branch: `main`
+    - Container: `difitech-hris-app` (Port 3000)
+  - **DWB (DifWorkBoard)** (`https://difworkboard.difitech.id`):
+    - Direktori: `/opt/staging-hris-difitech`
+    - Git Branch: `difworkboard`
+    - Container: `staging-difitech-hris-app` (Port 3005)
+- **JANGAN PERNAH** melakukan rsync lintas branch (`src/` dari `main` ke direktori DWB atau sebaliknya).
+- Selalu gunakan `git push origin <branch>` dan di VPS jalankan `git pull` sesuai direktori masing-masing:
+  - Untuk HRIS: `cd /opt/hris-difitech && git pull origin main`
+  - Untuk DWB: `cd /opt/staging-hris-difitech && git pull origin difworkboard`
 
 ### 4. Container Rebuild & Service Reload
-- Rebuild dan restart container aplikasi staging di VPS:
-  `ssh -i ~/.ssh/vps_deploy_key root@31.97.220.128 "cd /opt/staging-hris-difitech && docker compose -f docker-compose.staging.yml build staging-hris-app && docker compose -f docker-compose.staging.yml up -d staging-hris-app"`
+- Rebuild container sesuai target perubahan:
+  - **Jika update HRIS**:
+    `ssh -i ~/.ssh/vps_deploy_key root@31.97.220.128 "cd /opt/hris-difitech && docker compose build hris-app && docker compose up -d hris-app"`
+  - **Jika update DWB**:
+    `ssh -i ~/.ssh/vps_deploy_key root@31.97.220.128 "cd /opt/staging-hris-difitech && docker compose -f docker-compose.staging.yml build staging-hris-app && docker compose -f docker-compose.staging.yml up -d staging-hris-app"`
 
 ### 5. Live Endpoint & Health Double-Check
-- Verifikasi status HTTP endpoint di VPS (port 3005):
-  `curl -sI http://127.0.0.1:3005/login`
-  `curl -sI http://127.0.0.1:3005/dashboard/workspace`
-- Pastikan response mengembalikan `HTTP/1.1 200 OK` dan log container tidak terdapat runtime crash.
+- Verifikasi status HTTP endpoint di VPS:
+  - HRIS: `curl -sI https://hris.difitech.id/login` (Port 3000)
+  - DWB: `curl -sI https://difworkboard.difitech.id/login` dan `curl -sI http://127.0.0.1:3005/dashboard/workspace` (Port 3005)
+- Pastikan kedua response mengembalikan `HTTP/1.1 200 OK` dan layout/sidebar masing-masing sistem tidak tertukar.
