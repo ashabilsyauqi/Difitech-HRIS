@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 import { isExecutiveBoard, canAccessBoard, EXECUTIVE_BOARDS } from "@/lib/executive-boards";
+import { buildTaskAssignedMessage, sendWhatsAppNotification } from "@/lib/whatsapp";
 
 export async function GET(req: NextRequest) {
   try {

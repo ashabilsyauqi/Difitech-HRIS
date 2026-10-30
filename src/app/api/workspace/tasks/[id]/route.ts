@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
+import { buildTaskSubmittedMessage, sendWhatsAppNotification } from "@/lib/whatsapp";
 
 export async function GET(
   req: NextRequest,

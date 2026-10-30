@@ -68,6 +68,7 @@ export async function PATCH(
     if (department !== undefined) dataToUpdate.department = department;
     if (jobTitle !== undefined) dataToUpdate.jobTitle = jobTitle;
     if (employmentStatus !== undefined) dataToUpdate.employmentStatus = employmentStatus;
+    if (body.whatsappNumber !== undefined) dataToUpdate.whatsappNumber = body.whatsappNumber ? body.whatsappNumber.trim() : null;
     if (bankName !== undefined) dataToUpdate.bankName = bankName;
     if (bankAccountNumber !== undefined) dataToUpdate.bankAccountNumber = bankAccountNumber;
     if (npwpNumber !== undefined) dataToUpdate.npwpNumber = npwpNumber;

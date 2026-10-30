@@ -1,10 +1,17 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 
 let isTaskTablesEnsured = false;
 
 export async function ensureTaskDiscussionAndLogsTables() {
   if (isTaskTablesEnsured) return;
   try {
+    // Ensure whatsappNumber column exists on User table
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "whatsappNumber" TEXT;`);
+    } catch {
+      // Column already exists, safe to ignore
+    }
+
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "TaskComment" (
         "id" TEXT NOT NULL PRIMARY KEY,
