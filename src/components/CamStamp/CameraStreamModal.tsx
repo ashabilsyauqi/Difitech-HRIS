@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, MapPin, AlertCircle, RefreshCw, X, ShieldCheck, Building, Briefcase } from "lucide-react";
+import { Camera, MapPin, AlertCircle, RefreshCw, X, ShieldCheck, Building, Briefcase, Globe } from "lucide-react";
 import {
   CamStampWatermarkData,
   renderCamStampWatermark,
@@ -48,6 +48,8 @@ export default function CameraStreamModal({
   } | null>(null);
   const [locationAddress, setLocationAddress] = useState<string>("Mendeteksi lokasi...");
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isNetworkFallback, setIsNetworkFallback] = useState(false);
+  const [isFetchingGps, setIsFetchingGps] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [stampedPreviewUrl, setStampedPreviewUrl] = useState<string | null>(null);
@@ -92,21 +94,80 @@ export default function CameraStreamModal({
     }
   };
 
-  // Start GPS Tracking
+  // Fallback to IP / Network Geolocation
+  const fetchIpLocation = async (): Promise<boolean> => {
+    setIsFetchingGps(true);
+    try {
+      const res = await fetch("/api/geolocation");
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.latitude === "number" && typeof data.longitude === "number") {
+          setCoords({
+            lat: data.latitude,
+            lng: data.longitude,
+            accuracy: data.accuracy || 1200,
+          });
+          setIsNetworkFallback(true);
+          setLocationAddress(data.address || `${data.city || "Jakarta"}, Indonesia (Lokasi Jaringan / IP)`);
+          setGpsError(null);
+          setIsFetchingGps(false);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn("Internal IP geolocation failed, trying direct public IP API:", e);
+    }
+
+    try {
+      const res = await fetch("https://ipwho.is/", { headers: { Accept: "application/json" } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success !== false && typeof data.latitude === "number" && typeof data.longitude === "number") {
+          setCoords({
+            lat: data.latitude,
+            lng: data.longitude,
+            accuracy: 1500,
+          });
+          setIsNetworkFallback(true);
+          setLocationAddress(`${data.city || "Jakarta"}, ${data.region || "Indonesia"} (Lokasi Jaringan / IP)`);
+          setGpsError(null);
+          setIsFetchingGps(false);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn("Direct IP API failed:", e);
+    }
+
+    setIsFetchingGps(false);
+    return false;
+  };
+
+  // Start GPS / Location Tracking with Multi-Tier Fallback
   const requestLocation = () => {
+    if (typeof window === "undefined") return;
+
     if (!navigator.geolocation) {
-      setGpsError("Geolocation tidak didukung oleh browser Anda.");
+      fetchIpLocation().then((ok) => {
+        if (!ok) {
+          setGpsError("Geolocation tidak didukung dan lokasi jaringan gagal didapatkan.");
+        }
+      });
       return;
     }
 
+    setIsFetchingGps(true);
     setGpsError(null);
+
+    // Tier 1: Try High-Accuracy Hardware GPS (Satellites)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
         setCoords({ lat: latitude, lng: longitude, accuracy });
+        setIsNetworkFallback(false);
         setGpsError(null);
+        setIsFetchingGps(false);
 
-        // Reverse geocoding for clean location display
         try {
           const addr = await getReverseGeocodeAddress(latitude, longitude);
           setLocationAddress(addr);
@@ -115,39 +176,49 @@ export default function CameraStreamModal({
         }
       },
       (err) => {
-        console.error("Geolocation error:", err);
-        // Fallback for timeout: try with lower accuracy / cached location
-        if (err.code === 3) {
-          navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-              const { latitude, longitude, accuracy } = pos.coords;
-              setCoords({ lat: latitude, lng: longitude, accuracy });
-              setGpsError(null);
-              try {
-                const addr = await getReverseGeocodeAddress(latitude, longitude);
-                setLocationAddress(addr);
-              } catch (e) {
-                setLocationAddress("Jakarta, Indonesia");
-              }
-            },
-            (fallbackErr) => {
-              setGpsError(`Sinyal GPS lemah atau waktu habis (${fallbackErr.message}). Silakan tekan tombol Coba Lagi.`);
-            },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-          );
-          return;
-        }
+        console.warn("Tier 1 GPS error (trying Tier 2 low accuracy):", err);
 
-        if (err.code === 1 || err.message.toLowerCase().includes("denied")) {
-          setGpsError("Izin lokasi ditolak / diblokir oleh browser atau sistem HP. Silakan aktifkan izin lokasi di Pengaturan.");
-        } else {
-          setGpsError(`Gagal mengambil GPS (${err.message}). Pastikan izin lokasi aktif.`);
-        }
+        // Tier 2: Low-accuracy / Wi-Fi trilateration (critical for Mac / PC / Indoors)
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            setCoords({ lat: latitude, lng: longitude, accuracy });
+            setIsNetworkFallback(false);
+            setGpsError(null);
+            setIsFetchingGps(false);
+
+            try {
+              const addr = await getReverseGeocodeAddress(latitude, longitude);
+              setLocationAddress(addr);
+            } catch (e) {
+              setLocationAddress("Jakarta, Indonesia");
+            }
+          },
+          async (tier2Err) => {
+            console.warn("Tier 2 low accuracy error (trying Tier 3 IP fallback):", tier2Err);
+
+            // Tier 3: Automated IP-based Geolocation Fallback
+            const ipSuccess = await fetchIpLocation();
+            if (ipSuccess) {
+              return;
+            }
+
+            // Display informative error if even IP fallback fails
+            if (err.code === 1 || tier2Err.code === 1 || err.message.toLowerCase().includes("denied")) {
+              setGpsError("Izin lokasi diblokir oleh browser atau sistem. Aktifkan izin lokasi atau klik tombol Gunakan Lokasi IP di bawah.");
+            } else if (err.code === 2 || tier2Err.code === 2) {
+              setGpsError(`Perangkat tidak dapat mendeteksi sinyal GPS (${tier2Err.message || err.message}). Biasanya terjadi pada Mac/Laptop tanpa modul GPS fisik. Silakan klik tombol "Gunakan Lokasi Jaringan (IP)" di bawah.`);
+            } else {
+              setGpsError(`Sinyal GPS lemah atau waktu habis (${tier2Err.message || err.message}). Silakan klik "Gunakan Lokasi Jaringan (IP)" di bawah.`);
+            }
+          },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+        );
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
+        timeout: 6000,
+        maximumAge: 60000,
       }
     );
   };
@@ -163,6 +234,9 @@ export default function CameraStreamModal({
       setAttendanceType("OFFICE");
       setClientName("");
       setVisitPurpose("");
+      setCoords(null);
+      setIsNetworkFallback(false);
+      setIsFetchingGps(false);
     }
     return () => {
       stopCamera();
@@ -504,26 +578,76 @@ export default function CameraStreamModal({
 
           {/* GPS Info */}
           <div className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-2xs">
-            <MapPin className="h-4 w-4 flex-shrink-0 text-blue-600 mt-0.5" />
+            {isNetworkFallback ? (
+              <Globe className="h-4 w-4 flex-shrink-0 text-amber-500 mt-0.5" />
+            ) : (
+              <MapPin className="h-4 w-4 flex-shrink-0 text-blue-600 mt-0.5" />
+            )}
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800">
-                  {coords ? "GPS Akurat Terkunci" : "Mencari Titik GPS..."}
+                  {coords
+                    ? isNetworkFallback
+                      ? "Lokasi Jaringan / IP Terkunci"
+                      : "GPS Akurat Terkunci"
+                    : isFetchingGps
+                    ? "Mencari Titik GPS / Jaringan..."
+                    : "Menunggu Sinyal Lokasi..."}
                 </span>
                 {coords && (
-                  <span className="font-mono text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                    Akurasi ±{coords.accuracy.toFixed(0)}m
+                  <span
+                    className={`font-mono text-[10px] px-1.5 py-0.2 rounded border ${
+                      isNetworkFallback
+                        ? "text-amber-700 bg-amber-50 border-amber-200"
+                        : "text-blue-700 bg-blue-50 border-blue-200"
+                    }`}
+                  >
+                    {isNetworkFallback ? "Estimasi IP ±" : "Akurasi ±"}
+                    {coords.accuracy.toFixed(0)}m
                   </span>
                 )}
               </div>
               <p className="mt-0.5 text-[11px] text-slate-600 truncate">{locationAddress}</p>
               {coords && (
-                <p className="mt-0.5 font-mono text-[10px] text-slate-400">
-                  Lat: {coords.lat.toFixed(6)} | Lng: {coords.lng.toFixed(6)}
-                </p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="font-mono text-[10px] text-slate-400">
+                    Lat: {coords.lat.toFixed(6)} | Lng: {coords.lng.toFixed(6)}
+                  </p>
+                  {isNetworkFallback && (
+                    <button
+                      type="button"
+                      onClick={requestLocation}
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    >
+                      Coba GPS Fisik
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Network IP Fallback Notifications */}
+          {isNetworkFallback && attendanceType === "WFA" && (
+            <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-2.5 text-[11px] text-cyan-900 flex items-center gap-2">
+              <span className="text-sm">🌐</span>
+              <p className="leading-snug">
+                Terhubung via <strong>Lokasi Jaringan / IP</strong>. Sesuai ketentuan perusahaan, presensi <strong>WFA / Remote</strong> dapat langsung diambil &amp; dikirim.
+              </p>
+            </div>
+          )}
+
+          {isNetworkFallback && attendanceType === "OFFICE" && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 text-[11px] text-amber-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                <span>Peringatan Presensi Kantor via Jaringan IP</span>
+              </div>
+              <p className="text-[10px] text-amber-800 leading-snug">
+                Lokasi saat ini terdeteksi dari IP internet (bukan GPS fisik). Jika Anda di kantor Difitech dan berada di luar radius, silakan gunakan HP atau pastikan Layanan Lokasi di Pengaturan Mac/Windows aktif. Jika Anda bekerja dari luar, beralihlah ke tab <strong>"WFA / Remote"</strong>.
+              </p>
+            </div>
+          )}
 
           {gpsError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900 space-y-2.5">
@@ -532,27 +656,48 @@ export default function CameraStreamModal({
                   <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                   <span>Kendala Sinyal / Izin GPS</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={requestLocation}
-                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  <span>Coba Lagi GPS</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fetchIpLocation()}
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer"
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span>Pakai Lokasi IP</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Coba GPS</span>
+                  </button>
+                </div>
               </div>
 
               <p className="text-[11px] text-red-800 leading-relaxed font-medium">
                 {gpsError}
               </p>
 
-              <div className="rounded-xl border border-red-200/70 bg-white/90 p-2.5 text-[11px] text-slate-700 space-y-1">
-                <p className="font-bold text-slate-900">💡 Panduan Mengaktifkan Izin Lokasi:</p>
-                <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[10px]">
-                  <li><strong>iPhone (Safari):</strong> Buka <em>Pengaturan iPhone &gt; Privasi &amp; Keamanan &gt; Layanan Lokasi (Aktifkan) &gt; Safari &gt; pilih "Saat Menggunakan App"</em>.</li>
-                  <li><strong>iPhone (Chrome):</strong> Buka <em>Pengaturan iPhone &gt; Chrome &gt; Lokasi &gt; pilih "Saat Menggunakan App"</em>. <u>Sangat disarankan buka lewat Safari bawaan iPhone</u>.</li>
-                  <li><strong>Android:</strong> Ketuk ikon gembok/setelan di samping alamat web <code>hris.difitech.id</code> &gt; <em>Izin Situs &gt; Lokasi &gt; Izinkan</em>.</li>
-                  <li><strong>Penting:</strong> Jangan buka lewat browser bawaan WhatsApp. Buka langsung di aplikasi browser (Safari/Chrome).</li>
+              <div className="rounded-xl border border-red-200/70 bg-white/90 p-2.5 text-[11px] text-slate-700 space-y-1.5">
+                <p className="font-bold text-slate-900">💡 Panduan Mengaktifkan Lokasi Sesuai Perangkat:</p>
+                <ul className="list-disc pl-4 space-y-1 text-slate-600 text-[10px]">
+                  <li>
+                    <strong>Mac (MacBook / macOS):</strong> Buka <em>System Settings (Pengaturan Sistem) &gt; Privacy &amp; Security (Privasi &amp; Keamanan) &gt; Location Services (Layanan Lokasi)</em> &gt; Pastikan aktif dan centang <strong>Google Chrome</strong>. Pastikan juga Wi-Fi dalam kondisi aktif.
+                  </li>
+                  <li>
+                    <strong>Windows:</strong> Buka <em>Settings &gt; Privacy &amp; security &gt; Location</em> &gt; Aktifkan <em>"Location services"</em> dan izinkan Google Chrome / Edge.
+                  </li>
+                  <li>
+                    <strong>iPhone (Safari / Chrome):</strong> Buka <em>Pengaturan iPhone &gt; Privasi &amp; Keamanan &gt; Layanan Lokasi (Aktifkan) &gt; Safari &gt; pilih "Saat Menggunakan App"</em>. Disarankan buka lewat Safari bawaan iPhone.
+                  </li>
+                  <li>
+                    <strong>Android:</strong> Ketuk ikon gembok di sebelah kiri alamat web <code>hris.difitech.id</code> &gt; <em>Izin Situs &gt; Lokasi &gt; Izinkan</em>.
+                  </li>
+                  <li>
+                    <strong>Solusi Instan:</strong> Klik tombol <strong>"Pakai Lokasi IP"</strong> di atas untuk langsung mengunci lokasi berbasis jaringan internet.
+                  </li>
                 </ul>
               </div>
             </div>
