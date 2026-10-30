@@ -136,6 +136,14 @@ const KNOWN_ACCOUNTS: Record<
     basicSalary: 6000000,
     avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
   },
+  "nadya@difitech.id": {
+    name: "Nadya",
+    role: "EMPLOYEE",
+    department: "Sosmed",
+    jobTitle: "Social Media Specialist",
+    basicSalary: 6000000,
+    avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+  },
 };
 
 export async function POST(req: NextRequest) {
@@ -153,6 +161,14 @@ export async function POST(req: NextRequest) {
     if (cleanEmail === "fdhlfebriaan@gmail.com") {
       cleanEmail = "fadhil@difitech.co.id";
     }
+    if (cleanEmail === "nadya@difitech.id") {
+      cleanEmail = "nadya@difitech.co.id";
+    } else if (cleanEmail.endsWith("@difitech.id") && cleanEmail !== "admin@difitech.id") {
+      const candidate = cleanEmail.replace(/@difitech\.id$/, "@difitech.co.id");
+      if (KNOWN_ACCOUNTS[candidate]) {
+        cleanEmail = candidate;
+      }
+    }
 
     let user = await prisma.user.findUnique({
       where: { email: cleanEmail },
@@ -167,7 +183,7 @@ export async function POST(req: NextRequest) {
       (cleanEmail === "fadhil@difitech.co.id" && password === "@Difitech2026");
 
     if (!user && knownConfig && isDefaultPass) {
-      const defaultPass = cleanEmail === "fadhil@difitech.co.id" ? "@Difitech2026" : "password123";
+      const defaultPass = cleanEmail === "fadhil@difitech.co.id" ? "@Difitech2026" : cleanEmail === "nadya@difitech.co.id" ? "Password123" : "password123";
       const passwordHash = await bcrypt.hash(defaultPass, 10);
       user = await prisma.user.upsert({
         where: { email: cleanEmail },
