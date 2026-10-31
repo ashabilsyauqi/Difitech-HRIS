@@ -20,6 +20,7 @@ import {
   CreditCard,
   X,
   UserCheck,
+  Phone,
   UserPlus,
   Briefcase,
   Layers,
@@ -49,6 +50,7 @@ export default function ManagerEmployeesPage() {
   // Form Fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [password, setPassword] = useState("password123");
   const [role, setRole] = useState("EMPLOYEE");
   const [department, setDepartment] = useState("Website");
@@ -113,6 +115,7 @@ export default function ManagerEmployeesPage() {
     setSelectedEmpId(null);
     setName("");
     setEmail("");
+    setWhatsappNumber("");
     setPassword("password123");
     setRole("EMPLOYEE");
     setDepartment(departments[0]?.name || "Website");
@@ -131,6 +134,7 @@ export default function ManagerEmployeesPage() {
     setSelectedEmpId(emp.id);
     setName(emp.name);
     setEmail(emp.email);
+    setWhatsappNumber(emp.whatsappNumber || "");
     setPassword("");
     setRole(emp.role);
     setDepartment(emp.department || (departments[0]?.name || "Engineering & Teknologi"));
@@ -541,6 +545,29 @@ export default function ManagerEmployeesPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-4 text-xs">
+              {/* WhatsApp Notifikasi Input */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5">
+                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                    Nomor WhatsApp Notifikasi
+                  </span>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 border border-emerald-200">
+                    Auto-Sync DWB & HRIS
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 087871976694 (untuk notifikasi bot)"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  className="w-full rounded-xl border border-emerald-300 bg-white px-3.5 py-2 font-mono text-xs text-slate-900 focus:border-emerald-500 focus:outline-none"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Digunakan untuk notifikasi tugas, follow-up, approval, dan presensi otomatis via bot WhatsApp.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap *</label>

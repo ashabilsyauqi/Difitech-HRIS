@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ShieldCheck, LogOut, Clock, User } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { ShieldCheck, LogOut, Clock, User, Phone } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import UserProfileModal from "@/components/UserProfileModal";
 
 interface NavbarProps {
   user: {
@@ -15,13 +16,21 @@ interface NavbarProps {
     department?: string | null;
     jobTitle?: string | null;
     avatarUrl?: string | null;
+    whatsappNumber?: string | null;
   };
   onMenuToggle?: () => void;
 }
 
-export default function Navbar({ user, onMenuToggle }: NavbarProps) {
+export default function Navbar({ user: initialUser, onMenuToggle }: NavbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState(initialUser);
   const [timeStr, setTimeStr] = useState<string>("");
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrentUser(initialUser);
+  }, [initialUser]);
 
   useEffect(() => {
     const update = () => {
@@ -58,84 +67,106 @@ export default function Navbar({ user, onMenuToggle }: NavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md sm:px-6 shadow-xs">
-      <div className="flex items-center gap-3">
-        {onMenuToggle && (
-          <button
-            onClick={onMenuToggle}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
-            aria-label="Buka menu"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        )}
-
-        <Link href={user.role === "EMPLOYEE" ? "/dashboard" : "/manager"} className="flex items-center gap-2.5">
-          {/* Difitech Shield Logo */}
-          <img src="/logo.png" alt="Difitech HRIS Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
-          <div>
-            <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
-              <span className="text-red-600">Difitech</span>
-              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                HRIS CamStamp
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 hidden sm:block">Sistem Presensi & SDM Modern</p>
-          </div>
-        </Link>
-      </div>
-
-      <div className="flex items-center gap-3 sm:gap-5">
-        {/* Live Clock with Blue Accent */}
-        <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 md:flex shadow-2xs">
-          <Clock className="h-3.5 w-3.5 text-blue-600" />
-          <span className="font-mono font-bold text-slate-800">{timeStr || "--:--:--"}</span>
-          <span className="text-[10px] font-bold text-red-600">WIB</span>
-        </div>
-
-        {/* Notifications */}
-        <NotificationBell />
-
-        {/* User Info & Profile */}
+    <>
+      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md sm:px-6 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 leading-tight">{user.name}</p>
-            <div className="flex items-center justify-end gap-1.5 mt-0.5">
-              <span className="text-[11px] text-slate-500">{user.department || "Umum"}</span>
-              <span
-                className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
-                  user.role === "ADMIN"
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : user.role === "MANAGER"
-                    ? "bg-blue-50 text-blue-800 border border-blue-200"
-                    : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                }`}
-              >
-                {getRoleLabel(user.role)}
-              </span>
+          {onMenuToggle && (
+            <button
+              onClick={onMenuToggle}
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
+              aria-label="Buka menu"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+
+          <Link href={currentUser.role === "EMPLOYEE" ? "/dashboard" : "/manager"} className="flex items-center gap-2.5">
+            {/* Difitech Shield Logo */}
+            <img src="/logo.png" alt="Difitech HRIS Logo" className="h-9 w-9 object-contain drop-shadow-xs" />
+            <div>
+              <div className="flex items-center gap-1.5 font-black tracking-tight text-slate-900 text-base">
+                <span className="text-red-600">Difitech</span>
+                <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                  HRIS CamStamp
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 hidden sm:block">Sistem Presensi & SDM Modern</p>
             </div>
-          </div>
-
-          <div className="h-9 w-9 overflow-hidden rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-600 shadow-2xs">
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
-            ) : (
-              <User className="h-5 w-5 text-slate-500" />
-            )}
-          </div>
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            title="Keluar / Logout"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
-      </div>
-    </header>
+
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Live Clock with Blue Accent */}
+          <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 md:flex shadow-2xs">
+            <Clock className="h-3.5 w-3.5 text-blue-600" />
+            <span className="font-mono font-bold text-slate-800">{timeStr || "--:--:--"}</span>
+            <span className="text-[10px] font-bold text-red-600">WIB</span>
+          </div>
+
+          {/* Notifications */}
+          <NotificationBell />
+
+          {/* User Info & Profile Button */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setIsProfileModalOpen(true)}
+              title="Klik untuk ubah profil atau nomor WhatsApp notifikasi"
+              className="flex items-center gap-2.5 rounded-xl border border-transparent p-1 sm:px-2.5 sm:py-1.5 hover:border-slate-200 hover:bg-slate-50 text-left transition group"
+            >
+              <div className="text-right hidden sm:block">
+                <div className="flex items-center justify-end gap-1.5">
+                  <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition leading-tight">
+                    {currentUser.name}
+                  </p>
+                  <Phone className={`h-3 w-3 ${currentUser.whatsappNumber ? "text-emerald-500" : "text-amber-500"}`} />
+                </div>
+                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                  <span className="text-[11px] text-slate-500">{currentUser.department || "Umum"}</span>
+                  <span
+                    className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
+                      currentUser.role === "ADMIN"
+                        ? "bg-red-50 text-red-700 border border-red-200"
+                        : currentUser.role === "MANAGER"
+                        ? "bg-blue-50 text-blue-800 border border-blue-200"
+                        : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    }`}
+                  >
+                    {getRoleLabel(currentUser.role)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-9 w-9 overflow-hidden rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-600 shadow-2xs group-hover:border-blue-400 transition">
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-5 w-5 text-slate-500" />
+                )}
+              </div>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              title="Keluar / Logout"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* User Profile & WhatsApp Settings Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        onUserUpdated={(updated) => {
+          setCurrentUser((prev: any) => ({ ...prev, ...updated }));
+        }}
+      />
+    </>
   );
 }

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         department: true,
         jobTitle: true,
         avatarUrl: true,
+        whatsappNumber: true,
       },
     });
 
