@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         department: true,
         jobTitle: true,
         avatarUrl: true,
+        whatsappNumber: true,
       },
     });
 
@@ -52,3 +53,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+

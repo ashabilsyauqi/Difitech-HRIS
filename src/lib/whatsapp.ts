@@ -221,8 +221,15 @@ export async function dispatchUserNotificationWA(params: {
 }
 
 // ---------------------------------------------------------------------------
-// MESSAGE TEMPLATE BUILDERS
+// MESSAGE TEMPLATE BUILDERS (Clean Corporate & Startup Style, Direct Task Links)
 // ---------------------------------------------------------------------------
+
+function getTaskDirectLink(taskId?: string | null): string {
+  if (taskId) {
+    return "https://difworkboard.difitech.id/dashboard/workspace?taskId=" + taskId;
+  }
+  return "https://difworkboard.difitech.id/dashboard/my-tasks";
+}
 
 export function buildTaskAssignedMessage(data: {
   assigneeName: string;
@@ -236,24 +243,26 @@ export function buildTaskAssignedMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `📢 *DIFITECH WORKBOARD — TUGAS BARU*`,
-    ``,
-    `Halo *${data.assigneeName}*, kamu mendapatkan penugasan tugas baru dari *${data.creatorName}*:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `🏢 Divisi: *${data.department || "General"}*`,
-    `🏷️ Brand: *${data.brand || "Internal"}*`,
-    `📅 Deadline: *${data.deadlineStr || "Belum ditentukan"}*`,
-    `⚡ Prioritas: *${data.priority || "MEDIUM"}*`,
+    "*DIFITECH WORKBOARD* | *TUGAS BARU*",
+    "----------------------------------------",
+    "Halo *" + data.assigneeName + "*, Anda menerima penugasan tugas baru dari *" + data.creatorName + "*:",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Divisi:* " + (data.department || "General"),
+    "\u2022 *Brand:* " + (data.brand || "Internal"),
+    "\u2022 *Batas Waktu (Deadline):* " + (data.deadlineStr || "Belum ditentukan"),
+    "\u2022 *Prioritas:* " + (data.priority || "MEDIUM"),
   ];
 
   if (data.description) {
-    lines.push(`📝 Catatan: _${data.description}_`);
+    lines.push("\u2022 *Catatan:* _\"" + data.description + "\"_");
   }
 
-  lines.push(``);
-  lines.push(`Silakan cek detail dan perbarui status di DWB:`);
-  lines.push(`🔗 https://difworkboard.difitech.id/dashboard/my-tasks`);
+  lines.push("");
+  lines.push("\u2022 *Akses Langsung Kartu Tugas:*");
+  lines.push(getTaskDirectLink(data.taskId));
+  lines.push("----------------------------------------");
+  lines.push("_Difitech Workboard System_");
 
   return lines.join("\n");
 }
@@ -269,16 +278,18 @@ export function buildTaskFollowUpMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `🔔 *DIFITECH WORKBOARD — FOLLOW UP TUGAS*`,
-    ``,
-    `Halo *${data.recipientName}*, ada pengingat follow-up dari *${data.senderName}* (${data.senderRoleOrDept || "Kolega"}):`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `🏢 Divisi: *${data.department || "General"}* | Brand: *${data.brand || "Internal"}*`,
-    `💬 Pesan: _"${data.message || "Tolong dicek dan di-update progres tugas ini ya."}"_`,
-    ``,
-    `Mohon buka dan update perkembangan tugas kamu di DWB:`,
-    `🔗 https://difworkboard.difitech.id/dashboard/my-tasks`,
+    "*DIFITECH WORKBOARD* | *PENGINGAT FOLLOW-UP*",
+    "----------------------------------------",
+    "Halo *" + data.recipientName + "*, ada pengingat tindak lanjut dari *" + data.senderName + "* (" + (data.senderRoleOrDept || "Management") + "):",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Divisi / Brand:* " + (data.department || "General") + " | " + (data.brand || "Internal"),
+    "\u2022 *Pesan:* _\"" + (data.message || "Mohon periksa dan perbarui progres pengerjaan tugas ini.") + "\"_",
+    "",
+    "\u2022 *Buka Kartu Tugas Langsung:*",
+    getTaskDirectLink(data.taskId),
+    "----------------------------------------",
+    "_Difitech Workboard System_"
   ];
 
   return lines.join("\n");
@@ -295,24 +306,26 @@ export function buildTaskSubmittedMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `✅ *DIFITECH WORKBOARD — TUGAS SIAP DIREVIEW*`,
-    ``,
-    `Halo *${data.creatorName}*, rekan kamu *${data.assigneeName}* telah menyelesaikan & submit tugas:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `🏢 Divisi: *${data.department || "General"}* | Brand: *${data.brand || "Internal"}*`,
+    "*DIFITECH WORKBOARD* | *TUGAS SIAP DIREVIEW*",
+    "----------------------------------------",
+    "Halo *" + data.creatorName + "*, rekan Anda *" + data.assigneeName + "* telah menyelesaikan & mengajukan tugas:",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Divisi / Brand:* " + (data.department || "General") + " | " + (data.brand || "Internal"),
   ];
 
   if (data.deliverableUrl) {
-    lines.push(`🔗 Hasil Kerja: ${data.deliverableUrl}`);
+    lines.push("\u2022 *Hasil Kerja (Deliverable):* " + data.deliverableUrl);
   }
   if (data.completionNote) {
-    lines.push(`📝 Catatan Pengerjaan: _"${data.completionNote}"_`);
+    lines.push("\u2022 *Catatan Pengerjaan:* _\"" + data.completionNote + "\"_");
   }
 
-  lines.push(``);
-  lines.push(`Silakan review hasil kerja (ACC / Revisi) di DWB:`);
-  lines.push(`🔗 https://difworkboard.difitech.id/dashboard/workspace`);
+  lines.push("");
+  lines.push("\u2022 *Review Hasil Kerja (ACC / Revisi):*");
+  lines.push(getTaskDirectLink(data.taskId));
+  lines.push("----------------------------------------");
+  lines.push("_Difitech Workboard System_");
 
   return lines.join("\n");
 }
@@ -328,22 +341,24 @@ export function buildMorningDeadlineMessage(data: {
   }>;
 }): string {
   const lines = [
-    `⏰ *DIFITECH WORKBOARD — PENGINGAT DEADLINE PAGI*`,
-    ``,
-    `Selamat pagi *${data.userName}*! 👋`,
-    `Berikut ringkasan tugas kamu yang mendekati batas waktu (H-2 / Hari Ini):`,
-    ``,
+    "*DIFITECH WORKBOARD* | *PENGINGAT DEADLINE PAGI*",
+    "----------------------------------------",
+    "Selamat pagi *" + data.userName + "*,",
+    "Berikut ringkasan tugas kerja Anda yang mendekati batas waktu (H-2 / Hari Ini):",
+    "",
   ];
 
   data.tasks.forEach((t, index) => {
-    lines.push(`${index + 1}. *${t.title}*`);
-    lines.push(`   🏷️ [${t.department || "General"} - ${t.brand || "Internal"}]`);
-    lines.push(`   ⏳ Deadline: *${t.deadlineStr}* (${t.urgencyText})`);
-    lines.push(``);
+    lines.push((index + 1) + ". *" + t.title + "*");
+    lines.push("   \u2022 Divisi/Brand: " + (t.department || "General") + " - " + (t.brand || "Internal"));
+    lines.push("   \u2022 Batas Waktu: *" + t.deadlineStr + "* (" + t.urgencyText + ")");
+    lines.push("");
   });
 
-  lines.push(`Semangat menuntaskan tugas hari ini! 💪`);
-  lines.push(`Akses lembar tugas: https://difworkboard.difitech.id/dashboard/my-tasks`);
+  lines.push("\u2022 *Buka Lembar Kerja:*");
+  lines.push("https://difworkboard.difitech.id/dashboard/my-tasks");
+  lines.push("----------------------------------------");
+  lines.push("_Difitech Workboard System_");
 
   return lines.join("\n");
 }
@@ -357,16 +372,18 @@ export function buildTaskApprovedMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `🎉 *DIFITECH WORKBOARD — TUGAS DISETUJUI (DONE)*`,
-    ``,
-    `Halo *${data.assigneeName}*, selamat! Tugas kamu telah disetujui oleh *${data.reviewerName}*:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `🏢 Divisi: *${data.department || "General"}* | Brand: *${data.brand || "Internal"}*`,
-    `✅ Status: *SELESAI (DONE)*`,
-    ``,
-    `Terima kasih atas dedikasi dan kerja kerasnya! 🚀`,
-    `🔗 https://difworkboard.difitech.id/dashboard/my-tasks`,
+    "*DIFITECH WORKBOARD* | *TUGAS DISETUJUI (DONE)*",
+    "----------------------------------------",
+    "Halo *" + data.assigneeName + "*, selamat! Tugas kerja Anda telah disetujui (ACC) oleh *" + data.reviewerName + "*:",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Divisi / Brand:* " + (data.department || "General") + " | " + (data.brand || "Internal"),
+    "\u2022 *Status:* SELESAI (DONE)",
+    "",
+    "\u2022 *Lihat Detail Tugas:*",
+    getTaskDirectLink(data.taskId),
+    "----------------------------------------",
+    "_Difitech Workboard System_"
   ];
   return lines.join("\n");
 }
@@ -381,16 +398,18 @@ export function buildTaskRevisionMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `⚠️ *DIFITECH WORKBOARD — PERMINTAAN REVISI*`,
-    ``,
-    `Halo *${data.assigneeName}*, ada catatan revisi dari *${data.reviewerName}* untuk tugas:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `🏢 Divisi: *${data.department || "General"}* | Brand: *${data.brand || "Internal"}*`,
-    `📝 Catatan Revisi: _"${data.revisionNote || "Mohon periksa dan perbaiki deliverable sesuai brief."}"_`,
-    ``,
-    `Silakan periksa detailnya dan submit hasil perbaikan di DWB:`,
-    `🔗 https://difworkboard.difitech.id/dashboard/my-tasks`,
+    "*DIFITECH WORKBOARD* | *PERMINTAAN REVISI*",
+    "----------------------------------------",
+    "Halo *" + data.assigneeName + "*, ada catatan perbaikan/revisi dari *" + data.reviewerName + "* untuk tugas:",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Divisi / Brand:* " + (data.department || "General") + " | " + (data.brand || "Internal"),
+    "\u2022 *Catatan Revisi:* _\"" + (data.revisionNote || "Mohon periksa dan perbaiki deliverable sesuai instruksi.") + "\"_",
+    "",
+    "\u2022 *Buka Kartu Tugas & Kirim Perbaikan:*",
+    getTaskDirectLink(data.taskId),
+    "----------------------------------------",
+    "_Difitech Workboard System_"
   ];
   return lines.join("\n");
 }
@@ -404,15 +423,17 @@ export function buildTaskCommentMessage(data: {
   taskId?: string;
 }): string {
   const lines = [
-    `💬 *DIFITECH WORKBOARD — DISKUSI TUGAS*`,
-    ``,
-    `Halo *${data.recipientName}*, *${data.senderName}* baru saja ${data.isReply ? "membalas komentar" : "menulis komentar"} pada tugas:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `💬 Pesan: _"${data.commentText}"_`,
-    ``,
-    `Balas diskusi atau cek selengkapnya di DWB:`,
-    `🔗 https://difworkboard.difitech.id/dashboard/my-tasks`,
+    "*DIFITECH WORKBOARD* | *DISKUSI TUGAS*",
+    "----------------------------------------",
+    "Halo *" + data.recipientName + "*, *" + data.senderName + "* baru saja " + (data.isReply ? "membalas komentar" : "menambahkan komentar") + " pada tugas:",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Pesan:* _\"" + data.commentText + "\"_",
+    "",
+    "\u2022 *Balas Diskusi Langsung:*",
+    getTaskDirectLink(data.taskId),
+    "----------------------------------------",
+    "_Difitech Workboard System_"
   ];
   return lines.join("\n");
 }
@@ -429,22 +450,24 @@ export function buildDeadlineUpdateMessage(data: {
   const isAgreed = data.type === "AGREED";
   const lines = [
     isAgreed
-      ? `🤝 *DIFITECH WORKBOARD — DEADLINE DISETUJUI*`
-      : `📅 *DIFITECH WORKBOARD — USULAN PERUBAHAN DEADLINE*`,
-    ``,
-    `Halo *${data.recipientName}*, ${isAgreed ? `perubahan deadline telah disepakati oleh *${data.senderName}*` : `*${data.senderName}* mengajukan usulan deadline baru`}:`,
-    ``,
-    `📌 *${data.taskTitle}*`,
-    `📅 Batas Waktu Baru: *${data.proposedDateStr}*`,
+      ? "*DIFITECH WORKBOARD* | *DEADLINE DISETUJUI*"
+      : "*DIFITECH WORKBOARD* | *USULAN DEADLINE BARU*",
+    "----------------------------------------",
+    "Halo *" + data.recipientName + "*, " + (isAgreed ? "perubahan batas waktu disepakati oleh *" + data.senderName + "*" : "*" + data.senderName + "* mengajukan usulan batas waktu baru") + ":",
+    "",
+    "\u2022 *Tugas:* " + data.taskTitle,
+    "\u2022 *Batas Waktu Baru:* *" + data.proposedDateStr + "*",
   ];
 
   if (data.reason) {
-    lines.push(`📝 Alasan: _"${data.reason}"_`);
+    lines.push("\u2022 *Alasan:* _\"" + data.reason + "\"_");
   }
 
-  lines.push(``);
-  lines.push(`Cek selengkapnya di DWB:`);
-  lines.push(`🔗 https://difworkboard.difitech.id/dashboard/my-tasks`);
+  lines.push("");
+  lines.push("\u2022 *Cek Kartu Tugas:*");
+  lines.push(getTaskDirectLink(data.taskId));
+  lines.push("----------------------------------------");
+  lines.push("_Difitech Workboard System_");
 
   return lines.join("\n");
 }
