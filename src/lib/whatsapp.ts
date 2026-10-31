@@ -65,7 +65,54 @@ export async function sendWhatsAppNotification(params: {
     };
   }
 
-  // Candidate gateway URLs: internal container name, localhost, or public IP
+  // 1. Primary: Try WAHA (WhatsApp HTTP API with native Chromium Web engine)
+  const wahaUrls = [
+    process.env.WAHA_URL,
+    "http://waha:3000",
+    "http://127.0.0.1:3008",
+    "http://31.97.220.128:3008",
+  ].filter(Boolean) as string[];
+  const wahaApiKey = process.env.WAHA_API_KEY || "difitech_waha_secret_2026";
+
+  for (const wahaBase of wahaUrls) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch(`${wahaBase}/api/sendText`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": wahaApiKey,
+        },
+        body: JSON.stringify({
+          session: "default",
+          chatId: `${normalizedPhone}@c.us`,
+          text: message,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && (data.id || data.timestamp || data.status === "success")) {
+        const msgId = data.id || data.messageId || "WAHA_OK";
+        console.log(`[WAHA Gateway] ✅ Pesan berhasil dikirim ke ${normalizedPhone} (${recipientName}): ID ${msgId}`);
+        return {
+          success: true,
+          status: "SENT",
+          recipientPhone: normalizedPhone,
+          messageId: msgId,
+          detail: `Pesan berhasil dikirim via WAHA ke ${normalizedPhone}.`,
+        };
+      }
+    } catch (e: any) {
+      // Continue to next gateway option
+    }
+  }
+
+  // 2. Secondary / Fallback: Candidate legacy bridge URLs
   const candidateUrls = [
     process.env.WA_GATEWAY_URL,
     "http://crm-wa-bridge:3001",
