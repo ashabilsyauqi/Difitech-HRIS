@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export function normalizeWhatsApp(phone: string | null | undefined): string | null {
+function normalizeWhatsApp(phone: string | null | undefined): string | null {
   if (!phone) return null;
   const digits = phone.replace(/[^0-9]/g, "");
   if (!digits || digits.length < 8) return null;
