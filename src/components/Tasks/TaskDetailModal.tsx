@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import {
   X,
   Calendar,
@@ -18,6 +18,7 @@ import {
   Share2,
   Inbox,
   Check,
+  Copy,
   ArrowRightLeft,
   MessageSquare,
   Paperclip,
@@ -237,7 +238,224 @@ export function getTaskStageKey(task: any, customStages?: WorkboardStage[]): str
   return "NOT_STARTED";
 }
 
-export default function TaskDetailModal({
+const formatTimerSeconds = (totalSeconds: number) => {
+  const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+  const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+  const s = String(totalSeconds % 60).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
+
+function extractUrls(textOrHtml: string): string[] {
+  if (!textOrHtml) return [];
+  const matches = textOrHtml.match(/(https?:\/\/[^\s<>"']+)/gi);
+  if (!matches) return [];
+  const cleaned = matches.map((u) => u.replace(/[.,;)]+$/, ""));
+  return Array.from(new Set(cleaned));
+}
+
+function linkifyHtml(html: string): string {
+  if (!html) return "";
+  const hasAnchors = /<a\s+[^>]*>/i.test(html);
+  if (!hasAnchors) {
+    return html.replace(
+      /(https?:\/\/[^\s<>"']+)/gi,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-semibold hover:text-blue-800 break-all cursor-pointer">$1</a>'
+    );
+  }
+  if (typeof window !== "undefined" && typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const walk = (node: Node) => {
+        if (node.nodeType === Node.TEXT_NODE && node.nodeValue && node.parentElement?.tagName !== "A") {
+          const text = node.nodeValue;
+          const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+          if (urlRegex.test(text)) {
+            const span = document.createElement("span");
+            span.innerHTML = text.replace(
+              urlRegex,
+              '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-semibold hover:text-blue-800 break-all cursor-pointer">$1</a>'
+            );
+            node.parentNode?.replaceChild(span, node);
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          Array.from(node.childNodes).forEach(walk);
+        }
+      };
+      Array.from(doc.body.childNodes).forEach(walk);
+      return doc.body.innerHTML;
+    } catch {
+      return html;
+    }
+  }
+  return html;
+}
+
+interface DigitalTimerDisplayProps {
+  isTracking: boolean;
+  trackingStartedAt?: string | null;
+  baseSeconds: number;
+  onTick?: (sec: number) => void;
+}
+
+const DigitalTimerDisplay = memo(function DigitalTimerDisplay({
+  isTracking,
+  trackingStartedAt,
+  baseSeconds,
+  onTick,
+}: DigitalTimerDisplayProps) {
+  const [seconds, setSeconds] = useState(() => {
+    let s = baseSeconds;
+    if (isTracking && trackingStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(trackingStartedAt).getTime()) / 1000);
+      s += Math.max(0, elapsed);
+    }
+    return s;
+  });
+
+  useEffect(() => {
+    let s = baseSeconds;
+    if (isTracking && trackingStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(trackingStartedAt).getTime()) / 1000);
+      s += Math.max(0, elapsed);
+    }
+    setSeconds(s);
+    onTick?.(s);
+  }, [isTracking, trackingStartedAt, baseSeconds, onTick]);
+
+  useEffect(() => {
+    if (!isTracking) return;
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        const next = prev + 1;
+        onTick?.(next);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isTracking, onTick]);
+
+  return (
+    <div className="font-mono text-2xl font-black tracking-wider text-slate-800">
+      {formatTimerSeconds(seconds)}
+    </div>
+  );
+});
+
+const TaskDescriptionSection = memo(
+  function TaskDescriptionSection({
+    description,
+  }: {
+    description?: string | null;
+  }) {
+    const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+    const detectedUrls = useMemo(() => {
+      return extractUrls(description || "");
+    }, [description]);
+
+    const processedHtml = useMemo(() => {
+      return linkifyHtml(description || "");
+    }, [description]);
+
+    const handleCopy = (url: string, idx: number) => {
+      if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url);
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 2000);
+      }
+    };
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Lembar Kerja & Instruksi Pengerjaan
+          </h4>
+          <span className="text-[11px] text-slate-400 font-medium">
+            Teks dapat diblok & disalin langsung
+          </span>
+        </div>
+
+        {detectedUrls.length > 0 && (
+          <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+              <ExternalLink className="h-3.5 w-3.5 text-blue-600" />
+              <span>Tautan / Link Terdeteksi ({detectedUrls.length}):</span>
+            </div>
+            <div className="space-y-1.5">
+              {detectedUrls.map((url, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-blue-200/60 shadow-2xs text-xs"
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium truncate flex-1 flex items-center gap-1.5"
+                    title={url}
+                  >
+                    <span className="font-bold text-slate-400 shrink-0">#{idx + 1}</span>
+                    <span className="truncate">{url}</span>
+                  </a>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(url, idx)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                    >
+                      {copiedIdx === idx ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-600" />
+                          <span className="text-emerald-700 font-bold">Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 text-slate-500" />
+                          <span>Salin Link</span>
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer"
+                    >
+                      <span>Buka</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs min-h-[360px] select-text"
+          style={{ userSelect: "text", WebkitUserSelect: "text" }}
+        >
+          {description ? (
+            <div
+              className="prose prose-sm max-w-none text-slate-800 leading-relaxed select-text"
+              style={{ userSelect: "text", WebkitUserSelect: "text" }}
+              dangerouslySetInnerHTML={{ __html: processedHtml }}
+            />
+          ) : (
+            <p className="text-xs italic text-slate-400">
+              Tidak ada catatan tambahan untuk tugas ini.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  },
+  (prev, next) => prev.description === next.description
+);
+
+function TaskDetailModal({
   isOpen,
   onClose,
   task: initialTask,
@@ -273,7 +491,8 @@ export default function TaskDetailModal({
 
   // Time Tracker State for Modal
   const [isTracking, setIsTracking] = useState(false);
-  const [activeSeconds, setActiveSeconds] = useState(0);
+  const [baseSeconds, setBaseSeconds] = useState(0);
+  const activeSecondsRef = useRef(0);
   const [isUpdatingTimer, setIsUpdatingTimer] = useState(false);
 
   useEffect(() => {
@@ -287,24 +506,10 @@ export default function TaskDetailModal({
         );
         sec += Math.max(0, elapsed);
       }
-      setActiveSeconds(sec);
+      setBaseSeconds(sec);
+      activeSecondsRef.current = sec;
     }
   }, [task?.id, task?.isTracking, task?.trackingStartedAt, task?.trackedSeconds, isOpen]);
-
-  useEffect(() => {
-    if (!isTracking) return;
-    const interval = setInterval(() => {
-      setActiveSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isTracking]);
-
-  const formatTimerSeconds = (totalSeconds: number) => {
-    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
-    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-    const s = String(totalSeconds % 60).padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
@@ -543,7 +748,7 @@ export default function TaskDetailModal({
         body: JSON.stringify({
           taskId: task.id,
           action: "START",
-          trackedSeconds: activeSeconds,
+          trackedSeconds: activeSecondsRef.current,
         }),
       });
       setIsTracking(true);
@@ -647,19 +852,21 @@ export default function TaskDetailModal({
     try {
       setIsUpdatingTimer(true);
       const action = isTracking ? "PAUSE" : "START";
+      const currentSeconds = activeSecondsRef.current;
       const res = await fetch("/api/tasks/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id,
           action,
-          trackedSeconds: activeSeconds,
+          trackedSeconds: currentSeconds,
         }),
       });
       if (res.ok) {
         const nextTracking = !isTracking;
         setIsTracking(nextTracking);
-        let updated = { ...task, isTracking: nextTracking, trackedSeconds: activeSeconds };
+        setBaseSeconds(currentSeconds);
+        let updated = { ...task, isTracking: nextTracking, trackedSeconds: currentSeconds };
         if (nextTracking) {
           if (task.status !== "IN_PROGRESS" && task.status !== "COMPLETED") {
             const targetStage = stagesToRender.some((s) => s.key === "ON_PROGRESS")
@@ -1152,23 +1359,7 @@ export default function TaskDetailModal({
               </div>
             )}
 
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Lembar Kerja & Instruksi Pengerjaan
-              </h4>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs min-h-[360px]">
-                {task.description ? (
-                  <div
-                    className="prose prose-sm max-w-none text-slate-800 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: task.description }}
-                  />
-                ) : (
-                  <p className="text-xs italic text-slate-400">
-                    Tidak ada catatan tambahan untuk tugas ini.
-                  </p>
-                )}
-              </div>
-            </div>
+            <TaskDescriptionSection description={task.description} />
 
             {/* Bukti Deliverable & Hasil Akhir */}
             {(task.deliverableUrl || deliverableScreenshots.length > 0) && task.status !== "COMPLETED" && !isReviewPending && (
@@ -1898,7 +2089,7 @@ export default function TaskDetailModal({
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
                     Live Running
                   </span>
-                ) : activeSeconds > 0 ? (
+                ) : baseSeconds > 0 ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                     Dijeda
                   </span>
@@ -1911,9 +2102,14 @@ export default function TaskDetailModal({
 
               {/* Big Digital Timer Display */}
               <div className="text-center py-2.5 px-3 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="font-mono text-2xl font-black tracking-wider text-slate-800">
-                  {formatTimerSeconds(activeSeconds)}
-                </div>
+                <DigitalTimerDisplay
+                  isTracking={isTracking}
+                  trackingStartedAt={task.trackingStartedAt}
+                  baseSeconds={baseSeconds}
+                  onTick={(sec) => {
+                    activeSecondsRef.current = sec;
+                  }}
+                />
                 <div className="text-[10px] text-slate-400 font-medium mt-0.5">
                   {task.actualHours ? `Tercatat: ${task.actualHours} jam` : "Jam kerja terlacak"}
                 </div>
@@ -1939,7 +2135,7 @@ export default function TaskDetailModal({
                   ) : (
                     <>
                       <PlayCircle className="h-4 w-4" />
-                      <span>{activeSeconds > 0 ? "Lanjutkan Kerjakan" : "Kerjakan (Mulai Timer)"}</span>
+                      <span>{baseSeconds > 0 ? "Lanjutkan Kerjakan" : "Kerjakan (Mulai Timer)"}</span>
                     </>
                   )}
                 </button>
@@ -2277,3 +2473,19 @@ export default function TaskDetailModal({
     </div>
   );
 }
+
+export default memo(TaskDetailModal, (prev, next) => {
+  if (prev.isOpen !== next.isOpen) return false;
+  if (!next.isOpen) return true;
+  if (prev.task?.id !== next.task?.id) return false;
+  if (prev.task?.updatedAt !== next.task?.updatedAt) return false;
+  if (prev.task?.status !== next.task?.status) return false;
+  if (prev.task?.kanbanStage !== next.task?.kanbanStage) return false;
+  if (prev.task?.isTracking !== next.task?.isTracking) return false;
+  if (prev.task?.trackedSeconds !== next.task?.trackedSeconds) return false;
+  if (prev.task?.description !== next.task?.description) return false;
+  if (prev.task?.title !== next.task?.title) return false;
+  if (prev.currentUser?.id !== next.currentUser?.id) return false;
+  if (prev.currentUser?.role !== next.currentUser?.role) return false;
+  return true;
+});
