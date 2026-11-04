@@ -45,6 +45,14 @@ export function cleanTextForExcel(val: any, maxLength = 32000): string {
   let str = String(val);
   // Replace huge base64 images inside HTML with placeholder
   str = str.replace(/<img[^>]*>/gi, "[Gambar/Screenshot]");
+  // Replace HTML entities
+  str = str
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
   // Strip HTML tags and normalize whitespace
   str = str.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (!str) return "-";
@@ -173,7 +181,12 @@ export function exportTasksToExcel(
  * Generates and triggers download of Excel (.xlsx) file from attendance dataset
  */
 export function exportAttendanceToExcel(data: Record<string, any>[], filename = "HRIS_Attendance_Report.xlsx") {
-  if (!data || data.length === 0) return;
+  if (!data || data.length === 0) {
+    if (typeof window !== "undefined") {
+      alert("Tidak ada data presensi untuk diekspor ke Excel.");
+    }
+    return;
+  }
 
   try {
     const sanitizedData = data.map((row) => {
@@ -210,6 +223,13 @@ export function exportAttendanceToPdf(
   data: AttendanceExportRow[],
   meta: { dateRangeStr?: string; title?: string } = {}
 ) {
+  if (!data || data.length === 0) {
+    if (typeof window !== "undefined") {
+      alert("Tidak ada data presensi untuk diekspor ke PDF.");
+    }
+    return;
+  }
+
   const doc = new jsPDF("landscape");
 
   // Title & Header Banner
