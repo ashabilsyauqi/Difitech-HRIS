@@ -29,7 +29,7 @@ import {
   ImageIcon,
   X,
 } from "lucide-react";
-import { exportTasksToExcel, TaskExportRow } from "@/lib/export-utils";
+import { exportTasksToExcel, TaskExportRow, cleanTextForExcel } from "@/lib/export-utils";
 import { getWIBDateString } from "@/lib/date-utils";
 
 export default function ManagerTeamTasksPage() {
@@ -198,104 +198,119 @@ export default function ManagerTeamTasksPage() {
 
   const mapTasksToExportRows = (taskList: any[]): TaskExportRow[] => {
     return taskList.map((t) => {
-      const taskDate = t.attendance?.date || t.targetDate || t.createdAt?.split("T")[0] || "-";
+      const taskDate = t.targetDate || t.attendance?.date || t.createdAt?.split("T")[0] || "-";
       return {
         "Tanggal": taskDate,
-        "Nama Karyawan": t.user?.name || "Karyawan",
-        "Email": t.user?.email || "-",
-        "Departemen": t.user?.department || "Umum",
-        "Kategori / Brand": t.category || "Difitech",
-        "Judul Tugas": t.title,
-        "Deskripsi": t.description || "-",
+        "Nama Karyawan": cleanTextForExcel(t.user?.name || "Karyawan", 100),
+        "Email": cleanTextForExcel(t.user?.email || "-", 100),
+        "Departemen": cleanTextForExcel(t.user?.department || "Umum", 100),
+        "Kategori / Brand": cleanTextForExcel(t.category || "Difitech", 100),
+        "Judul Tugas": cleanTextForExcel(t.title, 500),
+        "Deskripsi": cleanTextForExcel(t.description),
         "Status": t.status === "COMPLETED" ? "Selesai" : t.status === "IN_PROGRESS" ? "Sedang Berjalan" : t.status === "BLOCKED" ? "Terkendala" : "Belum Dikerjakan",
         "Prioritas": t.priority || "MEDIUM",
-        "Link Deliverables (Drive)": t.deliverableUrl || "-",
+        "Link Deliverables (Drive)": cleanTextForExcel(t.deliverableUrl, 1000),
         "Bukti Screenshot": t.deliverableAttachment ? "Ada (Screenshot Terlampir)" : "-",
-        "Catatan Selesai": t.completionNote || "-",
+        "Catatan Selesai": cleanTextForExcel(t.completionNote),
       };
     });
   };
 
   // Export tasks based strictly on currently active filters (Date range, Employee, Brand, Search)
   const handleExportFiltered = () => {
-    if (filteredTasks.length === 0) {
-      alert("Tidak ada tugas pada filter yang dipilih saat ini untuk diekspor.");
-      return;
+    try {
+      if (!filteredTasks || filteredTasks.length === 0) {
+        alert("Tidak ada tugas pada filter yang dipilih saat ini untuk diekspor.");
+        return;
+      }
+
+      const rows = mapTasksToExportRows(filteredTasks);
+      const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : (activePreset || todayStr);
+      const targetLabel =
+        selectedUser !== "ALL"
+          ? (selectedUserName ? selectedUserName.replace(/\s+/g, "_") : "Karyawan")
+          : "Semua_Karyawan";
+      const filename = `Laporan_Tugas_${targetLabel}_${dateLabel}.xlsx`;
+
+      const uniqueEmps = Array.from(new Set(rows.map((r) => r["Nama Karyawan"])));
+      exportTasksToExcel(rows, filename, uniqueEmps.length > 1);
+    } catch (err: any) {
+      console.error("Export filtered tasks error:", err);
+      alert("Gagal memproses ekspor Excel: " + (err?.message || "Terjadi kendala"));
     }
-
-    const rows = mapTasksToExportRows(filteredTasks);
-    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
-    const targetLabel =
-      selectedUser !== "ALL"
-        ? (selectedUserName ? selectedUserName.replace(/\s+/g, "_") : "Karyawan")
-        : "Semua_Karyawan";
-    const filename = `Laporan_Tugas_${targetLabel}_${dateLabel}.xlsx`;
-
-    const uniqueEmps = Array.from(new Set(rows.map((r) => r["Nama Karyawan"])));
-    exportTasksToExcel(rows, filename, uniqueEmps.length > 1);
   };
 
   // Export ALL employees (1 Excel file with Master Sheet + separate sheets per employee)
   const handleExportAllEmployees = () => {
-    let allEmployeeTasks = tasks.filter((t) => {
-      let matchesDate = true;
-      const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
-      if (startDate && endDate) {
-        matchesDate = taskDate >= startDate && taskDate <= endDate;
-      } else if (startDate) {
-        matchesDate = taskDate >= startDate;
-      } else if (endDate) {
-        matchesDate = taskDate <= endDate;
+    try {
+      let allEmployeeTasks = tasks.filter((t) => {
+        let matchesDate = true;
+        const taskDate = t.targetDate || t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+        if (startDate && endDate) {
+          matchesDate = taskDate >= startDate && taskDate <= endDate;
+        } else if (startDate) {
+          matchesDate = taskDate >= startDate;
+        } else if (endDate) {
+          matchesDate = taskDate <= endDate;
+        }
+        return matchesDate;
+      });
+
+      if (allEmployeeTasks.length === 0) {
+        alert("Tidak ada tugas pada rentang waktu ini untuk diekspor.");
+        return;
       }
-      return matchesDate;
-    });
 
-    if (allEmployeeTasks.length === 0) {
-      alert("Tidak ada tugas pada rentang waktu ini untuk diekspor.");
-      return;
+      const rows = mapTasksToExportRows(allEmployeeTasks);
+      const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : (activePreset || todayStr);
+      exportTasksToExcel(rows, `Laporan_Tugas_SEMUA_KARYAWAN_Difitech_${dateLabel}.xlsx`, true);
+    } catch (err: any) {
+      console.error("Export all employees error:", err);
+      alert("Gagal memproses ekspor Excel semua karyawan: " + (err?.message || "Terjadi kendala"));
     }
-
-    const rows = mapTasksToExportRows(allEmployeeTasks);
-    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
-    exportTasksToExcel(rows, `Laporan_Tugas_SEMUA_KARYAWAN_Difitech_${dateLabel}.xlsx`, true);
   };
 
   // Export specific employee
   const handleExportSingleEmployee = (empId?: string, empName?: string) => {
-    const targetUserId = empId || selectedUser;
-    if (!targetUserId || targetUserId === "ALL") {
-      alert("Silakan pilih salah satu karyawan di filter 'Pilih Karyawan' terlebih dahulu, atau klik tombol 'Ekspor Semua Karyawan (ALL)'.");
-      return;
-    }
-
-    const empObj = usersList.find((u) => u.id === targetUserId);
-    const targetName = empName || empObj?.name || selectedUserName || "Karyawan";
-
-    const employeeTasks = tasks.filter((t) => {
-      const isTargetUser = t.userId === targetUserId || t.user?.id === targetUserId || t.user?.email === targetUserId;
-      if (!isTargetUser) return false;
-
-      let matchesDate = true;
-      const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
-      if (startDate && endDate) {
-        matchesDate = taskDate >= startDate && taskDate <= endDate;
-      } else if (startDate) {
-        matchesDate = taskDate >= startDate;
-      } else if (endDate) {
-        matchesDate = taskDate <= endDate;
+    try {
+      const targetUserId = empId || selectedUser;
+      if (!targetUserId || targetUserId === "ALL") {
+        alert("Silakan pilih salah satu karyawan di filter 'Pilih Karyawan' terlebih dahulu, atau klik tombol 'Ekspor Semua Karyawan (ALL)'.");
+        return;
       }
-      return matchesDate;
-    });
 
-    if (employeeTasks.length === 0) {
-      alert(`Tidak ada tugas untuk ${targetName} pada rentang waktu ini.`);
-      return;
+      const empObj = usersList.find((u) => u.id === targetUserId);
+      const targetName = empName || empObj?.name || selectedUserName || "Karyawan";
+
+      const employeeTasks = tasks.filter((t) => {
+        const isTargetUser = t.userId === targetUserId || t.user?.id === targetUserId || t.user?.email === targetUserId;
+        if (!isTargetUser) return false;
+
+        let matchesDate = true;
+        const taskDate = t.targetDate || t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+        if (startDate && endDate) {
+          matchesDate = taskDate >= startDate && taskDate <= endDate;
+        } else if (startDate) {
+          matchesDate = taskDate >= startDate;
+        } else if (endDate) {
+          matchesDate = taskDate <= endDate;
+        }
+        return matchesDate;
+      });
+
+      if (employeeTasks.length === 0) {
+        alert(`Tidak ada tugas untuk ${targetName} pada rentang waktu ini.`);
+        return;
+      }
+
+      const rows = mapTasksToExportRows(employeeTasks);
+      const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : (activePreset || todayStr);
+      const filename = `Laporan_Tugas_${targetName.replace(/\s+/g, "_")}_${dateLabel}.xlsx`;
+      exportTasksToExcel(rows, filename, false);
+    } catch (err: any) {
+      console.error("Export single employee error:", err);
+      alert("Gagal memproses ekspor karyawan: " + (err?.message || "Terjadi kendala"));
     }
-
-    const rows = mapTasksToExportRows(employeeTasks);
-    const cleanName = targetName.replace(/\s+/g, "_");
-    const dateLabel = startDate && endDate ? `${startDate}_sd_${endDate}` : todayStr;
-    exportTasksToExcel(rows, `Laporan_Tugas_${cleanName}_${dateLabel}.xlsx`, false);
   };
 
   const formatSeconds = (totalSec: number) => {
