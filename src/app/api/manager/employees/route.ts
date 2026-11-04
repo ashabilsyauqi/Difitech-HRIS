@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 
 export async function GET(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req as any);
     if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
       return NextResponse.json({ error: "Forbidden: Admin or Manager only" }, { status: 403 });
     }
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req as any);
     if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
       return NextResponse.json({ error: "Forbidden: Admin or Manager only" }, { status: 403 });
     }

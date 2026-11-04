@@ -141,16 +141,29 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const rawAttachmentParam = searchParams.get("rawAttachment") === "true";
+
     const sanitizedTasks = tasks.map((t) => {
+      const hasAttachment = Boolean(t.deliverableAttachment && t.deliverableAttachment.trim());
+      const deliverableAttachment = rawAttachmentParam
+        ? t.deliverableAttachment
+        : (hasAttachment ? `/api/tasks/${t.id}/attachment` : null);
+
+      const base = {
+        ...t,
+        deliverableAttachment,
+        hasDeliverableAttachment: hasAttachment,
+      };
+
       if (t.status === "COMPLETED") {
         return {
-          ...t,
+          ...base,
           isTracking: false,
           trackingStartedAt: null,
           actualHours: t.actualHours || (t.trackedSeconds ? Number((t.trackedSeconds / 3600).toFixed(2)) : 0),
         };
       }
-      return t;
+      return base;
     });
 
     return NextResponse.json({ tasks: sanitizedTasks });

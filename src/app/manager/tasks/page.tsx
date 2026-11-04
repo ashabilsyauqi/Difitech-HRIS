@@ -46,7 +46,7 @@ export default function ManagerTeamTasksPage() {
   const todayStr = getWIBDateString();
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
-  const [activePreset, setActivePreset] = useState<"TODAY" | "WEEK" | "MONTH" | "ALL">("TODAY");
+  const [activePreset, setActivePreset] = useState<"TODAY" | "WEEK" | "MONTH" | "PREV_MONTH" | "ALL" | "CUSTOM">("TODAY");
 
   // Attribute Filters
   const [selectedUser, setSelectedUser] = useState("ALL");
@@ -56,7 +56,7 @@ export default function ManagerTeamTasksPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  const applyPreset = (preset: "TODAY" | "WEEK" | "MONTH" | "ALL") => {
+  const applyPreset = (preset: "TODAY" | "WEEK" | "MONTH" | "PREV_MONTH" | "ALL") => {
     setActivePreset(preset);
     const now = new Date();
     const nowStr = now.toISOString().split("T")[0];
@@ -73,6 +73,11 @@ export default function ManagerTeamTasksPage() {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       setStartDate(firstDay.toISOString().split("T")[0]);
       setEndDate(nowStr);
+    } else if (preset === "PREV_MONTH") {
+      const firstDayPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastDayPrev = new Date(now.getFullYear(), now.getMonth(), 0);
+      setStartDate(firstDayPrev.toISOString().split("T")[0]);
+      setEndDate(lastDayPrev.toISOString().split("T")[0]);
     } else if (preset === "ALL") {
       setStartDate("");
       setEndDate("");
@@ -163,7 +168,7 @@ export default function ManagerTeamTasksPage() {
       selectedStatus === "ALL" || t.status === selectedStatus;
 
     let matchesDate = true;
-    const taskDate = t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
+    const taskDate = t.targetDate || t.attendance?.date || (t.createdAt ? t.createdAt.split("T")[0] : "");
     if (startDate && endDate) {
       matchesDate = taskDate >= startDate && taskDate <= endDate;
     } else if (startDate) {
@@ -449,6 +454,18 @@ export default function ManagerTeamTasksPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => applyPreset("PREV_MONTH")}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-2xs ${
+                    activePreset === "PREV_MONTH"
+                      ? "bg-red-600 text-white shadow-red-600/25"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                  title="Filter tugas bulan lalu (Oktober 2026)"
+                >
+                  ⏮️ Bulan Lalu (Okt)
+                </button>
+                <button
+                  type="button"
                   onClick={() => applyPreset("ALL")}
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-2xs ${
                     activePreset === "ALL"
@@ -482,7 +499,7 @@ export default function ManagerTeamTasksPage() {
                   value={startDate}
                   onChange={(e) => {
                     setStartDate(e.target.value);
-                    setActivePreset("ALL");
+                    setActivePreset("CUSTOM");
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none font-mono"
                 />
@@ -498,7 +515,7 @@ export default function ManagerTeamTasksPage() {
                   value={endDate}
                   onChange={(e) => {
                     setEndDate(e.target.value);
-                    setActivePreset("ALL");
+                    setActivePreset("CUSTOM");
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-red-500 focus:outline-none font-mono"
                 />
