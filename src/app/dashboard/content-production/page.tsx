@@ -1119,7 +1119,12 @@ export default function ContentProductionKanbanPage() {
         task={selectedTaskForDetail}
         currentUser={user}
         customStages={SOSMED_WORKBOARD_STAGES}
-        onUpdate={fetchTasks}
+        onUpdate={(updatedTask) => {
+          if (updatedTask) {
+            setSelectedTaskForDetail((prev: any) => (prev ? { ...prev, ...updatedTask } : updatedTask));
+          }
+          fetchTasks();
+        }}
         onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
         onOpenDeliverableModal={(t) => setApprovalModalTask(t)}
         onOpenRevisionModal={(t) => setRevisionModalTask(t)}

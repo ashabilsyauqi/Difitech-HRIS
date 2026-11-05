@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WhatsApp Bot Gateway | Difitech Workboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="https://difworkboard.difitech.id/icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Main Container -->
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
+    
+    <!-- Header -->
+    <div class="text-center space-y-2">
+      <div class="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-lg shadow-blue-500/20 mb-1">
+        <span class="text-3xl">🤖</span>
+      </div>
+      <h1 class="text-2xl font-black tracking-tight text-white">WhatsApp Bot DWB</h1>
+      <p class="text-xs text-slate-400 font-medium leading-relaxed">
+        Difitech Workboard Gateway Notifikasi Otomatis
+      </p>
+    </div>
+
+    <!-- Status Badge -->
+    <div id="statusBadgeContainer" class="flex justify-center">
+      <div id="statusBadge" class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+        <span class="h-2 w-2 rounded-full bg-slate-400 animate-ping"></span>
+        <span>Memeriksa status bot...</span>
+      </div>
+    </div>
+
+    <!-- STATE 1: CONNECTED (WORKING) -->
+    <div id="sectionConnected" class="space-y-5 hidden">
+      <div class="bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 space-y-3 text-xs">
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400 font-medium">Nomor Bot Aktif</span>
+          <span id="botPhone" class="font-bold text-white font-mono text-sm">+62 ...</span>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400 font-medium">Nama Akun WhatsApp</span>
+          <span id="botName" class="font-bold text-emerald-400 font-mono">~Difitech Work. Board</span>
+        </div>
+        <div class="flex items-center justify-between py-1 border-b border-slate-800/60">
+          <span class="text-slate-400 font-medium">Engine Gateway</span>
+          <span class="font-semibold text-slate-300">Chromium Official (WEBJS)</span>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="text-slate-400 font-medium">Status Sesi</span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+            CONNECTED
+          </span>
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-emerald-950/30 border border-emerald-800/40 p-3 text-[11px] text-emerald-300 leading-relaxed flex items-start gap-2.5">
+        <span class="text-base leading-none">🎉</span>
+        <span>Bot WhatsApp aktif dan siap mengirimkan notifikasi penugasan, instruksi, dan deadline ke seluruh tim.</span>
+      </div>
+
+      <button
+        type="button"
+        id="btnChangeNumber"
+        onclick="confirmLogout()"
+        class="w-full py-3 px-4 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 active:scale-[0.99] text-white transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-900/20"
+      >
+        <span>🔄 Ganti Nomor Bot (Logout & Hubungkan Nomor Baru)</span>
+      </button>
+    </div>
+
+    <!-- STATE 2: SCAN QR / PAIRING CODE -->
+    <div id="sectionScan" class="space-y-5 hidden">
+      <div class="rounded-xl bg-amber-950/30 border border-amber-800/40 p-3 text-xs text-amber-300 flex items-start gap-2.5">
+        <span class="text-base leading-none">📱</span>
+        <div>
+          <p class="font-bold">Hubungkan Nomor Bot: +62 878-6213-3569</p>
+          <p class="text-[11px] text-amber-300/80 mt-0.5">Silakan scan QR code di bawah atau pilih tab <strong>Kode Pairing</strong>.</p>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs font-bold">
+        <button
+          type="button"
+          id="tabBtnQr"
+          onclick="switchTab('qr')"
+          class="flex-1 py-2.5 rounded-lg text-white bg-blue-600 transition"
+        >
+          📷 Scan QR Code
+        </button>
+        <button
+          type="button"
+          id="tabBtnCode"
+          onclick="switchTab('code')"
+          class="flex-1 py-2.5 rounded-lg text-slate-400 hover:text-white transition"
+        >
+          🔢 Kode Pairing (Tanpa Kamera)
+        </button>
+      </div>
+
+      <!-- TAB CONTENT: QR CODE -->
+      <div id="tabContentQr" class="space-y-4">
+        <div class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner min-h-[280px] relative">
+          <!-- Loading state -->
+          <div id="qrLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/95 rounded-2xl z-10">
+            <div class="h-8 w-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+            <p id="qrLoadingText" class="text-xs text-slate-600 font-semibold">Memuat QR Code WhatsApp...</p>
+          </div>
+          
+          <!-- Error / Expired state -->
+          <div id="qrErrorBox" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 rounded-2xl z-20 p-4 text-center hidden">
+            <span class="text-3xl mb-2">⏳</span>
+            <p class="text-xs font-bold text-slate-800">QR Code Kedaluwarsa / Sesi Diperbarui</p>
+            <p class="text-[11px] text-slate-500 mt-1 mb-3">Ketuk tombol di bawah untuk membuat QR code baru.</p>
+            <button
+              type="button"
+              onclick="triggerRestartSession()"
+              class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+            >
+              🔄 Muat Ulang QR Code Baru
+            </button>
+          </div>
+
+          <!-- QR Image -->
+          <img
+            id="qrImage"
+            src="/waha-qr"
+            alt="Scan QR WhatsApp Bot"
+            class="w-64 h-64 object-contain rounded-xl"
+            onload="onQrSuccess()"
+            onerror="onQrError()"
+          />
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+          <span>QR Code siap discan</span>
+          <button
+            type="button"
+            onclick="triggerRestartSession()"
+            class="text-blue-400 hover:text-blue-300 font-bold underline cursor-pointer flex items-center gap-1"
+          >
+            <span>🔄 Buat QR Baru</span>
+          </button>
+        </div>
+
+        <div class="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800/80 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+          <p class="font-bold text-white text-xs mb-1">Langkah Scan di HP WhatsApp:</p>
+          <p>1. Buka <strong>WhatsApp</strong> di HP nomor baru (<strong>+62 878-6213-3569</strong>).</p>
+          <p>2. Tekan menu <strong>Titik Tiga (⋮)</strong> di Android atau <strong>Pengaturan (⚙)</strong> di iPhone.</p>
+          <p>3. Pilih <strong>Perangkat Tertaut (Linked Devices)</strong> > <strong>Tautkan Perangkat</strong>.</p>
+          <p>4. Arahkan kamera HP ke gambar QR Code di atas.</p>
+        </div>
+      </div>
+
+      <!-- TAB CONTENT: PAIRING CODE -->
+      <div id="tabContentCode" class="space-y-4 hidden">
+        <div class="space-y-2">
+          <label class="block text-xs font-semibold text-slate-300">Nomor HP WhatsApp Bot Baru:</label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="inputPhone"
+              value="6287862133569"
+              placeholder="Contoh: 6287862133569"
+              class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="button"
+              id="btnGetCode"
+              onclick="requestPairingCode()"
+              class="px-4 py-2.5 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white transition cursor-pointer"
+            >
+              Minta Kode
+            </button>
+          </div>
+        </div>
+
+        <!-- Pairing Code Display Box -->
+        <div id="pairingCodeBox" class="hidden p-4 rounded-2xl bg-gradient-to-r from-blue-950/60 to-indigo-950/60 border border-blue-500/40 text-center space-y-2">
+          <p class="text-[11px] text-blue-300 font-medium">Masukkan 8 karakter kode ini di WhatsApp HP:</p>
+          <div id="displayCode" class="font-mono text-3xl font-black tracking-widest text-emerald-400 select-all py-1">
+            ---- ----
+          </div>
+          <button
+            type="button"
+            id="btnCopyCode"
+            onclick="copyPairingCode()"
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 transition cursor-pointer border border-blue-400/30"
+          >
+            📋 Salin Kode
+          </button>
+        </div>
+
+        <div class="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800/80 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+          <p class="font-bold text-white text-xs mb-1">Cara Pakai Kode Pairing di HP:</p>
+          <p>1. Buka <strong>WhatsApp</strong> di HP nomor baru (<strong>+62 878-6213-3569</strong>).</p>
+          <p>2. Buka menu <strong>Perangkat Tertaut</strong> > <strong>Tautkan Perangkat</strong>.</p>
+          <p>3. Di bagian paling bawah layar, klik <strong>"Tautkan dengan nomor telepon saja"</strong>.</p>
+          <p>4. Masukkan 8 karakter kode yang muncul di atas.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer info -->
+    <div class="text-center pt-2 border-t border-slate-800/60 text-[10px] text-slate-500">
+      Difitech Workboard © 2026 • WAHA Official Engine
+    </div>
+
+  </div>
+
+  <script>
+    let currentStatus = null;
+    let pollInterval = null;
+    let rawPairingCode = "";
+    let isRestarting = false;
+
+    function switchTab(tab) {
+      const tabQr = document.getElementById('tabBtnQr');
+      const tabCode = document.getElementById('tabBtnCode');
+      const contentQr = document.getElementById('tabContentQr');
+      const contentCode = document.getElementById('tabContentCode');
+
+      if (tab === 'qr') {
+        tabQr.className = 'flex-1 py-2.5 rounded-lg text-white bg-blue-600 transition';
+        tabCode.className = 'flex-1 py-2.5 rounded-lg text-slate-400 hover:text-white transition';
+        contentQr.classList.remove('hidden');
+        contentCode.classList.add('hidden');
+        loadQr();
+      } else {
+        tabCode.className = 'flex-1 py-2.5 rounded-lg text-white bg-blue-600 transition';
+        tabQr.className = 'flex-1 py-2.5 rounded-lg text-slate-400 hover:text-white transition';
+        contentCode.classList.remove('hidden');
+        contentQr.classList.add('hidden');
+      }
+    }
+
+    function onQrSuccess() {
+      document.getElementById('qrLoading').classList.add('hidden');
+      document.getElementById('qrErrorBox').classList.add('hidden');
+    }
+
+    function onQrError() {
+      document.getElementById('qrLoading').classList.add('hidden');
+      document.getElementById('qrErrorBox').classList.remove('hidden');
+    }
+
+    function loadQr() {
+      const qrImg = document.getElementById('qrImage');
+      const loading = document.getElementById('qrLoading');
+      const errBox = document.getElementById('qrErrorBox');
+      errBox.classList.add('hidden');
+      loading.classList.remove('hidden');
+      qrImg.src = '/waha-qr?t=' + Date.now();
+    }
+
+    async function triggerRestartSession() {
+      if (isRestarting) return;
+      isRestarting = true;
+
+      const loading = document.getElementById('qrLoading');
+      const errBox = document.getElementById('qrErrorBox');
+      const loadingText = document.getElementById('qrLoadingText');
+
+      errBox.classList.add('hidden');
+      loading.classList.remove('hidden');
+      loadingText.innerText = 'Me-restart sesi & membuat QR baru...';
+
+      try {
+        await fetch('/waha-restart', { method: 'POST' });
+        setTimeout(() => {
+          isRestarting = false;
+          checkStatus();
+          loadQr();
+        }, 4000);
+      } catch (e) {
+        isRestarting = false;
+        loadQr();
+      }
+    }
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/waha-status?t=' + Date.now());
+        if (!res.ok) throw new Error('Status error');
+        const data = await res.json();
+        renderStatus(data);
+      } catch (err) {
+        console.error('Error fetching status:', err);
+      }
+    }
+
+    function renderStatus(data) {
+      const status = data.status || 'UNKNOWN';
+      currentStatus = status;
+
+      const badge = document.getElementById('statusBadge');
+      const sectionConnected = document.getElementById('sectionConnected');
+      const sectionScan = document.getElementById('sectionScan');
+
+      if (status === 'WORKING') {
+        badge.className = 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        badge.innerHTML = '<span class="h-2 w-2 rounded-full bg-emerald-400"></span><span>● Bot Terhubung (WORKING)</span>';
+
+        sectionConnected.classList.remove('hidden');
+        sectionScan.classList.add('hidden');
+
+        if (data.me && data.me.id) {
+          const rawNum = data.me.id.split('@')[0];
+          document.getElementById('botPhone').innerText = '+' + rawNum;
+        }
+        if (data.me && data.me.pushName) {
+          document.getElementById('botName').innerText = data.me.pushName;
+        }
+      } else if (status === 'FAILED') {
+        badge.className = 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30';
+        badge.innerHTML = '<span class="h-2 w-2 rounded-full bg-rose-400"></span><span>⚠️ Sesi QR Kedaluwarsa (Memperbarui...)</span>';
+        sectionConnected.classList.add('hidden');
+        sectionScan.classList.remove('hidden');
+        triggerRestartSession();
+      } else {
+        badge.className = 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse';
+        badge.innerHTML = '<span class="h-2 w-2 rounded-full bg-amber-400"></span><span>⏳ Menunggu Scan / Pairing (' + status + ')</span>';
+
+        sectionConnected.classList.add('hidden');
+        sectionScan.classList.remove('hidden');
+      }
+    }
+
+    async function confirmLogout() {
+      const ok = confirm('Apakah Anda yakin ingin logout dari nomor bot sekarang untuk menghubungkan nomor baru (+62 878-6213-3569)?');
+      if (!ok) return;
+
+      const btn = document.getElementById('btnChangeNumber');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Memproses Logout...</span>';
+
+      try {
+        await fetch('/waha-logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        setTimeout(() => {
+          checkStatus();
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔄 Ganti Nomor Bot (Logout & Hubungkan Nomor Baru)</span>';
+          loadQr();
+        }, 2000);
+      } catch (err) {
+        alert('Gagal logout: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔄 Ganti Nomor Bot (Logout & Hubungkan Nomor Baru)</span>';
+      }
+    }
+
+    async function requestPairingCode() {
+      const phoneInput = document.getElementById('inputPhone');
+      let phone = phoneInput.value.replace(/[^0-9]/g, '');
+      if (!phone) {
+        alert('Masukkan nomor telepon yang valid (contoh: 6287862133569)');
+        return;
+      }
+
+      const btn = document.getElementById('btnGetCode');
+      btn.disabled = true;
+      btn.innerText = 'Meminta...';
+
+      try {
+        const res = await fetch('/waha-request-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber: phone })
+        });
+        const data = await res.json();
+        if (data.code) {
+          rawPairingCode = data.code;
+          const formatted = data.code.length === 8 ? (data.code.slice(0, 4) + ' - ' + data.code.slice(4)) : data.code;
+          document.getElementById('displayCode').innerText = formatted;
+          document.getElementById('pairingCodeBox').classList.remove('hidden');
+        } else {
+          alert('Respon server: ' + (data.message || JSON.stringify(data)));
+        }
+      } catch (err) {
+        alert('Gagal meminta kode pairing: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Minta Kode';
+      }
+    }
+
+    function copyPairingCode() {
+      if (rawPairingCode && navigator.clipboard) {
+        navigator.clipboard.writeText(rawPairingCode);
+        const btn = document.getElementById('btnCopyCode');
+        btn.innerText = '✅ Tersalin!';
+        setTimeout(() => { btn.innerText = '📋 Salin Kode'; }, 2000);
+      }
+    }
+
+    // Init
+    checkStatus();
+    loadQr();
+    pollInterval = setInterval(checkStatus, 3000);
+  </script>
+</body>
+</html>

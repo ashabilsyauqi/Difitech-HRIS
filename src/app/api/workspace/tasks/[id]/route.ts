@@ -4,7 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
-import { buildTaskSubmittedMessage, sendWhatsAppNotification, dispatchUserNotificationWA } from "@/lib/whatsapp";
+import {
+  buildTaskSubmittedMessage,
+  buildTaskAssignedMessage,
+  sendWhatsAppNotification,
+  dispatchUserNotificationWA,
+} from "@/lib/whatsapp";
 
 export async function GET(
   req: NextRequest,
@@ -845,10 +850,38 @@ export async function PATCH(
     if (estimatedHours !== undefined) updatedData.estimatedHours = parseFloat(estimatedHours);
     if (actualHours !== undefined) updatedData.actualHours = parseFloat(actualHours);
 
+    // Support Department Card & Deadline updates
+    if (body.departmentCard !== undefined && body.departmentCard) {
+      const normDept = body.departmentCard.toUpperCase();
+      updatedData.departmentCard = normDept;
+      updatedData.category = normDept;
+    }
+    if (body.expectedDeadline !== undefined) {
+      updatedData.expectedDeadline = body.expectedDeadline ? new Date(body.expectedDeadline) : null;
+      updatedData.suggestedDeadline = updatedData.expectedDeadline;
+    }
+
+    let newlyAddedAssigneeIds: string[] = [];
     if (Array.isArray(body.assigneeIds) && body.assigneeIds.length > 0) {
       const validIds: string[] = Array.from(new Set(body.assigneeIds.filter(Boolean)));
       if (validIds.length > 0) {
+        // Collect old assignee IDs
+        const oldAssigneeIds = new Set<string>();
+        if (existingTask.userId) oldAssigneeIds.add(existingTask.userId);
+        if (existingTask.assignees) {
+          existingTask.assignees.forEach((a: any) => {
+            if (a.userId) oldAssigneeIds.add(a.userId);
+          });
+        }
+
+        newlyAddedAssigneeIds = validIds.filter((uid) => !oldAssigneeIds.has(uid));
+
         updatedData.userId = validIds[0];
+        // If task previously had no creator and is now edited/assigned, set creator to current user
+        if (!existingTask.creatorId) {
+          updatedData.creatorId = authUser.userId;
+        }
+
         await prisma.taskAssignee.deleteMany({ where: { taskId: params.id } });
         await prisma.taskAssignee.createMany({
           data: validIds.map((uid, index) => ({
@@ -873,6 +906,111 @@ export async function PATCH(
         },
       },
     });
+
+    // Notify newly tagged assignees (e.g. Ashabil tagged by Muditha)
+    if (newlyAddedAssigneeIds.length > 0) {
+      for (const targetUid of newlyAddedAssigneeIds) {
+        if (targetUid !== authUser.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: targetUid,
+              title: `Ditugaskan ke Tugas: ${updated.title}`,
+              message: `${authUser.name} (${authUser.department || "Rekan"}) menambahkan Anda sebagai pengerja pada tugas [${updated.departmentCard || "General"} - ${updated.brandName}].`,
+              type: "TASK_ASSIGNED",
+              link: "/dashboard/workspace",
+              taskId: updated.id,
+            },
+          }).catch(() => {});
+
+          try {
+            const targetUser = await prisma.user.findUnique({
+              where: { id: targetUid },
+              select: { id: true, name: true, whatsappNumber: true, department: true },
+            });
+
+            if (targetUser?.whatsappNumber) {
+              const deadlineFmt = updated.expectedDeadline
+                ? new Date(updated.expectedDeadline).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Belum ditentukan";
+
+              const waMessage = buildTaskAssignedMessage({
+                assigneeName: targetUser.name,
+                creatorName: authUser.name,
+                taskTitle: updated.title,
+                department: updated.departmentCard,
+                brand: updated.brandName,
+                deadlineStr: deadlineFmt,
+                priority: updated.priority || "MEDIUM",
+                description: updated.description,
+                taskId: updated.id,
+              });
+
+              await sendWhatsAppNotification({
+                to: targetUser.whatsappNumber,
+                message: waMessage,
+                recipientName: targetUser.name,
+                taskId: updated.id,
+                actionType: "TASK_ASSIGNED",
+              });
+            }
+          } catch (waErr: any) {
+            console.error("Failed to notify newly tagged assignee via WA:", waErr?.message);
+          }
+        }
+      }
+    }
+
+    // Record activity log for task edit
+    if (body.isTaskEdit) {
+      const changesSummary: string[] = [];
+      if (title !== undefined && title.trim() !== existingTask.title) {
+        changesSummary.push(`Judul diubah`);
+      }
+      if (body.departmentCard && body.departmentCard.toUpperCase() !== existingTask.departmentCard) {
+        changesSummary.push(`Divisi diubah ke ${body.departmentCard.toUpperCase()}`);
+      }
+      if (brandName !== undefined && brandName.trim() !== existingTask.brandName) {
+        changesSummary.push(`Brand diubah ke ${brandName.trim()}`);
+      }
+      if (newlyAddedAssigneeIds.length > 0) {
+        const addedNames = updated.assignees
+          ?.filter((a: any) => newlyAddedAssigneeIds.includes(a.userId))
+          .map((a: any) => a.user?.name)
+          .filter(Boolean);
+        changesSummary.push(`Menambahkan pengerja: ${addedNames?.join(", ") || newlyAddedAssigneeIds.join(", ")}`);
+      }
+      if (priority !== undefined && priority !== existingTask.priority) {
+        changesSummary.push(`Prioritas diubah ke ${priority}`);
+      }
+      if (body.expectedDeadline !== undefined) {
+        changesSummary.push(`Deadline diperbarui`);
+      }
+
+      const descText = changesSummary.length > 0
+        ? `${authUser.name} memperbarui rincian tugas: ${changesSummary.join("; ")}.`
+        : `${authUser.name} memperbarui rincian tugas.`;
+
+      await prisma.taskActivityLog.create({
+        data: {
+          taskId: params.id,
+          userId: authUser.userId,
+          actionType: "TASK_UPDATED",
+          title: "Tugas Diperbarui",
+          description: descText,
+          metadata: JSON.stringify({
+            isTaskEdit: true,
+            newlyAddedAssignees: newlyAddedAssigneeIds,
+            updatedFields: Object.keys(updatedData),
+          }),
+        },
+      }).catch(() => {});
+    }
 
     // Record stage or status change in activity log if changed
     if (kanbanStage !== undefined && kanbanStage !== existingTask.kanbanStage) {

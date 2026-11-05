@@ -32,8 +32,10 @@ import {
   PlayCircle,
   PauseCircle,
   Timer,
+  Pencil,
 } from "lucide-react";
 import FollowUpButton from "./FollowUpButton";
+import EditTaskModal from "./EditTaskModal";
 import { parseDeliverableAttachments } from "@/lib/deliverable-utils";
 
 export interface TaskCommentItem {
@@ -488,6 +490,7 @@ function TaskDetailModal({
   } | null>(null);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Time Tracker State for Modal
   const [isTracking, setIsTracking] = useState(false);
@@ -699,8 +702,8 @@ function TaskDetailModal({
         (!creatorId && isAssignee) ||
         (isCreator && isAssignee && (!task.assignees || task.assignees.length <= 1)))
   );
-  // Admin is a pure watcher unless they explicitly created the task; only actual creator (or division manager) can approve
   const isCreatorOrManager = Boolean(isCreator || (currentUser?.role === "MANAGER" && !isAssignee));
+  const canEditTask = Boolean(isCreator || isCreatorOrManager || isSelfAssigned || isAssignee || currentUser?.role === "ADMIN");
   const deliverableScreenshots = parseDeliverableAttachments(task.deliverableAttachment);
   const hasDeliverable = Boolean(task.deliverableUrl || task.deliverableAttachment || deliverableScreenshots.length > 0);
   const isReviewPending =
@@ -1031,6 +1034,17 @@ function TaskDetailModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {canEditTask && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:border-slate-300 transition active:scale-[0.98] cursor-pointer"
+                title="Edit rincian tugas, tag rekan kerja, batas waktu, dan brand"
+              >
+                <Pencil className="h-3.5 w-3.5 text-red-600" />
+                <span>Edit Tugas</span>
+              </button>
+            )}
             <FollowUpButton
               taskId={task.id}
               taskTitle={task.title}
@@ -2470,6 +2484,24 @@ function TaskDetailModal({
           </div>
         </div>
       )}
+
+      {/* Edit Task Modal */}
+      {isEditModalOpen && (
+        <EditTaskModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          task={task}
+          currentUser={currentUser}
+          onSuccess={(updatedTask) => {
+            setTask((prev: any) => (prev ? { ...prev, ...updatedTask } : updatedTask));
+            onUpdate(updatedTask);
+            if (task?.id) {
+              fetchComments(task.id);
+              fetchLogs(task.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -2485,6 +2517,9 @@ export default memo(TaskDetailModal, (prev, next) => {
   if (prev.task?.trackedSeconds !== next.task?.trackedSeconds) return false;
   if (prev.task?.description !== next.task?.description) return false;
   if (prev.task?.title !== next.task?.title) return false;
+  if (prev.task?.brandName !== next.task?.brandName) return false;
+  if (prev.task?.departmentCard !== next.task?.departmentCard) return false;
+  if (prev.task?.assignees?.length !== next.task?.assignees?.length) return false;
   if (prev.currentUser?.id !== next.currentUser?.id) return false;
   if (prev.currentUser?.role !== next.currentUser?.role) return false;
   return true;

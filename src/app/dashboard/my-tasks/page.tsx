@@ -875,7 +875,12 @@ export default function UnifiedTasksPage() {
         onClose={() => setSelectedTaskForDetail(null)}
         task={selectedTaskForDetail}
         currentUser={user}
-        onUpdate={fetchTasks}
+        onUpdate={(updatedTask) => {
+          if (updatedTask) {
+            setSelectedTaskForDetail((prev: any) => (prev ? { ...prev, ...updatedTask } : updatedTask));
+          }
+          fetchTasks();
+        }}
         onOpenDeadlineModal={(t) => setDeadlineModalTask(t)}
         onOpenDeliverableModal={(t) => setDeliverableModalTask(t)}
         onOpenRevisionModal={(t) => setRevisionModalTask(t)}
