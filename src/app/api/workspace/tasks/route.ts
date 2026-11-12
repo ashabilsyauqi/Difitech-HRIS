@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 import { isExecutiveBoard, canAccessBoard, EXECUTIVE_BOARDS } from "@/lib/executive-boards";
 import { buildTaskAssignedMessage, sendWhatsAppNotification } from "@/lib/whatsapp";
+import { notifyExecutiveMilestone } from "@/lib/executive-notifier";
 
 export async function GET(req: NextRequest) {
   try {
@@ -454,6 +455,16 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // Notifikasi eksekutif ke Pak Wijaya (CEO) saat ada tugas baru dibuat
+    notifyExecutiveMilestone({
+      taskId: newTask.id,
+      action: "TASK_CREATED",
+      actorName: authUser.name,
+      actorDept: authUser.department,
+      actorId: authUser.userId,
+      note: description ? description.trim() : null,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, task: newTask });
   } catch (error) {

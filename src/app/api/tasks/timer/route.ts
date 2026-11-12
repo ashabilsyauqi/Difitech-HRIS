@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyExecutiveMilestone } from "@/lib/executive-notifier";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,6 +49,15 @@ export async function POST(req: NextRequest) {
           trackedSeconds: currentBaseSeconds,
         },
       });
+      if (task.status !== "IN_PROGRESS") {
+        notifyExecutiveMilestone({
+          taskId,
+          action: "START_TASK",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+        }).catch(() => {});
+      }
     } else if (action === "PAUSE") {
       let finalSeconds = task.trackedSeconds || 0;
       if (task.isTracking && task.trackingStartedAt) {

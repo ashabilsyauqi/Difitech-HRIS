@@ -265,15 +265,35 @@
 
       errBox.classList.add('hidden');
       loading.classList.remove('hidden');
-      loadingText.innerText = 'Me-restart sesi & membuat QR baru...';
+      loadingText.innerText = 'Me-restart sesi & memuat QR baru (sekitar 5-10 detik)...';
 
       try {
         await fetch('/waha-restart', { method: 'POST' });
-        setTimeout(() => {
-          isRestarting = false;
-          checkStatus();
-          loadQr();
-        }, 4000);
+        let attempts = 0;
+        const checkReady = setInterval(async () => {
+          attempts++;
+          try {
+            const res = await fetch('/waha-status?t=' + Date.now());
+            if (res.ok) {
+              const data = await res.json();
+              if (data.status === 'SCAN_QR_CODE' || data.status === 'WORKING') {
+                clearInterval(checkReady);
+                isRestarting = false;
+                renderStatus(data);
+                if (data.status === 'SCAN_QR_CODE') {
+                  loadQr();
+                }
+                return;
+              }
+            }
+          } catch (e) {}
+
+          if (attempts >= 15) {
+            clearInterval(checkReady);
+            isRestarting = false;
+            loadQr();
+          }
+        }, 1500);
       } catch (e) {
         isRestarting = false;
         loadQr();
@@ -325,6 +345,12 @@
 
         sectionConnected.classList.add('hidden');
         sectionScan.classList.remove('hidden');
+
+        // Auto load QR if not yet loaded or if in error state
+        const errBox = document.getElementById('qrErrorBox');
+        if (!isRestarting && errBox && !errBox.classList.contains('hidden')) {
+          loadQr();
+        }
       }
     }
 

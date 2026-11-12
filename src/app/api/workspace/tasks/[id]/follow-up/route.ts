@@ -1,10 +1,11 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 import { buildTaskFollowUpMessage, sendWhatsAppNotification } from "@/lib/whatsapp";
+import { notifyExecutiveMilestone } from "@/lib/executive-notifier";
 
 export async function POST(
   req: NextRequest,
@@ -112,6 +113,16 @@ export async function POST(
         },
       }).catch(() => {});
     }
+
+    // 4. Kirim notifikasi eksekutif ke Pak Wijaya (CEO)
+    notifyExecutiveMilestone({
+      taskId: task.id,
+      action: "FOLLOW_UP",
+      actorName: authUser.name,
+      actorDept: authUser.department,
+      actorId: authUser.userId,
+      note: message,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, followUp, waResult });
   } catch (error) {

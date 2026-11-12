@@ -10,6 +10,7 @@ import {
   sendWhatsAppNotification,
   dispatchUserNotificationWA,
 } from "@/lib/whatsapp";
+import { notifyExecutiveMilestone } from "@/lib/executive-notifier";
 
 export async function GET(
   req: NextRequest,
@@ -417,6 +418,27 @@ export async function PATCH(
         }
       }
 
+      // Notify Executive (Pak Wijaya) when stage reaches Approval / Review or starts
+      if (isApprovalStage) {
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "SUBMIT_DELIVERABLE",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+          deliverableUrl: deliverableUrl || null,
+          note: completionNote || null,
+        }).catch(() => {});
+      } else if (nextStatus === "IN_PROGRESS" && existingTask.status !== "IN_PROGRESS") {
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "START_TASK",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+        }).catch(() => {});
+      }
+
       return NextResponse.json({ success: true, task: updated });
     }
 
@@ -467,6 +489,18 @@ export async function PATCH(
           },
         });
         if (updated.user?.email) triggerHrisRealtimeSync(updated.user.email, updated);
+
+        // Notify Executive (Pak Wijaya) for self-assigned task completion
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "APPROVE_TASK",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+          note: completionNote || "Tugas inisiatif pribadi diselesaikan",
+          deliverableUrl: deliverableUrl || null,
+        }).catch(() => {});
+
         return NextResponse.json({ success: true, task: updated });
       } else {
         // Ditugaskan oleh rekan/pemberi tugas -> masuk status TO_BE_REVIEWED!
@@ -542,6 +576,17 @@ export async function PATCH(
             console.error("WhatsApp notification dispatch error in task submit:", waErr?.message);
           }
         }
+
+        // Notify Executive (Pak Wijaya) when deliverable is submitted for review
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "SUBMIT_DELIVERABLE",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+          note: completionNote || null,
+          deliverableUrl: deliverableUrl || null,
+        }).catch(() => {});
 
         return NextResponse.json({ success: true, task: updated });
       }
@@ -655,6 +700,16 @@ export async function PATCH(
           triggerHrisRealtimeSync(updated.user.email, updated);
         }
 
+        // Notify Executive (Pak Wijaya) when task is approved / completed
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "APPROVE_TASK",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+          note: "Tugas disetujui (Done !)",
+        }).catch(() => {});
+
         return NextResponse.json({ success: true, task: updated });
       } else if (action === "REVISION") {
         if (!revisionNote || !revisionNote.trim()) {
@@ -713,6 +768,16 @@ export async function PATCH(
         if (updated.user?.email) {
           triggerHrisRealtimeSync(updated.user.email, updated);
         }
+
+        // Notify Executive (Pak Wijaya) when revision is requested
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "REQUEST_REVISION",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+          note: revisionNote.trim(),
+        }).catch(() => {});
 
         return NextResponse.json({ success: true, task: updated });
       }
@@ -1042,6 +1107,16 @@ export async function PATCH(
           toValue: status,
         },
       });
+
+      if (status === "IN_PROGRESS" && existingTask.status !== "IN_PROGRESS") {
+        notifyExecutiveMilestone({
+          taskId: params.id,
+          action: "START_TASK",
+          actorName: authUser.name,
+          actorDept: authUser.department,
+          actorId: authUser.userId,
+        }).catch(() => {});
+      }
     }
 
     // Realtime stage sync webhook to Staging HRIS
