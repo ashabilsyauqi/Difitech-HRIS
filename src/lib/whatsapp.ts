@@ -153,6 +153,7 @@ export async function sendWhatsAppNotification(params: {
       [
         process.env.WAHA_URL,
         "http://waha:3000",
+        "http://172.17.0.1:3008",
         "http://127.0.0.1:3008",
         "http://31.97.220.128:3008",
       ].filter(Boolean) as string[]

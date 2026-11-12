@@ -368,3 +368,174 @@ export async function notifyExecutiveMilestone(params: {
     return null;
   }
 }
+
+/**
+ * Compiles and sends a structured hourly digest of all employee activities and tasks
+ * directly to Pak Wijaya (CEO).
+ */
+export async function generateAndSendHourlyExecutiveReport(options?: {
+  recipientPhone?: string;
+  recipientName?: string;
+}): Promise<any> {
+  try {
+    const executive = await getExecutiveRecipient();
+    const targetPhone = options?.recipientPhone || executive.phone;
+    const targetName = options?.recipientName || executive.name;
+
+    if (!targetPhone) {
+      console.warn("[Executive Notifier] No valid recipient phone for hourly report.");
+      return { success: false, detail: "Nomor WhatsApp CEO tidak ditemukan" };
+    }
+
+    // Start of today in WIB (UTC+7)
+    const now = new Date();
+    const wibNow = new Date(now.getTime() + 7 * 3600 * 1000);
+    const todayStartWib = new Date(wibNow);
+    todayStartWib.setUTCHours(0, 0, 0, 0);
+    const todayStartUTC = new Date(todayStartWib.getTime() - 7 * 3600 * 1000);
+
+    const tasks = await prisma.task.findMany({
+      where: { updatedAt: { gte: todayStartUTC } },
+      include: {
+        creator: { select: { name: true, department: true } },
+        user: { select: { name: true, department: true } },
+        assignees: {
+          include: {
+            user: { select: { name: true, department: true } },
+          },
+        },
+        activityLogs: { orderBy: { createdAt: "asc" } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.status === "COMPLETED").length;
+    const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
+    const pending = tasks.filter((t) => t.status === "PENDING").length;
+
+    // Group tasks by PIC
+    const byUser: Record<string, typeof tasks> = {};
+    for (const t of tasks) {
+      const userName = t.user?.name || (t.assignees && t.assignees[0]?.user?.name) || "Tanpa PIC";
+      if (!byUser[userName]) byUser[userName] = [];
+      byUser[userName].push(t);
+    }
+
+    const currentWibTime = formatWibDateTime(now, false);
+    const daysIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const monthsIndo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const dayName = daysIndo[wibNow.getUTCDay()];
+    const dateFormatted = `${dayName}, ${wibNow.getUTCDate()} ${monthsIndo[wibNow.getUTCMonth()]} ${wibNow.getUTCFullYear()}`;
+
+    const lines = [
+      "📊 *DIFITECH EXECUTIVE LOGS & MONITORING*",
+      `📅 *Update Aktivitas Karyawan (Per Jam ${currentWibTime})*`,
+      `🗓️ *Hari/Tanggal:* ${dateFormatted}`,
+      "----------------------------------------",
+      `Yth. *${targetName}*, berikut rangkuman lengkap aktivitas seluruh karyawan & status tugas di DifWorkBoard (DWB) per jam ini:`,
+      "",
+      "📈 *RINGKASAN STATUS HARI INI:*",
+      `• Total Tugas Aktif: *${total} Tugas*`,
+      `• ✅ Selesai (Completed): *${completed} Tugas*`,
+      `• 🚀 Sedang Dikerjakan: *${inProgress} Tugas*`,
+      `• ⏳ Menunggu (Pending): *${pending} Tugas*`,
+      "----------------------------------------",
+      "👥 *RINCIAN AKTIVITAS PER KARYAWAN:*",
+      "",
+    ];
+
+    for (const [userName, uTasks] of Object.entries(byUser)) {
+      const dept = uTasks[0].departmentCard || uTasks[0].user?.department || "General";
+      const uCompleted = uTasks.filter((t) => t.status === "COMPLETED").length;
+      const uInProgress = uTasks.filter((t) => t.status === "IN_PROGRESS").length;
+      const uPending = uTasks.filter((t) => t.status === "PENDING").length;
+
+      lines.push(`👤 *${userName.toUpperCase()}* (${dept})`);
+      lines.push(`   Total: ${uTasks.length} Tugas (✅ ${uCompleted} | 🚀 ${uInProgress} | ⏳ ${uPending})`);
+
+      uTasks.forEach((t, idx) => {
+        const statusBadge =
+          t.status === "COMPLETED" ? "✅ Selesai" : t.status === "IN_PROGRESS" ? "🚀 In Progress" : "⏳ Pending";
+        const brand = t.brandName || "Internal";
+        const cleanTitle = cleanTextForWhatsApp(t.title, 120);
+        lines.push(`   ${idx + 1}. *${cleanTitle}* [${brand}]`);
+        lines.push(`      Status: ${statusBadge}`);
+
+        const t0 = new Date(t.createdAt);
+        let t1: Date | null = null;
+        const startLog = t.activityLogs.find(
+          (l) =>
+            l.actionType === "START_TASK" ||
+            (l.actionType === "STATUS_CHANGE" && l.toValue === "IN_PROGRESS") ||
+            (l.title && l.title.toLowerCase().includes("mulai")) ||
+            (l.actionType === "STAGE_CHANGE" && l.toValue === "IN_PROGRESS")
+        );
+        if (startLog) t1 = new Date(startLog.createdAt);
+        else if (t.trackingStartedAt) t1 = new Date(t.trackingStartedAt);
+
+        let t2: Date | null = null;
+        const submitLogs = t.activityLogs.filter(
+          (l) =>
+            l.actionType === "SUBMIT_DELIVERABLE" ||
+            (l.actionType === "STAGE_CHANGE" && (l.toValue?.includes("REVIEW") || l.toValue?.includes("APPROVAL")))
+        );
+        if (submitLogs.length > 0) t2 = new Date(submitLogs[submitLogs.length - 1].createdAt);
+
+        let t3: Date | null = null;
+        const reviewLogs = t.activityLogs.filter(
+          (l) =>
+            l.actionType === "APPROVE_TASK" ||
+            l.actionType === "REQUEST_REVISION" ||
+            (l.actionType === "STATUS_CHANGE" && l.toValue === "COMPLETED")
+        );
+        if (reviewLogs.length > 0) t3 = new Date(reviewLogs[reviewLogs.length - 1].createdAt);
+        else if (t.reviewedAt) t3 = new Date(t.reviewedAt);
+
+        const timelineParts = [`Dibuat ${formatWibDateTime(t0)}`];
+        if (t1) timelineParts.push(`Mulai ${formatWibDateTime(t1)}`);
+        if (t2) timelineParts.push(`Submit ${formatWibDateTime(t2)}`);
+        if (t3) timelineParts.push(`ACC ${formatWibDateTime(t3)}`);
+        lines.push(`      Timeline: ${timelineParts.join(" ➔ ")}`);
+
+        const gapParts: string[] = [];
+        if (t1) gapParts.push(`Respon: ${formatDurationMs(t1.getTime() - t0.getTime())}`);
+        if (t1 && t2 && t2.getTime() > t1.getTime()) {
+          gapParts.push(`Kerja: ${formatDurationMs(t2.getTime() - t1.getTime())}`);
+        }
+        if (t3 && t0 && t3.getTime() > t0.getTime()) {
+          gapParts.push(`Total: ${formatDurationMs(t3.getTime() - t0.getTime())}`);
+        }
+        if (gapParts.length > 0) {
+          lines.push(`      ⏱️ Gap: ${gapParts.join(" | ")}`);
+        }
+
+        if (t.deliverableUrl) {
+          lines.push(`      🔗 Hasil: ${t.deliverableUrl}`);
+        }
+      });
+      lines.push("");
+    }
+
+    lines.push("----------------------------------------");
+    lines.push("🔗 *Akses Dashboard Monitoring DWB:*");
+    lines.push("https://difworkboard.difitech.id/dashboard/workspace");
+    lines.push("----------------------------------------");
+    lines.push("_Difitech Executive Realtime Bot_");
+
+    const fullMessage = lines.join("\n");
+
+    const result = await sendWhatsAppNotification({
+      to: targetPhone,
+      message: fullMessage,
+      recipientName: targetName,
+      actionType: "EXECUTIVE_HOURLY_REPORT",
+    });
+
+    return result;
+  } catch (err: any) {
+    console.error("[Executive Notifier] Failed to send hourly report:", err?.message);
+    return { success: false, detail: err?.message };
+  }
+}
+
