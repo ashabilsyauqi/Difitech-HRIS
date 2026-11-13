@@ -202,7 +202,8 @@ export type ExecutiveActionType =
   | "SUBMIT_DELIVERABLE"
   | "APPROVE_TASK"
   | "REQUEST_REVISION"
-  | "FOLLOW_UP";
+  | "FOLLOW_UP"
+  | "COMMENT_ADDED";
 
 export interface NotifyExecutiveParams {
   taskId: string;
@@ -216,8 +217,8 @@ export interface NotifyExecutiveParams {
 }
 
 /**
- * Sends a structured, executive-grade WhatsApp notification with standard timeline
- * and time-gap metrics to all executive recipients (Pak Wijaya & Ashabil Syauqi).
+ * Sends a structured, clean, human-readable WhatsApp notification per action/event
+ * to all executive recipients (Pak Wijaya & Ashabil Syauqi).
  */
 export async function notifyExecutiveMilestone(params: {
   taskId: string;
@@ -258,88 +259,85 @@ export async function notifyExecutiveMilestone(params: {
       task.assignees?.map((a) => a.user?.name).filter(Boolean).join(", ") ||
       "Pengerja";
     const creatorName = task.creator?.name || "Kolega";
-    const deptAndBrand = `${task.departmentCard || "General"} • ${task.brandName || "Internal"}`;
+    const deptName = task.departmentCard || params.actorDept || "General";
+    const brandName = task.brandName || "Internal";
     const directLink = `https://difworkboard.difitech.id/dashboard/workspace?taskId=${task.id}`;
+    const cleanNote = params.note ? cleanTextForWhatsApp(params.note, 300) : "";
+    const currentWib = formatWibDateTime(new Date());
 
-    let headerBadge = "";
-    let actionIntro = "";
-    const timelineLines: string[] = [];
+    let headerBadge = "📋 *LOG AKTIVITAS DWB*";
+    let mainActionText = "";
+    const detailLines: string[] = [];
 
     switch (params.action) {
-      case "TASK_CREATED":
-        headerBadge = "📌 *DIFITECH EXECUTIVE LOG* | *TUGAS BARU DIBUAT*";
-        actionIntro = `*${params.actorName}* (${params.actorDept || "Kolega"}) baru saja membuat tugas baru:`;
-        timelineLines.push(`• Dibuat: ${timeline.createdTimeStr}`);
-        if (task.expectedDeadline) {
-          timelineLines.push(`• Target Selesai (Deadline): ${formatWibDateTime(task.expectedDeadline, true)}`);
-        }
-        break;
-
       case "START_TASK":
-        headerBadge = "🚀 *DIFITECH EXECUTIVE LOG* | *MULAI DIKERJAKAN*";
-        actionIntro = `*${params.actorName}* telah menerima & mulai mengerjakan tugas:`;
-        timelineLines.push(`• Dibuat: ${timeline.createdTimeStr}`);
-        timelineLines.push(
-          `• Mulai Dikerjakan: ${timeline.startedTimeStr || formatWibDateTime(new Date())} ${
-            timeline.responseGapStr ? `_(Gap Respon: ${timeline.responseGapStr})_` : ""
-          }`
-        );
+        headerBadge = "🚀 *LOG AKTIVITAS DWB*";
+        mainActionText = `*${picName}* - [${deptName}]\nmelakukan *Mulai Mengerjakan Tugas* (menerima tugas dari *${creatorName}*)\ndi jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        detailLines.push(`• *Status:* In Progress 🚀`);
+        if (timeline.responseGapStr) {
+          detailLines.push(`• *Gap Respon:* ${timeline.responseGapStr}`);
+        }
         break;
 
       case "SUBMIT_DELIVERABLE":
-        headerBadge = "📋 *DIFITECH EXECUTIVE LOG* | *SUBMIT REVIEW*";
-        actionIntro = `*${params.actorName}* telah menyelesaikan & mengajukan hasil kerja untuk direview:`;
-        timelineLines.push(`1. Dibuat: ${timeline.createdTimeStr}`);
-        if (timeline.startedTimeStr) {
-          timelineLines.push(`2. Mulai: ${timeline.startedTimeStr} _(Gap Respon: ${timeline.responseGapStr || "-"})_`);
+        headerBadge = "📤 *LOG AKTIVITAS DWB*";
+        mainActionText = `*${picName}* - [${deptName}]\nTugas di-submit ke *${creatorName}* di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        if (timeline.workDurationStr) {
+          detailLines.push(`• *Durasi Pengerjaan:* ${timeline.workDurationStr}`);
         }
-        timelineLines.push(
-          `3. Submit Hasil: ${timeline.submittedTimeStr || formatWibDateTime(new Date())} ${
-            timeline.workDurationStr ? `_(Durasi Pengerjaan: ${timeline.workDurationStr})_` : ""
-          }`
-        );
+        if (params.deliverableUrl) {
+          detailLines.push(`• *Hasil Kerja:* ${params.deliverableUrl}`);
+        }
+        if (cleanNote) {
+          detailLines.push(`• *Catatan:* "${cleanNote}"`);
+        }
         break;
 
       case "APPROVE_TASK":
-        headerBadge = "✅ *DIFITECH EXECUTIVE LOG* | *TUGAS SELESAI (ACC)*";
-        actionIntro = `Tugas telah diperiksa & *disetujui (ACC)* oleh *${params.actorName}*:`;
-        timelineLines.push(`• Dibuat: ${timeline.createdTimeStr}`);
-        if (timeline.startedTimeStr) {
-          timelineLines.push(`• Mulai: ${timeline.startedTimeStr} (Respon: ${timeline.responseGapStr || "-"})`);
-        }
-        if (timeline.submittedTimeStr) {
-          timelineLines.push(`• Submit: ${timeline.submittedTimeStr} (Kerja: ${timeline.workDurationStr || "-"})`);
-        }
-        timelineLines.push(
-          `• Di-ACC: ${timeline.reviewedTimeStr || formatWibDateTime(new Date())} ${
-            timeline.reviewGapStr ? `(Review: ${timeline.reviewGapStr})` : ""
-          }`
-        );
+        headerBadge = "✅ *LOG AKTIVITAS DWB*";
+        mainActionText = `Tugas *${picName}* - [${deptName}]\nsudah di-ACC oleh *${params.actorName}* di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        detailLines.push(`• *Status:* Selesai (DONE)`);
         if (timeline.totalTurnaroundStr) {
-          timelineLines.push(`----------------------------------------`);
-          timelineLines.push(`🏁 *Total Waktu Tuntas:* *${timeline.totalTurnaroundStr}*`);
+          detailLines.push(`• *Total Waktu Tuntas:* ${timeline.totalTurnaroundStr}`);
         }
         break;
 
       case "REQUEST_REVISION":
-        headerBadge = "⚠️ *DIFITECH EXECUTIVE LOG* | *PERMINTAAN REVISI*";
-        actionIntro = `*${params.actorName}* meminta perbaikan/revisi atas deliverable tugas:`;
-        if (timeline.submittedTimeStr) {
-          timelineLines.push(`• Submit Hasil: ${timeline.submittedTimeStr}`);
+        headerBadge = "⚠️ *LOG AKTIVITAS DWB*";
+        mainActionText = `Tugas *${picName}* - [${deptName}]\ndiminta revisi oleh *${params.actorName}* di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        if (cleanNote) {
+          detailLines.push(`• *Catatan Revisi:* "${cleanNote}"`);
         }
-        timelineLines.push(
-          `• Minta Revisi: ${timeline.reviewedTimeStr || formatWibDateTime(new Date())} ${
-            timeline.reviewGapStr ? `_(Gap Review: ${timeline.reviewGapStr})_` : ""
-          }`
-        );
+        break;
+
+      case "TASK_CREATED":
+        headerBadge = "📌 *LOG AKTIVITAS DWB*";
+        mainActionText = `*${params.actorName}* - [${deptName}]\nmembuat tugas baru untuk *${picName}* di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        if (task.expectedDeadline) {
+          detailLines.push(`• *Deadline:* ${formatWibDateTime(task.expectedDeadline, true)}`);
+        }
         break;
 
       case "FOLLOW_UP":
-        headerBadge = "🔔 *DIFITECH EXECUTIVE LOG* | *FOLLOW UP TUGAS*";
-        actionIntro = `*${params.actorName}* menekan tombol Follow Up (tugas mandek/butuh update):`;
-        timelineLines.push(`• Dibuat: ${timeline.createdTimeStr}`);
-        if (timeline.startedTimeStr) {
-          timelineLines.push(`• Mulai Dikerjakan: ${timeline.startedTimeStr}`);
+        headerBadge = "🔔 *LOG AKTIVITAS DWB*";
+        mainActionText = `*${params.actorName}* - [${deptName}]\nmelakukan Follow Up tugas ke *${picName}* di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        if (cleanNote) {
+          detailLines.push(`• *Pesan:* "${cleanNote}"`);
+        }
+        break;
+
+      case "COMMENT_ADDED":
+        headerBadge = "💬 *LOG AKTIVITAS DWB*";
+        mainActionText = `*${params.actorName}* - [${deptName}]\nmenambahkan komentar pada tugas di jam *${currentWib}*`;
+        detailLines.push(`• *Tugas:* ${cleanTitle} [${brandName}]`);
+        if (cleanNote) {
+          detailLines.push(`• *Komentar:* "${cleanNote}"`);
         }
         break;
     }
@@ -350,37 +348,14 @@ export async function notifyExecutiveMilestone(params: {
 
       const messageLines = [
         headerBadge,
+        "",
+        mainActionText,
+        "",
+        ...detailLines,
+        `• *Link:* ${directLink}`,
         "----------------------------------------",
-        `Halo *${executive.name}*, ada update aktivitas karyawan di DWB:`,
-        actionIntro,
-        "",
-        `• *Tugas:* ${cleanTitle}`,
-        `• *Pelaksana (PIC):* ${picName}`,
-        `• *Pemberi Tugas:* ${creatorName}`,
-        `• *Divisi / Brand:* ${deptAndBrand}`,
-        "",
-        "⏱️ *TIMELINE & GAP WAKTU:*",
-        ...timelineLines,
+        "_Difitech Realtime Executive Log_",
       ];
-
-      if (params.deliverableUrl) {
-        messageLines.push("");
-        messageLines.push(`• *Link Hasil Kerja (Deliverable):* ${params.deliverableUrl}`);
-      }
-
-      if (params.note) {
-        const cleanNote = cleanTextForWhatsApp(params.note, 300);
-        if (cleanNote) {
-          messageLines.push("");
-          messageLines.push(`• *Catatan / Instruksi:* _"${cleanNote}"_`);
-        }
-      }
-
-      messageLines.push("");
-      messageLines.push(`🔗 *Buka Kartu Tugas di DWB:*`);
-      messageLines.push(directLink);
-      messageLines.push("----------------------------------------");
-      messageLines.push("_Difitech Executive Monitoring System_");
 
       const fullMessage = messageLines.join("\n");
 

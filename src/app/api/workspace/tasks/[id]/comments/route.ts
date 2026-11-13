@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTaskDiscussionAndLogsTables } from "@/lib/ensure-task-tables";
 import { dispatchUserNotificationWA } from "@/lib/whatsapp";
+import { notifyExecutiveMilestone } from "@/lib/executive-notifier";
 
 export async function GET(
   req: NextRequest,
@@ -162,6 +163,16 @@ export async function POST(
         }),
       },
     });
+
+    // Notify executives about new comment / discussion activity
+    notifyExecutiveMilestone({
+      taskId: params.id,
+      action: "COMMENT_ADDED",
+      actorName: authUser.name,
+      actorDept: authUser.department,
+      actorId: authUser.userId,
+      note: trimmedMsg || attachmentName || "Mengirim lampiran",
+    }).catch(() => {});
 
     // Auto-dispatch in-app notification & WhatsApp to task participants
     const notifyUserIds = new Set<string>();
