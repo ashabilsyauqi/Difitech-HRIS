@@ -49,34 +49,60 @@ export function formatWibDateTime(dateInput: Date | string | null | undefined, i
   }
 }
 
+export interface ExecutiveRecipient {
+  name: string;
+  phone: string;
+}
+
+export const DEFAULT_EXECUTIVE_RECIPIENTS: ExecutiveRecipient[] = [
+  { name: "Pak Wijaya", phone: "628111099978" },
+  { name: "Ashabil Syauqi", phone: "6287871976694" },
+];
+
 /**
- * Retrieves the executive (CEO) WhatsApp number from database,
- * fallback to Pak Wijaya's configured number.
+ * Retrieves executive WhatsApp recipients (Pak Wijaya & Ashabil Syauqi).
  */
-export async function getExecutiveRecipient(): Promise<{ name: string; phone: string }> {
-  const fallback = { name: "Pak Wijaya", phone: "628111099978" };
+export async function getExecutiveRecipients(): Promise<ExecutiveRecipient[]> {
   try {
-    const ceo = await prisma.user.findFirst({
+    const users = await prisma.user.findMany({
       where: {
         OR: [
           { department: "CEO" },
           { name: { contains: "Wijaya" } },
           { email: { contains: "wijaya" } },
+          { name: { contains: "Ashabil" } },
+          { email: { contains: "ashabil" } },
         ],
       },
       select: { name: true, whatsappNumber: true },
     });
 
-    if (ceo && ceo.whatsappNumber) {
-      return {
-        name: ceo.name || fallback.name,
-        phone: ceo.whatsappNumber,
-      };
+    const results: ExecutiveRecipient[] = [];
+    for (const def of DEFAULT_EXECUTIVE_RECIPIENTS) {
+      const match = users.find(
+        (u) =>
+          u.whatsappNumber === def.phone ||
+          (def.name.toLowerCase().includes("wijaya") && u.name?.toLowerCase().includes("wijaya")) ||
+          (def.name.toLowerCase().includes("ashabil") && u.name?.toLowerCase().includes("ashabil"))
+      );
+      results.push({
+        name: match?.name || def.name,
+        phone: match?.whatsappNumber || def.phone,
+      });
     }
+    return results;
   } catch (err) {
-    console.error("[Executive Notifier] Error fetching CEO user:", err);
+    console.error("[Executive Notifier] Error fetching executive recipients:", err);
+    return DEFAULT_EXECUTIVE_RECIPIENTS;
   }
-  return fallback;
+}
+
+/**
+ * Retrieves primary CEO WhatsApp recipient (Pak Wijaya), for backward compatibility.
+ */
+export async function getExecutiveRecipient(): Promise<ExecutiveRecipient> {
+  const all = await getExecutiveRecipients();
+  return all[0] || DEFAULT_EXECUTIVE_RECIPIENTS[0];
 }
 
 export interface TaskTimelineSummary {
@@ -191,7 +217,7 @@ export interface NotifyExecutiveParams {
 
 /**
  * Sends a structured, executive-grade WhatsApp notification with standard timeline
- * and time-gap metrics to Pak Wijaya (CEO).
+ * and time-gap metrics to all executive recipients (Pak Wijaya & Ashabil Syauqi).
  */
 export async function notifyExecutiveMilestone(params: {
   taskId: string;
@@ -204,9 +230,9 @@ export async function notifyExecutiveMilestone(params: {
   extraInfo?: string | null;
 }): Promise<any> {
   try {
-    const executive = await getExecutiveRecipient();
-    if (!executive.phone) {
-      console.warn("[Executive Notifier] Skipped: No CEO phone found.");
+    const executives = await getExecutiveRecipients();
+    if (!executives.length) {
+      console.warn("[Executive Notifier] Skipped: No executive recipients found.");
       return null;
     }
 
@@ -318,84 +344,92 @@ export async function notifyExecutiveMilestone(params: {
         break;
     }
 
-    const messageLines = [
-      headerBadge,
-      "----------------------------------------",
-      `Halo *${executive.name}*, ada update aktivitas karyawan di DWB:`,
-      actionIntro,
-      "",
-      `• *Tugas:* ${cleanTitle}`,
-      `• *Pelaksana (PIC):* ${picName}`,
-      `• *Pemberi Tugas:* ${creatorName}`,
-      `• *Divisi / Brand:* ${deptAndBrand}`,
-      "",
-      "⏱️ *TIMELINE & GAP WAKTU:*",
-      ...timelineLines,
-    ];
+    const results = [];
+    for (const executive of executives) {
+      if (!executive.phone) continue;
 
-    if (params.deliverableUrl) {
-      messageLines.push("");
-      messageLines.push(`• *Link Hasil Kerja (Deliverable):* ${params.deliverableUrl}`);
-    }
+      const messageLines = [
+        headerBadge,
+        "----------------------------------------",
+        `Halo *${executive.name}*, ada update aktivitas karyawan di DWB:`,
+        actionIntro,
+        "",
+        `• *Tugas:* ${cleanTitle}`,
+        `• *Pelaksana (PIC):* ${picName}`,
+        `• *Pemberi Tugas:* ${creatorName}`,
+        `• *Divisi / Brand:* ${deptAndBrand}`,
+        "",
+        "⏱️ *TIMELINE & GAP WAKTU:*",
+        ...timelineLines,
+      ];
 
-    if (params.note) {
-      const cleanNote = cleanTextForWhatsApp(params.note, 300);
-      if (cleanNote) {
+      if (params.deliverableUrl) {
         messageLines.push("");
-        messageLines.push(`• *Catatan / Instruksi:* _"${cleanNote}"_`);
+        messageLines.push(`• *Link Hasil Kerja (Deliverable):* ${params.deliverableUrl}`);
       }
+
+      if (params.note) {
+        const cleanNote = cleanTextForWhatsApp(params.note, 300);
+        if (cleanNote) {
+          messageLines.push("");
+          messageLines.push(`• *Catatan / Instruksi:* _"${cleanNote}"_`);
+        }
+      }
+
+      messageLines.push("");
+      messageLines.push(`🔗 *Buka Kartu Tugas di DWB:*`);
+      messageLines.push(directLink);
+      messageLines.push("----------------------------------------");
+      messageLines.push("_Difitech Executive Monitoring System_");
+
+      const fullMessage = messageLines.join("\n");
+
+      const res = await sendWhatsAppNotification({
+        to: executive.phone,
+        message: fullMessage,
+        recipientName: executive.name,
+        taskId: task.id,
+        actionType: `EXECUTIVE_${params.action}_${executive.phone}`,
+      });
+      results.push(res);
+      // Short delay between executive dispatches
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
-    messageLines.push("");
-    messageLines.push(`🔗 *Buka Kartu Tugas di DWB:*`);
-    messageLines.push(directLink);
-    messageLines.push("----------------------------------------");
-    messageLines.push("_Difitech Executive Monitoring System_");
-
-    const fullMessage = messageLines.join("\n");
-
-    const result = await sendWhatsAppNotification({
-      to: executive.phone,
-      message: fullMessage,
-      recipientName: executive.name,
-      taskId: task.id,
-      actionType: `EXECUTIVE_${params.action}`,
-    });
-
-    return result;
+    return results[0] || null;
   } catch (err: any) {
-    console.error("[Executive Notifier] Failed to notify executive:", err?.message);
+    console.error("[Executive Notifier] Failed to notify executives:", err?.message);
     return null;
   }
 }
 
 /**
- * Compiles and sends a structured hourly digest of all employee activities and tasks
- * directly to Pak Wijaya (CEO).
+ * Compiles and sends a structured digest of employee activities and tasks.
+ * Defaults to 1 chat per employee (separate chat per person) sent to both
+ * Pak Wijaya and Ashabil Syauqi.
  */
 export async function generateAndSendHourlyExecutiveReport(options?: {
   recipientPhone?: string;
   recipientName?: string;
+  hoursLookback?: number;
+  mode?: "per_employee" | "bundle";
 }): Promise<any> {
   try {
-    const executive = await getExecutiveRecipient();
-    const targetPhone = options?.recipientPhone || executive.phone;
-    const targetName = options?.recipientName || executive.name;
+    const executives = options?.recipientPhone
+      ? [{ name: options?.recipientName || "Pimpinan", phone: options.recipientPhone }]
+      : await getExecutiveRecipients();
 
-    if (!targetPhone) {
-      console.warn("[Executive Notifier] No valid recipient phone for hourly report.");
-      return { success: false, detail: "Nomor WhatsApp CEO tidak ditemukan" };
+    if (!executives.length) {
+      console.warn("[Executive Notifier] No valid executive recipients found.");
+      return { success: false, detail: "Nomor WhatsApp eksekutif tidak ditemukan" };
     }
 
-    // Start of today in WIB (UTC+7)
-    const now = new Date();
-    const wibNow = new Date(now.getTime() + 7 * 3600 * 1000);
-    const todayStartWib = new Date(wibNow);
-    todayStartWib.setUTCHours(0, 0, 0, 0);
-    const todayStartUTC = new Date(todayStartWib.getTime() - 7 * 3600 * 1000);
+    // Determine time range: default 24h lookback
+    const lookbackHours = options?.hoursLookback || 24;
+    const sinceDate = new Date(Date.now() - lookbackHours * 3600 * 1000);
 
     const tasks = await prisma.task.findMany({
-      where: { updatedAt: { gte: todayStartUTC } },
+      where: { updatedAt: { gte: sinceDate } },
       include: {
         creator: { select: { name: true, department: true } },
         user: { select: { name: true, department: true } },
@@ -409,10 +443,10 @@ export async function generateAndSendHourlyExecutiveReport(options?: {
       orderBy: { updatedAt: "desc" },
     });
 
-    const total = tasks.length;
-    const completed = tasks.filter((t) => t.status === "COMPLETED").length;
-    const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
-    const pending = tasks.filter((t) => t.status === "PENDING").length;
+    if (tasks.length === 0) {
+      console.log("[Executive Notifier] Tidak ada aktivitas tugas pada periode ini.");
+      return { success: true, count: 0, detail: "Tidak ada tugas aktif dalam periode ini." };
+    }
 
     // Group tasks by PIC
     const byUser: Record<string, typeof tasks> = {};
@@ -422,120 +456,169 @@ export async function generateAndSendHourlyExecutiveReport(options?: {
       byUser[userName].push(t);
     }
 
+    const now = new Date();
+    const wibNow = new Date(now.getTime() + 7 * 3600 * 1000);
     const currentWibTime = formatWibDateTime(now, false);
     const daysIndo = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-    const monthsIndo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const monthsIndo = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
     const dayName = daysIndo[wibNow.getUTCDay()];
     const dateFormatted = `${dayName}, ${wibNow.getUTCDate()} ${monthsIndo[wibNow.getUTCMonth()]} ${wibNow.getUTCFullYear()}`;
 
-    const lines = [
-      "📊 *DIFITECH EXECUTIVE LOGS & MONITORING*",
-      `📅 *Update Aktivitas Karyawan (Per Jam ${currentWibTime})*`,
-      `🗓️ *Hari/Tanggal:* ${dateFormatted}`,
-      "----------------------------------------",
-      `Yth. *${targetName}*, berikut rangkuman lengkap aktivitas seluruh karyawan & status tugas di DifWorkBoard (DWB) per jam ini:`,
-      "",
-      "📈 *RINGKASAN STATUS HARI INI:*",
-      `• Total Tugas Aktif: *${total} Tugas*`,
-      `• ✅ Selesai (Completed): *${completed} Tugas*`,
-      `• 🚀 Sedang Dikerjakan: *${inProgress} Tugas*`,
-      `• ⏳ Menunggu (Pending): *${pending} Tugas*`,
-      "----------------------------------------",
-      "👥 *RINCIAN AKTIVITAS PER KARYAWAN:*",
-      "",
-    ];
+    const mode = options?.mode || "per_employee";
+    const dispatchResults: any[] = [];
 
-    for (const [userName, uTasks] of Object.entries(byUser)) {
-      const dept = uTasks[0].departmentCard || uTasks[0].user?.department || "General";
-      const uCompleted = uTasks.filter((t) => t.status === "COMPLETED").length;
-      const uInProgress = uTasks.filter((t) => t.status === "IN_PROGRESS").length;
-      const uPending = uTasks.filter((t) => t.status === "PENDING").length;
+    if (mode === "per_employee") {
+      // -------------------------------------------------------------
+      // Mode 1 Karyawan 1 Chat (Pemisahan chat per individu)
+      // -------------------------------------------------------------
+      for (const [userName, uTasks] of Object.entries(byUser)) {
+        const dept = uTasks[0].departmentCard || uTasks[0].user?.department || "General";
+        const uCompleted = uTasks.filter((t) => t.status === "COMPLETED").length;
+        const uInProgress = uTasks.filter((t) => t.status === "IN_PROGRESS").length;
+        const uPending = uTasks.filter((t) => t.status === "PENDING").length;
 
-      lines.push(`👤 *${userName.toUpperCase()}* (${dept})`);
-      lines.push(`   Total: ${uTasks.length} Tugas (✅ ${uCompleted} | 🚀 ${uInProgress} | ⏳ ${uPending})`);
+        const taskLines: string[] = [];
+        uTasks.forEach((t, idx) => {
+          const statusBadge =
+            t.status === "COMPLETED" ? "✅ Selesai" : t.status === "IN_PROGRESS" ? "🚀 In Progress" : "⏳ Pending";
+          const brand = t.brandName || "Internal";
+          const cleanTitle = cleanTextForWhatsApp(t.title, 120);
+          taskLines.push(`${idx + 1}. *${cleanTitle}* [${brand}]`);
+          taskLines.push(`   • Status: ${statusBadge}`);
 
-      uTasks.forEach((t, idx) => {
-        const statusBadge =
-          t.status === "COMPLETED" ? "✅ Selesai" : t.status === "IN_PROGRESS" ? "🚀 In Progress" : "⏳ Pending";
-        const brand = t.brandName || "Internal";
-        const cleanTitle = cleanTextForWhatsApp(t.title, 120);
-        lines.push(`   ${idx + 1}. *${cleanTitle}* [${brand}]`);
-        lines.push(`      Status: ${statusBadge}`);
+          const t0 = new Date(t.createdAt);
+          let t1: Date | null = null;
+          const startLog = t.activityLogs.find(
+            (l) =>
+              l.actionType === "START_TASK" ||
+              (l.actionType === "STATUS_CHANGE" && l.toValue === "IN_PROGRESS") ||
+              (l.title && l.title.toLowerCase().includes("mulai")) ||
+              (l.actionType === "STAGE_CHANGE" && l.toValue === "IN_PROGRESS")
+          );
+          if (startLog) t1 = new Date(startLog.createdAt);
+          else if (t.trackingStartedAt) t1 = new Date(t.trackingStartedAt);
 
-        const t0 = new Date(t.createdAt);
-        let t1: Date | null = null;
-        const startLog = t.activityLogs.find(
-          (l) =>
-            l.actionType === "START_TASK" ||
-            (l.actionType === "STATUS_CHANGE" && l.toValue === "IN_PROGRESS") ||
-            (l.title && l.title.toLowerCase().includes("mulai")) ||
-            (l.actionType === "STAGE_CHANGE" && l.toValue === "IN_PROGRESS")
-        );
-        if (startLog) t1 = new Date(startLog.createdAt);
-        else if (t.trackingStartedAt) t1 = new Date(t.trackingStartedAt);
+          let t2: Date | null = null;
+          const submitLogs = t.activityLogs.filter(
+            (l) =>
+              l.actionType === "SUBMIT_DELIVERABLE" ||
+              (l.actionType === "STAGE_CHANGE" && (l.toValue?.includes("REVIEW") || l.toValue?.includes("APPROVAL")))
+          );
+          if (submitLogs.length > 0) t2 = new Date(submitLogs[submitLogs.length - 1].createdAt);
 
-        let t2: Date | null = null;
-        const submitLogs = t.activityLogs.filter(
-          (l) =>
-            l.actionType === "SUBMIT_DELIVERABLE" ||
-            (l.actionType === "STAGE_CHANGE" && (l.toValue?.includes("REVIEW") || l.toValue?.includes("APPROVAL")))
-        );
-        if (submitLogs.length > 0) t2 = new Date(submitLogs[submitLogs.length - 1].createdAt);
+          let t3: Date | null = null;
+          const reviewLogs = t.activityLogs.filter(
+            (l) =>
+              l.actionType === "APPROVE_TASK" ||
+              l.actionType === "REQUEST_REVISION" ||
+              (l.actionType === "STATUS_CHANGE" && l.toValue === "COMPLETED")
+          );
+          if (reviewLogs.length > 0) t3 = new Date(reviewLogs[reviewLogs.length - 1].createdAt);
+          else if (t.reviewedAt) t3 = new Date(t.reviewedAt);
 
-        let t3: Date | null = null;
-        const reviewLogs = t.activityLogs.filter(
-          (l) =>
-            l.actionType === "APPROVE_TASK" ||
-            l.actionType === "REQUEST_REVISION" ||
-            (l.actionType === "STATUS_CHANGE" && l.toValue === "COMPLETED")
-        );
-        if (reviewLogs.length > 0) t3 = new Date(reviewLogs[reviewLogs.length - 1].createdAt);
-        else if (t.reviewedAt) t3 = new Date(t.reviewedAt);
+          const timelineParts = [`Dibuat ${formatWibDateTime(t0)}`];
+          if (t1) timelineParts.push(`Mulai ${formatWibDateTime(t1)}`);
+          if (t2) timelineParts.push(`Submit ${formatWibDateTime(t2)}`);
+          if (t3) timelineParts.push(`ACC ${formatWibDateTime(t3)}`);
+          taskLines.push(`   • Timeline: ${timelineParts.join(" ➔ ")}`);
 
-        const timelineParts = [`Dibuat ${formatWibDateTime(t0)}`];
-        if (t1) timelineParts.push(`Mulai ${formatWibDateTime(t1)}`);
-        if (t2) timelineParts.push(`Submit ${formatWibDateTime(t2)}`);
-        if (t3) timelineParts.push(`ACC ${formatWibDateTime(t3)}`);
-        lines.push(`      Timeline: ${timelineParts.join(" ➔ ")}`);
+          const gapParts: string[] = [];
+          if (t1) gapParts.push(`Respon: ${formatDurationMs(t1.getTime() - t0.getTime())}`);
+          if (t1 && t2 && t2.getTime() > t1.getTime()) {
+            gapParts.push(`Kerja: ${formatDurationMs(t2.getTime() - t1.getTime())}`);
+          }
+          if (t3 && t0 && t3.getTime() > t0.getTime()) {
+            gapParts.push(`Total: ${formatDurationMs(t3.getTime() - t0.getTime())}`);
+          }
+          if (gapParts.length > 0) {
+            taskLines.push(`   • ⏱️ Gap: ${gapParts.join(" | ")}`);
+          }
 
-        const gapParts: string[] = [];
-        if (t1) gapParts.push(`Respon: ${formatDurationMs(t1.getTime() - t0.getTime())}`);
-        if (t1 && t2 && t2.getTime() > t1.getTime()) {
-          gapParts.push(`Kerja: ${formatDurationMs(t2.getTime() - t1.getTime())}`);
+          if (t.deliverableUrl) {
+            taskLines.push(`   • 🔗 Hasil: ${t.deliverableUrl}`);
+          }
+          taskLines.push("");
+        });
+
+        // Kirim chat karyawan ini ke seluruh eksekutif (Pak Wijaya & Ashabil)
+        for (const executive of executives) {
+          if (!executive.phone) continue;
+
+          const empMessageLines = [
+            "📊 *DIFITECH EXECUTIVE MONITORING*",
+            `👤 *LOG AKTIVITAS: ${userName.toUpperCase()}* (${dept})`,
+            `📅 *Update: ${currentWibTime} | ${dateFormatted}*`,
+            "----------------------------------------",
+            `Yth. *${executive.name}*, berikut rincian tugas & progres kerja *${userName}* dalam siklus 24 jam terakhir:`,
+            "",
+            `📈 *Ringkasan Karyawan:* ${uTasks.length} Tugas (✅ ${uCompleted} Selesai | 🚀 ${uInProgress} In Progress | ⏳ ${uPending} Pending)`,
+            "",
+            ...taskLines,
+            "----------------------------------------",
+            "🔗 *Pantau Tugas Karyawan di DWB:*",
+            "https://difworkboard.difitech.id/dashboard/workspace",
+            "----------------------------------------",
+            "_Difitech Executive Realtime Bot_",
+          ];
+
+          const fullMessage = empMessageLines.join("\n");
+
+          const res = await sendWhatsAppNotification({
+            to: executive.phone,
+            message: fullMessage,
+            recipientName: executive.name,
+            actionType: `EXECUTIVE_EMP_${userName}_${executive.phone}`,
+          });
+
+          dispatchResults.push({ employee: userName, to: executive.name, result: res });
+          // Jeda 1.5 detik antar pesan agar tidak memicu throttling gateway
+          await new Promise((r) => setTimeout(r, 1500));
         }
-        if (t3 && t0 && t3.getTime() > t0.getTime()) {
-          gapParts.push(`Total: ${formatDurationMs(t3.getTime() - t0.getTime())}`);
-        }
-        if (gapParts.length > 0) {
-          lines.push(`      ⏱️ Gap: ${gapParts.join(" | ")}`);
-        }
+      }
+    } else {
+      // Fallback bundle mode
+      const total = tasks.length;
+      const completed = tasks.filter((t) => t.status === "COMPLETED").length;
+      const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
+      const pending = tasks.filter((t) => t.status === "PENDING").length;
 
-        if (t.deliverableUrl) {
-          lines.push(`      🔗 Hasil: ${t.deliverableUrl}`);
-        }
-      });
-      lines.push("");
+      const lines = [
+        "📊 *DIFITECH EXECUTIVE LOGS & MONITORING*",
+        `📅 *Update Aktivitas Karyawan (Per Jam ${currentWibTime})*`,
+        `🗓️ *Hari/Tanggal:* ${dateFormatted}`,
+        "----------------------------------------",
+        `Yth. *Pimpinan Eksekutif*, berikut ringkasan seluruh tugas di DWB:`,
+        "",
+        `• Total Tugas Aktif: *${total} Tugas*`,
+        `• ✅ Selesai: *${completed}* | 🚀 In Progress: *${inProgress}* | ⏳ Pending: *${pending}*`,
+        "----------------------------------------",
+      ];
+
+      for (const executive of executives) {
+        if (!executive.phone) continue;
+        const res = await sendWhatsAppNotification({
+          to: executive.phone,
+          message: lines.join("\n"),
+          recipientName: executive.name,
+          actionType: `EXECUTIVE_BUNDLE_${executive.phone}`,
+        });
+        dispatchResults.push({ mode: "bundle", to: executive.name, result: res });
+      }
     }
 
-    lines.push("----------------------------------------");
-    lines.push("🔗 *Akses Dashboard Monitoring DWB:*");
-    lines.push("https://difworkboard.difitech.id/dashboard/workspace");
-    lines.push("----------------------------------------");
-    lines.push("_Difitech Executive Realtime Bot_");
-
-    const fullMessage = lines.join("\n");
-
-    const result = await sendWhatsAppNotification({
-      to: targetPhone,
-      message: fullMessage,
-      recipientName: targetName,
-      actionType: "EXECUTIVE_HOURLY_REPORT",
-    });
-
-    return result;
+    return {
+      success: true,
+      employeesCount: Object.keys(byUser).length,
+      tasksCount: tasks.length,
+      dispatches: dispatchResults,
+    };
   } catch (err: any) {
     console.error("[Executive Notifier] Failed to send hourly report:", err?.message);
     return { success: false, detail: err?.message };
   }
 }
+
 
