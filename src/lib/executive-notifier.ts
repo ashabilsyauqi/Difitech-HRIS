@@ -56,45 +56,39 @@ export interface ExecutiveRecipient {
 
 export const DEFAULT_EXECUTIVE_RECIPIENTS: ExecutiveRecipient[] = [
   { name: "Pak Wijaya", phone: "628111099978" },
-  { name: "Ashabil Syauqi", phone: "6287871976694" },
 ];
 
 /**
- * Retrieves executive WhatsApp recipients (Pak Wijaya & Ashabil Syauqi).
+ * Retrieves executive WhatsApp recipient (Pak Wijaya - CEO only).
  */
 export async function getExecutiveRecipients(): Promise<ExecutiveRecipient[]> {
+  const fallback: ExecutiveRecipient[] = [
+    { name: "Pak Wijaya", phone: "628111099978" },
+  ];
   try {
-    const users = await prisma.user.findMany({
+    const ceo = await prisma.user.findFirst({
       where: {
         OR: [
           { department: "CEO" },
           { name: { contains: "Wijaya" } },
           { email: { contains: "wijaya" } },
-          { name: { contains: "Ashabil" } },
-          { email: { contains: "ashabil" } },
         ],
       },
       select: { name: true, whatsappNumber: true },
     });
 
-    const results: ExecutiveRecipient[] = [];
-    for (const def of DEFAULT_EXECUTIVE_RECIPIENTS) {
-      const match = users.find(
-        (u) =>
-          u.whatsappNumber === def.phone ||
-          (def.name.toLowerCase().includes("wijaya") && u.name?.toLowerCase().includes("wijaya")) ||
-          (def.name.toLowerCase().includes("ashabil") && u.name?.toLowerCase().includes("ashabil"))
-      );
-      results.push({
-        name: match?.name || def.name,
-        phone: match?.whatsappNumber || def.phone,
-      });
+    if (ceo && ceo.whatsappNumber) {
+      return [
+        {
+          name: ceo.name || fallback[0].name,
+          phone: ceo.whatsappNumber,
+        },
+      ];
     }
-    return results;
   } catch (err) {
-    console.error("[Executive Notifier] Error fetching executive recipients:", err);
-    return DEFAULT_EXECUTIVE_RECIPIENTS;
+    console.error("[Executive Notifier] Error fetching CEO user:", err);
   }
+  return fallback;
 }
 
 /**
@@ -218,7 +212,7 @@ export interface NotifyExecutiveParams {
 
 /**
  * Sends a structured, clean, human-readable WhatsApp notification per action/event
- * to all executive recipients (Pak Wijaya & Ashabil Syauqi).
+ * directly to Pak Wijaya (CEO).
  */
 export async function notifyExecutiveMilestone(params: {
   taskId: string;
@@ -380,8 +374,8 @@ export async function notifyExecutiveMilestone(params: {
 
 /**
  * Compiles and sends a structured digest of employee activities and tasks.
- * Defaults to 1 chat per employee (separate chat per person) sent to both
- * Pak Wijaya and Ashabil Syauqi.
+ * Defaults to 1 chat per employee (separate chat per person) sent directly
+ * to Pak Wijaya (CEO).
  */
 export async function generateAndSendHourlyExecutiveReport(options?: {
   recipientPhone?: string;
@@ -518,7 +512,7 @@ export async function generateAndSendHourlyExecutiveReport(options?: {
           taskLines.push("");
         });
 
-        // Kirim chat karyawan ini ke seluruh eksekutif (Pak Wijaya & Ashabil)
+        // Kirim chat karyawan ini ke Pak Wijaya
         for (const executive of executives) {
           if (!executive.phone) continue;
 
